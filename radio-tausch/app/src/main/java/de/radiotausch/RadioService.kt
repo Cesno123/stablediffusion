@@ -182,7 +182,10 @@ class RadioService : Service() {
                 // zurück zum Radio statt Stille.
                 if (spotify?.spieltGerade() == true) {
                     spotifyStill = 0
-                } else if (++spotifyStill >= SPOTIFY_STILL_SEKUNDEN) {
+                } else if (++spotifyStill == 3 || spotifyStill == 6) {
+                    // Spotify hat nicht reagiert: Play auf anderem Weg drücken
+                    spotify?.spiele(weg = spotifyStill / 3)
+                } else if (spotifyStill >= SPOTIFY_STILL_SEKUNDEN) {
                     zurueckZumRadio(spotifyPausieren = true)
                     spotifySperre = SPOTIFY_SPERRE_SEKUNDEN
                 }

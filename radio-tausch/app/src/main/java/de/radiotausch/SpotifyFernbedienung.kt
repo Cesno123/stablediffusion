@@ -2,11 +2,13 @@ package de.radiotausch
 
 import android.content.ComponentName
 import android.content.Context
+import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
+import android.view.KeyEvent
 
 /**
  * Steuert die Spotify-App wie die Tasten am Kopfhörer (Play/Pause) und
@@ -21,6 +23,7 @@ class SpotifyFernbedienung(
     private val beiLiedwechsel: () -> Unit,
 ) {
     private val sitzungen = context.getSystemService(MediaSessionManager::class.java)
+    private val audio = context.getSystemService(AudioManager::class.java)
     private val zugriff = ComponentName(context, MedienZugriff::class.java)
     private var beobachtet: MediaController? = null
     private var letztesLied: String? = null
@@ -79,11 +82,37 @@ class SpotifyFernbedienung(
         return if (spieltGerade()) "Spotify: spielt ▶$titel" else "Spotify: pausiert ⏸$titel"
     }
 
-    /** Gibt false zurück, wenn Spotify gerade nicht erreichbar ist. */
-    fun spiele(): Boolean {
+    /** Kurzer Zustand für den Test: spielt, pausiert, lädt … */
+    fun zustandKurz(): String = when (val z = waehle()?.playbackState?.state) {
+        null -> "weg"
+        PlaybackState.STATE_PLAYING -> "spielt"
+        PlaybackState.STATE_PAUSED -> "pausiert"
+        PlaybackState.STATE_STOPPED -> "gestoppt"
+        PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING -> "lädt"
+        PlaybackState.STATE_NONE -> "leer"
+        else -> "Zustand $z"
+    }
+
+    /**
+     * Drückt Play. Es gibt drei Wege, weil nicht jedes Handy/jede Spotify-Version auf jeden hört:
+     * 0 = Play-Befehl an Spotify, 1 = Play-Taste direkt an Spotify,
+     * 2 = Play-Taste ans System (wie eine Kopfhörertaste).
+     * Gibt false zurück, wenn Spotify gerade nicht erreichbar ist.
+     */
+    fun spiele(weg: Int = 0): Boolean {
         val c = waehle() ?: return false
         letztesLied = titel(c.metadata)
-        c.transportControls.play()
+        when (weg) {
+            0 -> c.transportControls.play()
+            1 -> {
+                c.dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY))
+                c.dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY))
+            }
+            else -> {
+                audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY))
+                audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY))
+            }
+        }
         return true
     }
 

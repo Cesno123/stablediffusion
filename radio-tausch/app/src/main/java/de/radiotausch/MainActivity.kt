@@ -6,6 +6,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.View
 import android.widget.ImageView
@@ -61,11 +64,65 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.appInfo).setOnClickListener {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
         }
+        findViewById<View>(R.id.spotifyTesten).setOnClickListener { testeSpotify() }
         findViewById<View>(R.id.spotifyOeffnen).setOnClickListener {
             val spotify = packageManager.getLaunchIntentForPackage(SpotifyFernbedienung.SPOTIFY)
             if (spotify != null) startActivity(spotify)
             else Toast.makeText(this, "Spotify ist nicht installiert", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /**
+     * Probiert alle drei Play-Wege nacheinander aus und schreibt auf, was Spotify jeweils
+     * in den nächsten 6 Sekunden macht. So sehen wir, welcher Weg auf diesem Handy funktioniert.
+     */
+    private fun testeSpotify() {
+        val ausgabe = findViewById<TextView>(R.id.testErgebnis)
+        val knopf = findViewById<View>(R.id.spotifyTesten)
+        if (RadioService.status.laeuft) stopService(Intent(this, RadioService::class.java))
+        val handler = Handler(Looper.getMainLooper())
+        val fernbedienung = SpotifyFernbedienung(this, handler) {}
+        val ergebnis = StringBuilder("Vorher: ${fernbedienung.zustandKurz()}\n")
+        knopf.isEnabled = false
+        ausgabe.visibility = View.VISIBLE
+
+        fun fertig() {
+            fernbedienung.pausiere()
+            fernbedienung.beende()
+            knopf.isEnabled = true
+            ausgabe.text = ergebnis.toString() + "\nBitte Screenshot davon an Claude schicken."
+        }
+
+        fun teste(weg: Int) {
+            if (weg > 2) return fertig()
+            ausgabe.text = ergebnis.toString() + "Teste Weg ${weg + 1} von 3 …"
+            fernbedienung.pausiere()
+            handler.postDelayed({
+                if (!fernbedienung.spiele(weg)) {
+                    ergebnis.append("Spotify nicht gefunden – Schritt 2 machen.\n")
+                    return@postDelayed fertig()
+                }
+                val start = SystemClock.elapsedRealtime()
+                val verlauf = StringBuilder()
+                var zuletzt = ""
+                handler.post(object : Runnable {
+                    override fun run() {
+                        val vergangen = SystemClock.elapsedRealtime() - start
+                        val zustand = fernbedienung.zustandKurz()
+                        if (zustand != zuletzt) {
+                            verlauf.append(" %.1fs %s".format(vergangen / 1000.0, zustand))
+                            zuletzt = zustand
+                        }
+                        if (vergangen < 6000) handler.postDelayed(this, 250)
+                        else {
+                            ergebnis.append("Weg ${weg + 1}:$verlauf\n")
+                            teste(weg + 1)
+                        }
+                    }
+                })
+            }, 2000)
+        }
+        teste(0)
     }
 
     override fun onResume() {

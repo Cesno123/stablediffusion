@@ -280,13 +280,37 @@
                     android:text="Spotify öffnen → „Lieblingssongs“ → Zufallswiedergabe an → ein Lied starten und gleich wieder pausieren."
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/spotifyOeffnen"
-                    style="@style/Widget.Material3.Button.TextButton"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Spotify öffnen" />
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/spotifyOeffnen"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Spotify öffnen" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/spotifyTesten"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="Spotify testen" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/testErgebnis"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="monospace"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textIsSelectable="true"
+                    android:visibility="gone" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
