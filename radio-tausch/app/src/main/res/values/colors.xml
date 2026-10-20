@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="lila">#6B4EFF</color>
+    <color name="auf_lila">#FFFFFF</color>
+    <color name="lila_container">#E6DEFF</color>
+    <color name="koralle">#FF5C82</color>
+    <color name="icon_start">#7B4DFF</color>
+    <color name="icon_ende">#FF6B8B</color>
+</resources>

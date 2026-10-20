@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.graphics.drawable.Icon
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -34,10 +35,21 @@ import androidx.media3.exoplayer.audio.TeeAudioProcessor
 @OptIn(UnstableApi::class)
 class RadioService : Service() {
 
+    data class Status(
+        val laeuft: Boolean = false,
+        val sender: String = "",
+        val hoertSpotify: Boolean = false,
+        val radioMusik: Boolean = false,
+        val musik: Float = 0f,
+        val sprache: Float = 0f,
+        val spotifyVerbunden: Boolean = false,
+        val meldung: String? = null,
+    )
+
     companion object {
-        const val EXTRA_SENDER = "sender"
-        @Volatile var statusAnzeige: ((String) -> Unit)? = null
-        @Volatile var letzterStatus = "Gestoppt"
+        const val AKTION_STOPP = "de.radiotausch.STOPP"
+        @Volatile var status = Status()
+        @Volatile var beobachter: ((Status) -> Unit)? = null
 
         // Wie viele Sekunden am Stück Musik/Sprache, bevor wir es glauben
         private const val SEKUNDEN_BIS_MUSIK = 4
@@ -53,7 +65,7 @@ class RadioService : Service() {
     private var spotify: SpotifyFernbedienung? = null
     private var beendet = false
 
-    private var senderName = ""
+    private var sender: Sender? = null
     private var modus = Modus.RADIO
     private var radioSpieltMusik = false
     private var musikFolge = 0
@@ -65,28 +77,35 @@ class RadioService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == AKTION_STOPP) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        val gewaehlt = SenderSpeicher.lade(this)
         alsVordergrundStarten()
-        if (player == null) {
-            val name = intent?.getStringExtra(EXTRA_SENDER)?.trim()?.ifBlank { null } ?: "Radio Köln"
-            melde("Suche Sender „$name“ …")
-            Thread {
-                val sender = try {
-                    SenderSuche.finde(name)
-                } catch (e: Exception) {
-                    null
-                }
-                main.post {
-                    if (beendet) return@post
-                    if (sender == null) {
-                        melde("Sender „$name“ nicht gefunden.\nInternet prüfen oder den Namen anders schreiben.")
-                    } else {
-                        senderName = sender.name
-                        starte(sender.url)
-                    }
-                }
-            }.start()
+        when {
+            gewaehlt == null -> stopSelf()
+            player == null -> {
+                sender = gewaehlt
+                starte(gewaehlt.url)
+            }
+            gewaehlt.url != sender?.url -> wechsleSender(gewaehlt)
         }
         return START_NOT_STICKY
+    }
+
+    private fun wechsleSender(neu: Sender) {
+        sender = neu
+        radioSpieltMusik = false
+        musikFolge = 0
+        sprachFolge = 0
+        player?.apply {
+            setMediaItem(MediaItem.fromUri(neu.url))
+            prepare()
+            play()
+        }
+        zeigeHinweis()
+        aktualisiere()
     }
 
     private fun starte(streamUrl: String) {
@@ -110,7 +129,7 @@ class RadioService : Service() {
         p.setWakeMode(C.WAKE_MODE_NETWORK)
         p.addListener(object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
-                melde("Radio-Verbindung unterbrochen, neuer Versuch …")
+                aktualisiere("Verbindung unterbrochen, neuer Versuch …")
                 main.postDelayed({
                     player?.apply {
                         seekToDefaultPosition()
@@ -126,7 +145,7 @@ class RadioService : Service() {
         player = p
 
         spotify = SpotifyFernbedienung(this, main) { beiLiedwechsel() }
-        zeigeStatus()
+        aktualisiere()
     }
 
     private fun beiEinordnung(musik: Float, sprache: Float) {
@@ -151,7 +170,7 @@ class RadioService : Service() {
                 else if (++spotifyStill >= 6) zurueckZumRadio(spotifyPausieren = false)
             }
         }
-        zeigeStatus()
+        aktualisiere()
     }
 
     private fun wechsleZuSpotify() {
@@ -159,6 +178,7 @@ class RadioService : Service() {
         player?.volume = 0f
         modus = Modus.SPOTIFY
         spotifyStill = 0
+        zeigeHinweis()
     }
 
     private fun beiLiedwechsel() {
@@ -171,38 +191,54 @@ class RadioService : Service() {
         if (spotifyPausieren) spotify?.pausiere()
         player?.volume = 1f
         modus = Modus.RADIO
-        zeigeStatus()
+        zeigeHinweis()
+        aktualisiere()
     }
 
-    private fun zeigeStatus() {
-        val jetzt = if (modus == Modus.SPOTIFY) "Du hörst: Spotify" else "Du hörst: $senderName"
-        val radio = if (radioSpieltMusik) "Musik" else "Moderation / Nachrichten"
-        val sp = if (spotify?.verfuegbar() == true) "Spotify: verbunden ✓"
-        else "Spotify: nicht gefunden – Spotify öffnen, Lieblingssongs (Zufall) starten und pausieren"
-        melde("$jetzt\n\nIm Radio gerade: $radio\n(Musik ${prozent(musikWert)} %, Sprache ${prozent(sprachWert)} %)\n\n$sp")
+    private fun aktualisiere(meldung: String? = null) {
+        val neu = Status(
+            laeuft = !beendet,
+            sender = sender?.name.orEmpty(),
+            hoertSpotify = modus == Modus.SPOTIFY,
+            radioMusik = radioSpieltMusik,
+            musik = musikWert,
+            sprache = sprachWert,
+            spotifyVerbunden = spotify?.verfuegbar() == true,
+            meldung = meldung,
+        )
+        status = neu
+        beobachter?.invoke(neu)
     }
 
-    private fun prozent(wert: Float) = (wert * 100).toInt()
+    private fun baueHinweis(): Notification {
+        val oeffnen = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+        )
+        val stopp = PendingIntent.getService(
+            this, 1, Intent(this, RadioService::class.java).setAction(AKTION_STOPP), PendingIntent.FLAG_IMMUTABLE
+        )
+        val text = if (modus == Modus.SPOTIFY) "Spielt gerade: deine Lieblingssongs"
+        else "Spielt gerade: ${sender?.name.orEmpty()}"
+        return Notification.Builder(this, "radio")
+            .setContentTitle("Radio-Tausch")
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_stat_radio)
+            .setColor(getColor(R.color.icon_start))
+            .setContentIntent(oeffnen)
+            .addAction(Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_stop), "Stopp", stopp).build())
+            .setOngoing(true)
+            .build()
+    }
 
-    private fun melde(text: String) {
-        letzterStatus = text
-        statusAnzeige?.invoke(text)
+    private fun zeigeHinweis() {
+        getSystemService(NotificationManager::class.java).notify(1, baueHinweis())
     }
 
     private fun alsVordergrundStarten() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("radio", "Radio-Tausch", NotificationManager.IMPORTANCE_LOW))
-        val oeffnen = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
-        )
-        val hinweis = Notification.Builder(this, "radio")
-            .setContentTitle("Radio-Tausch läuft")
-            .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentIntent(oeffnen)
-            .setOngoing(true)
-            .build()
         val typ = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
-        ServiceCompat.startForeground(this, 1, hinweis, typ)
+        ServiceCompat.startForeground(this, 1, baueHinweis(), typ)
     }
 
     override fun onDestroy() {
@@ -212,7 +248,8 @@ class RadioService : Service() {
         player = null
         klassifizierer?.beende()
         spotify?.beende()
-        melde("Gestoppt")
+        status = Status()
+        beobachter?.invoke(status)
         super.onDestroy()
     }
 }

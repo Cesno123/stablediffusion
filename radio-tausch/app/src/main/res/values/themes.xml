@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.RadioTausch" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/lila</item>
+        <item name="colorOnPrimary">@color/auf_lila</item>
+        <item name="colorPrimaryContainer">@color/lila_container</item>
+        <item name="colorSecondary">@color/koralle</item>
+    </style>
+
+    <style name="Rund12">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <style name="Ueberschrift">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">24dp</item>
+        <item name="android:layout_marginStart">4dp</item>
+        <item name="android:textAppearance">?attr/textAppearanceLabelLarge</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
+    </style>
+</resources>

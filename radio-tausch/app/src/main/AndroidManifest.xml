@@ -7,9 +7,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Damit der Knopf "Spotify öffnen" Spotify findet -->
+    <queries>
+        <package android:name="com.spotify.music" />
+    </queries>
+
     <application
+        android:icon="@mipmap/ic_launcher"
         android:label="Radio-Tausch"
-        android:theme="@android:style/Theme.Material.Light.DarkActionBar"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/Theme.RadioTausch"
         android:usesCleartextTraffic="true">
 
         <activity
@@ -20,6 +27,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".SenderAuswahlActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <service
             android:name=".RadioService"

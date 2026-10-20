@@ -1,58 +1,129 @@
 package de.radiotausch
 
 import android.Manifest
-import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.widget.Button
-import android.widget.EditText
+import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.progressindicator.LinearProgressIndicator
 
-class MainActivity : Activity() {
+class MainActivity : AppCompatActivity() {
 
-    private lateinit var status: TextView
+    private lateinit var startStop: MaterialButton
+    private lateinit var liveKarte: View
+    private lateinit var jetzt: TextView
+    private lateinit var radioGerade: TextView
+    private lateinit var musikBalken: LinearProgressIndicator
+    private lateinit var sprachBalken: LinearProgressIndicator
+    private lateinit var spotifyStatus: TextView
+
+    private val senderWahl = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { ergebnis ->
+        zeigeSender()
+        // Läuft die App schon, gleich auf den neuen Sender umschalten
+        if (ergebnis.resultCode == RESULT_OK && RadioService.status.laeuft) starteDienst()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        status = findViewById(R.id.status)
-        val sender = findViewById<EditText>(R.id.sender)
+        startStop = findViewById(R.id.startStop)
+        liveKarte = findViewById(R.id.liveKarte)
+        jetzt = findViewById(R.id.jetzt)
+        radioGerade = findViewById(R.id.radioGerade)
+        musikBalken = findViewById(R.id.musikBalken)
+        sprachBalken = findViewById(R.id.sprachBalken)
+        spotifyStatus = findViewById(R.id.spotifyStatus)
 
-        findViewById<Button>(R.id.zugriff).setOnClickListener {
+        val waehlen = View.OnClickListener { senderWahl.launch(Intent(this, SenderAuswahlActivity::class.java)) }
+        findViewById<View>(R.id.senderKarte).setOnClickListener(waehlen)
+        findViewById<View>(R.id.senderAendern).setOnClickListener(waehlen)
+
+        startStop.setOnClickListener {
+            when {
+                RadioService.status.laeuft -> stopService(Intent(this, RadioService::class.java))
+                SenderSpeicher.lade(this) == null -> waehlen.onClick(it)
+                else -> starteDienst()
+            }
+        }
+        findViewById<View>(R.id.zugriff).setOnClickListener {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
-        findViewById<Button>(R.id.start).setOnClickListener {
-            if (Build.VERSION.SDK_INT >= 33 &&
-                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-            }
-            val start = Intent(this, RadioService::class.java)
-                .putExtra(RadioService.EXTRA_SENDER, sender.text.toString())
-            startForegroundService(start)
+        findViewById<View>(R.id.appInfo).setOnClickListener {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
         }
-        findViewById<Button>(R.id.stop).setOnClickListener {
-            stopService(Intent(this, RadioService::class.java))
+        findViewById<View>(R.id.spotifyOeffnen).setOnClickListener {
+            val spotify = packageManager.getLaunchIntentForPackage(SpotifyFernbedienung.SPOTIFY)
+            if (spotify != null) startActivity(spotify)
+            else Toast.makeText(this, "Spotify ist nicht installiert", Toast.LENGTH_SHORT).show()
         }
     }
 
     override fun onResume() {
         super.onResume()
-        RadioService.statusAnzeige = { text -> runOnUiThread { zeige(text) } }
-        zeige(RadioService.letzterStatus)
+        zeigeSender()
+        zeigeZugriff()
+        RadioService.beobachter = { s -> runOnUiThread { zeige(s) } }
+        zeige(RadioService.status)
     }
 
     override fun onPause() {
-        RadioService.statusAnzeige = null
+        RadioService.beobachter = null
         super.onPause()
     }
 
-    private fun zeige(text: String) {
-        val zugriff = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
-        status.text = if (zugriff) text else "⚠ Schritt 1 fehlt: „Zugriff erlauben“ tippen.\n\n$text"
+    private fun starteDienst() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+        }
+        startForegroundService(Intent(this, RadioService::class.java))
+    }
+
+    private fun zeigeSender() {
+        val sender = SenderSpeicher.lade(this)
+        val name = findViewById<TextView>(R.id.senderName)
+        val info = findViewById<TextView>(R.id.senderInfo)
+        val logo = findViewById<ImageView>(R.id.senderLogo)
+        if (sender == null) {
+            name.text = "Noch kein Sender"
+            info.text = "Tippe hier, um einen auszuwählen"
+            LogoLader.zeige(logo, "?", "")
+        } else {
+            name.text = sender.name
+            info.text = sender.info
+            LogoLader.zeige(logo, sender.name, sender.logo)
+        }
+    }
+
+    private fun zeigeZugriff() {
+        val erlaubt = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+        findViewById<TextView>(R.id.zugriffStatus).text =
+            if (erlaubt) "✓ Erlaubt" else "Noch nicht erlaubt – ohne das kann die App Spotify nicht starten."
+        findViewById<View>(R.id.zugriffBereich).visibility = if (erlaubt) View.GONE else View.VISIBLE
+    }
+
+    private fun zeige(s: RadioService.Status) {
+        startStop.text = if (s.laeuft) "Stopp" else "Start"
+        startStop.setIconResource(if (s.laeuft) R.drawable.ic_stop else R.drawable.ic_play)
+        liveKarte.visibility = if (s.laeuft) View.VISIBLE else View.GONE
+        if (!s.laeuft) return
+
+        jetzt.text = s.meldung ?: if (s.hoertSpotify) "🎵 Deine Lieblingssongs" else "📻 ${s.sender}"
+        radioGerade.text = if (s.radioMusik) "Im Radio läuft gerade Musik" else "Im Radio wird gerade gesprochen"
+        musikBalken.setProgressCompat((s.musik * 100).toInt(), true)
+        sprachBalken.setProgressCompat((s.sprache * 100).toInt(), true)
+        spotifyStatus.text = if (s.spotifyVerbunden) "Spotify verbunden ✓"
+        else "Spotify nicht bereit – siehe Einrichtung, Schritt 2"
     }
 }

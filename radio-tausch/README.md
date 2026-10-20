@@ -24,6 +24,11 @@ Sie braucht dafür keine Spotify-Entwicklerfreischaltung.
 - Werbung mit Musik oder Moderation über Musik kann falsch erkannt werden.
 - Wenn Android Spotify im Hintergrund beendet, muss man Spotify neu öffnen.
 
+## Sender wählen
+
+Oben auf die Senderkarte tippen → suchen (über 50.000 Sender weltweit aus radio-browser.info) → antippen.
+Läuft die App schon, wird sofort umgeschaltet.
+
 ## Installieren
 
 Siehe die Releases-Seite des Repos: neueste `RadioTausch.apk` auf dem Handy herunterladen.
