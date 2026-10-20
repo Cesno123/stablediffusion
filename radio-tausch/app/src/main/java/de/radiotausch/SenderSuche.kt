@@ -52,6 +52,16 @@ object SenderSuche {
     }
 }
 
+/** Einstellungen der App. */
+object Einstellungen {
+    private fun prefs(c: Context) = c.getSharedPreferences("einstellungen", Context.MODE_PRIVATE)
+
+    /** Bei Moderation im Radio Spotify sofort anhalten, statt das Lied zu Ende zu spielen. */
+    fun sofortZurueck(c: Context) = prefs(c).getBoolean("sofortZurueck", true)
+
+    fun setzeSofortZurueck(c: Context, an: Boolean) = prefs(c).edit().putBoolean("sofortZurueck", an).apply()
+}
+
 /** Merkt sich den gewählten Sender. */
 object SenderSpeicher {
     private fun prefs(c: Context) = c.getSharedPreferences("sender", Context.MODE_PRIVATE)

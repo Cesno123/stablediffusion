@@ -18,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.progressindicator.LinearProgressIndicator
 
 class MainActivity : AppCompatActivity() {
@@ -63,6 +64,10 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.appInfo).setOnClickListener {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        }
+        findViewById<MaterialSwitch>(R.id.sofortZurueck).apply {
+            isChecked = Einstellungen.sofortZurueck(this@MainActivity)
+            setOnCheckedChangeListener { _, an -> Einstellungen.setzeSofortZurueck(this@MainActivity, an) }
         }
         findViewById<View>(R.id.spotifyTesten).setOnClickListener { testeSpotify() }
         findViewById<View>(R.id.spotifyOeffnen).setOnClickListener {

@@ -53,7 +53,8 @@ class RadioService : Service() {
 
         // Wie viele Sekunden am Stück Musik/Sprache, bevor wir es glauben
         private const val SEKUNDEN_BIS_MUSIK = 4
-        private const val SEKUNDEN_BIS_SPRACHE = 2
+        // Etwas länger als bei Musik, damit eine kurze Ansage über ein Lied es nicht abbricht
+        private const val SEKUNDEN_BIS_SPRACHE = 3
         private const val MUSIK_MINDESTWERT = 0.3f
         // So lange darf Spotify still sein, bevor wir zum Radio zurückgehen
         private const val SPOTIFY_STILL_SEKUNDEN = 10
@@ -177,6 +178,11 @@ class RadioService : Service() {
                 }
             }
             Modus.SPOTIFY -> {
+                if (!radioSpieltMusik && Einstellungen.sofortZurueck(this)) {
+                    zurueckZumRadio(spotifyPausieren = true)
+                    aktualisiere()
+                    return
+                }
                 spotify?.pruefe()
                 // Sicherheitsnetz: Spielt Spotify länger nicht (manuell pausiert, abgestürzt),
                 // zurück zum Radio statt Stille.

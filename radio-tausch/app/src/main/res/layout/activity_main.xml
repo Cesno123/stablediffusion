@@ -194,6 +194,39 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Verhalten -->
+        <TextView
+            style="@style/Ueberschrift"
+            android:text="VERHALTEN" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="?attr/materialCardViewOutlinedStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/sofortZurueck"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Bei Moderation sofort zum Radio"
+                    android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="An: Spotify pausiert, sobald im Radio gesprochen wird, und spielt beim nächsten Radio-Lied an derselben Stelle weiter.\nAus: Das Spotify-Lied läuft immer zu Ende."
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?android:attr/textColorSecondary" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Einrichtung -->
         <TextView
             style="@style/Ueberschrift"
