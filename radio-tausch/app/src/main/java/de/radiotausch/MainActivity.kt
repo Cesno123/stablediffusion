@@ -123,7 +123,6 @@ class MainActivity : AppCompatActivity() {
         radioGerade.text = if (s.radioMusik) "Im Radio läuft gerade Musik" else "Im Radio wird gerade gesprochen"
         musikBalken.setProgressCompat((s.musik * 100).toInt(), true)
         sprachBalken.setProgressCompat((s.sprache * 100).toInt(), true)
-        spotifyStatus.text = if (s.spotifyVerbunden) "Spotify verbunden ✓"
-        else "Spotify nicht bereit – siehe Einrichtung, Schritt 2"
+        spotifyStatus.text = s.spotifyText
     }
 }

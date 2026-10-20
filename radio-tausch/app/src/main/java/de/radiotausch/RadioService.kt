@@ -42,7 +42,7 @@ class RadioService : Service() {
         val radioMusik: Boolean = false,
         val musik: Float = 0f,
         val sprache: Float = 0f,
-        val spotifyVerbunden: Boolean = false,
+        val spotifyText: String = "",
         val meldung: String? = null,
     )
 
@@ -55,6 +55,10 @@ class RadioService : Service() {
         private const val SEKUNDEN_BIS_MUSIK = 4
         private const val SEKUNDEN_BIS_SPRACHE = 2
         private const val MUSIK_MINDESTWERT = 0.3f
+        // So lange darf Spotify still sein, bevor wir zum Radio zurückgehen
+        private const val SPOTIFY_STILL_SEKUNDEN = 10
+        // Danach so lange nicht erneut Spotify starten, damit es nicht hin und her springt
+        private const val SPOTIFY_SPERRE_SEKUNDEN = 30
     }
 
     private enum class Modus { RADIO, SPOTIFY }
@@ -71,6 +75,7 @@ class RadioService : Service() {
     private var musikFolge = 0
     private var sprachFolge = 0
     private var spotifyStill = 0
+    private var spotifySperre = 0
     private var musikWert = 0f
     private var sprachWert = 0f
 
@@ -161,16 +166,29 @@ class RadioService : Service() {
         if (!radioSpieltMusik && musikFolge >= SEKUNDEN_BIS_MUSIK) radioSpieltMusik = true
         if (radioSpieltMusik && sprachFolge >= SEKUNDEN_BIS_SPRACHE) radioSpieltMusik = false
 
+        var meldung: String? = null
         when (modus) {
-            Modus.RADIO -> if (radioSpieltMusik) wechsleZuSpotify()
+            Modus.RADIO -> {
+                if (spotifySperre > 0) {
+                    spotifySperre--
+                    meldung = "Spotify hat nicht reagiert – neuer Versuch in $spotifySperre s"
+                } else if (radioSpieltMusik) {
+                    wechsleZuSpotify()
+                }
+            }
             Modus.SPOTIFY -> {
-                // Sicherheitsnetz: Spielt Spotify nicht (manuell pausiert, abgestürzt),
-                // nach ein paar Sekunden zurück zum Radio statt Stille.
-                if (spotify?.spieltGerade() == true) spotifyStill = 0
-                else if (++spotifyStill >= 6) zurueckZumRadio(spotifyPausieren = false)
+                spotify?.pruefe()
+                // Sicherheitsnetz: Spielt Spotify länger nicht (manuell pausiert, abgestürzt),
+                // zurück zum Radio statt Stille.
+                if (spotify?.spieltGerade() == true) {
+                    spotifyStill = 0
+                } else if (++spotifyStill >= SPOTIFY_STILL_SEKUNDEN) {
+                    zurueckZumRadio(spotifyPausieren = true)
+                    spotifySperre = SPOTIFY_SPERRE_SEKUNDEN
+                }
             }
         }
-        aktualisiere()
+        aktualisiere(meldung)
     }
 
     private fun wechsleZuSpotify() {
@@ -203,7 +221,7 @@ class RadioService : Service() {
             radioMusik = radioSpieltMusik,
             musik = musikWert,
             sprache = sprachWert,
-            spotifyVerbunden = spotify?.verfuegbar() == true,
+            spotifyText = spotify?.zustand().orEmpty(),
             meldung = meldung,
         )
         status = neu
