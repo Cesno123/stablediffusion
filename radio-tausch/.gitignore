@@ -1,0 +1,5 @@
+.gradle/
+build/
+local.properties
+# Das KI-Modell wird beim Bauen automatisch heruntergeladen
+app/src/main/assets/yamnet.tflite

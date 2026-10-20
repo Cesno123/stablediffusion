@@ -1,0 +1,50 @@
+name: Radio-Tausch App bauen
+
+on:
+  push:
+    paths:
+      - "radio-tausch/**"
+      - ".github/workflows/radio-tausch.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: radio-tausch
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: KI-Modell (YAMNet) herunterladen
+        run: |
+          mkdir -p app/src/main/assets
+          curl -fL -o app/src/main/assets/yamnet.tflite \
+            https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite
+
+      - name: App bauen
+        run: gradle assembleDebug --no-daemon
+
+      - name: Als Download bereitstellen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk RadioTausch.apk
+          gh release create "radio-tausch-${{ github.run_number }}" RadioTausch.apk \
+            --target "${{ github.sha }}" \
+            --title "Radio-Tausch Version ${{ github.run_number }}" \
+            --notes "Auf dem Handy die Datei RadioTausch.apk antippen und installieren." \
+            --latest

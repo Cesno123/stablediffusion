@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="So geht's:\n1. Unten „Zugriff erlauben“ tippen und Radio-Tausch einschalten.\n2. Spotify öffnen, „Lieblingssongs“ mit Zufallswiedergabe starten und gleich wieder pausieren.\n3. Hier auf „Start“ tippen."
+            android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/sender"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="Radiosender"
+            android:inputType="text"
+            android:text="Radio Köln" />
+
+        <Button
+            android:id="@+id/zugriff"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Zugriff erlauben" />
+
+        <Button
+            android:id="@+id/start"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Start" />
+
+        <Button
+            android:id="@+id/stop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Stopp" />
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textSize="16sp" />
+    </LinearLayout>
+</ScrollView>
