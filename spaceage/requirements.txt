@@ -1,0 +1,6 @@
+diffusers>=0.30
+transformers>=4.44
+accelerate>=0.33
+numpy
+pillow>=10.1
+requests
