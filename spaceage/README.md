@@ -42,8 +42,14 @@ python spaceage/make_reel.py --out out --no-ai    # ohne KI, nur zum Testen
 6. **Automatik einschalten**: *Settings → Secrets and variables → Actions →
    Variables* → `SPACEAGE_AUTOPOST` = `true`.
 
-Ohne Schritt 6 werden täglich nur Videos erzeugt (Download unter *Actions →
-Lauf → Artifacts*), aber nichts gepostet.
+Ohne Schritt 6 werden täglich nur Videos erzeugt, aber nichts gepostet.
+
+## Reels ansehen
+
+Jedes Reel landet als MP4 unter **Releases**:
+<https://github.com/Cesno123/stablediffusion/releases> – `reel.mp4` antippen,
+fertig (kein Entpacken). Die Caption steht als Text darunter. Von dort kannst
+du ein Reel auch von Hand in der Instagram-App posten oder einplanen.
 
 ## Manuell starten
 
