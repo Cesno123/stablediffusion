@@ -25,7 +25,6 @@ import com.google.android.material.progressindicator.LinearProgressIndicator
 class MainActivity : AppCompatActivity() {
 
     private lateinit var startStop: MaterialButton
-    private lateinit var liveKarte: View
     private lateinit var jetzt: TextView
     private lateinit var radioGerade: TextView
     private lateinit var musikBalken: LinearProgressIndicator
@@ -42,7 +41,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         startStop = findViewById(R.id.startStop)
-        liveKarte = findViewById(R.id.liveKarte)
         jetzt = findViewById(R.id.jetzt)
         radioGerade = findViewById(R.id.radioGerade)
         musikBalken = findViewById(R.id.musikBalken)
@@ -191,8 +189,15 @@ class MainActivity : AppCompatActivity() {
     private fun zeige(s: RadioService.Status) {
         startStop.text = if (s.laeuft) "Stopp" else "Start"
         startStop.setIconResource(if (s.laeuft) R.drawable.ic_stop else R.drawable.ic_play)
-        liveKarte.visibility = if (s.laeuft) View.VISIBLE else View.GONE
-        if (!s.laeuft) return
+        if (!s.laeuft) {
+            // Karte bleibt sichtbar, damit man sie kennt, auch wenn gerade nichts läuft
+            jetzt.text = "⏸ Bereit"
+            radioGerade.text = "Tippe auf Start"
+            musikBalken.setProgressCompat(0, true)
+            sprachBalken.setProgressCompat(0, true)
+            spotifyStatus.text = ""
+            return
+        }
 
         jetzt.text = s.meldung ?: if (s.hoertSpotify) "🎵 Deine Lieblingssongs" else "📻 ${s.sender}"
         radioGerade.text = if (s.radioMusik) "Im Radio läuft gerade Musik" else "Im Radio wird gerade gesprochen"
