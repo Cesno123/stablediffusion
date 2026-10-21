@@ -1,5 +1,32 @@
 # SpaceAge – automatische Sci-Fi-Reels für @_spaceage42
 
+## GPU-Pipeline (Kaggle) – Hauptweg
+
+GitHub Actions schickt einen Job an ein kostenloses Kaggle-GPU-Notebook:
+FLUX.1-schnell malt Standbilder im Stil alter Sci-Fi-Cover (`covers.py`),
+LTX-Video macht aus einigen davon echte Videoclips. Ergebnis: Release-Seite
+`cover-…` mit `bild_N.png`, `reel_N.mp4` und Captions.
+
+Einrichtung:
+
+1. Kaggle: *Settings → Phone verification* (ohne gibt es keine GPU / kein Internet).
+2. Kaggle: *Settings → API → Generate New Token*, Token kopieren
+   (**niemandem schicken, nirgends posten**).
+3. GitHub: *Settings → Secrets and variables → Actions → New repository secret*
+   - `KAGGLE_API_TOKEN` = der Token (`KGAT_…`)
+   - `KAGGLE_USERNAME` = dein Kaggle-Benutzername
+4. *Actions → SpaceAge Kaggle render → Run workflow* (bzw. läuft bei Änderungen
+   an `covers.py` automatisch). Dauer ca. 20–40 min.
+
+Neue Motive: Einträge in `SCENES` in `covers.py` (Szene + Bewegung).
+
+---
+
+## CPU-Fallback (alt)
+
+Der folgende Weg animiert SD-Turbo-Standbilder ohne GPU. Qualität deutlich
+schlechter; nur noch manuell startbar.
+
 Kostenlose Pipeline: GitHub Actions erzeugt jeden Tag ein 10-Sekunden-Reel
 (1080×1920, mit Sound) und postet es auf Wunsch über die offizielle
 Instagram-API. Keine bezahlten Anbieter.

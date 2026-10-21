@@ -1,0 +1,120 @@
+name: SpaceAge Kaggle render
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "Number of stills"
+        default: "4"
+      videos:
+        description: "How many of them also get a video"
+        default: "2"
+      seed:
+        description: "Seed (empty = today's date)"
+        required: false
+  push:
+    paths:
+      - "spaceage/kaggle/**"
+      - "spaceage/kaggle_job.py"
+      - "spaceage/covers.py"
+      - ".github/workflows/spaceage-kaggle.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write  # create the preview release
+    env:
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - name: Check secrets
+        run: |
+          if [ -z "$KAGGLE_USERNAME" ] || [ -z "$KAGGLE_API_TOKEN" ]; then
+            echo "::error::Secrets KAGGLE_USERNAME and KAGGLE_API_TOKEN must be set (see spaceage/README.md)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install -U kaggle numpy pillow
+
+      - name: Build and push kernel
+        id: push
+        env:
+          SEED: ${{ inputs.seed }}
+          COUNT: ${{ inputs.count || '4' }}
+          VIDEOS: ${{ inputs.videos || '2' }}
+        run: |
+          args=(build --dir kernel --count "$COUNT" --videos "$VIDEOS")
+          if [ -n "$SEED" ]; then args+=(--seed "$SEED"); fi
+          id=$(python spaceage/kaggle_job.py "${args[@]}")
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          kaggle kernels push -p kernel
+
+      - name: Wait for Kaggle
+        env:
+          ID: ${{ steps.push.outputs.id }}
+        run: |
+          sleep 60
+          for i in $(seq 1 160); do
+            status=$(kaggle kernels status "$ID" 2>&1 || true)
+            echo "$(date -u +%H:%M) $status"
+            case "$status" in
+              *'"complete"'*|*COMPLETE*) exit 0 ;;
+              *'"error"'*|*ERROR*|*'"cancel'*|*CANCEL*) exit 1 ;;
+            esac
+            sleep 60
+          done
+          echo "::error::Kaggle kernel did not finish in time"; exit 1
+
+      - name: Download output
+        if: always() && steps.push.outcome == 'success'
+        env:
+          ID: ${{ steps.push.outputs.id }}
+        run: |
+          kaggle kernels output "$ID" -p kaggle_out
+          ls -la kaggle_out
+          echo "----- Kaggle log (tail) -----"
+          python - <<'EOF'
+          import glob, json
+          for path in glob.glob("kaggle_out/*.log"):
+              try:
+                  lines = [e.get("data", "") for e in json.load(open(path))]
+              except Exception:
+                  lines = open(path).read().splitlines()
+              print("".join(lines)[-6000:])
+          EOF
+
+      - name: Assemble reels
+        run: python spaceage/kaggle_job.py assemble --src kaggle_out --out out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-render
+          path: out/
+          retention-days: 14
+
+      - name: Publish preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          shopt -s nullglob
+          tag="cover-$(date -u +%Y%m%d)-$RUN_NUMBER"
+          gh release create "$tag" out/*.png out/*.mp4 \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Cover-Art $(date -u +%d.%m.%Y) #$RUN_NUMBER" \
+            --notes-file out/notes.md
+          echo "### [Ergebnisse ansehen](https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag)" >> "$GITHUB_STEP_SUMMARY"

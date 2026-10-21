@@ -1,9 +1,8 @@
 name: SpaceAge reel
 
+# CPU-only fallback (animated SD-Turbo stills). Manual runs only;
+# the GPU pipeline is spaceage-kaggle.yml.
 on:
-  schedule:
-    # 16:23 UTC = 18:23 Berlin in summer, 17:23 in winter
-    - cron: "23 16 * * *"
   workflow_dispatch:
     inputs:
       post:
@@ -17,10 +16,6 @@ on:
       seed:
         description: "Seed (empty = today's date)"
         required: false
-  push:
-    paths:
-      - "spaceage/**"
-      - ".github/workflows/spaceage-reel.yml"
 
 permissions:
   contents: read
