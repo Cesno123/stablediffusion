@@ -21,9 +21,9 @@ KERNEL_SLUG = "spaceage-render"
 
 
 def build(args):
-    user = os.environ.get("KAGGLE_USERNAME")
+    user = os.environ.get("KAGGLE_USER") or os.environ.get("KAGGLE_USERNAME")
     if not user:
-        sys.exit("KAGGLE_USERNAME is not set")
+        sys.exit("KAGGLE_USER is not set")
     seed = args.seed if args.seed is not None else int(dt.date.today().strftime("%Y%m%d"))
     job = make_job(seed, args.count, args.videos)
     os.makedirs(args.dir, exist_ok=True)

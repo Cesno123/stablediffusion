@@ -29,12 +29,14 @@ jobs:
     permissions:
       contents: write  # create the preview release
     env:
-      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      # Not named KAGGLE_USERNAME: the kaggle CLI would then expect the legacy
+      # KAGGLE_KEY and ignore KAGGLE_API_TOKEN.
+      KAGGLE_USER: ${{ secrets.KAGGLE_USERNAME }}
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
     steps:
       - name: Check secrets
         run: |
-          if [ -z "$KAGGLE_USERNAME" ] || [ -z "$KAGGLE_API_TOKEN" ]; then
+          if [ -z "$KAGGLE_USER" ] || [ -z "$KAGGLE_API_TOKEN" ]; then
             echo "::error::Secrets KAGGLE_USERNAME and KAGGLE_API_TOKEN must be set (see spaceage/README.md)"
             exit 1
           fi
@@ -49,6 +51,7 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
           pip install -U kaggle numpy pillow
+          kaggle --version
 
       - name: Build and push kernel
         id: push
