@@ -53,6 +53,19 @@ jobs:
           pip install -U kaggle numpy pillow
           kaggle --version
 
+      - name: Configure Kaggle token
+        run: |
+          # Strip stray whitespace/newlines from copy-pasting on a phone and
+          # store the token where the CLI also looks for it.
+          token=$(printf '%s' "$KAGGLE_API_TOKEN" | tr -d '[:space:]')
+          echo "token length: ${#token} (raw ${#KAGGLE_API_TOKEN})"
+          case "$token" in KGAT_*) echo "prefix KGAT_: ok" ;; *) echo "::warning::token does not start with KGAT_" ;; esac
+          mkdir -p ~/.kaggle
+          printf '%s' "$token" > ~/.kaggle/access_token
+          chmod 600 ~/.kaggle/access_token
+          echo "KAGGLE_API_TOKEN=$token" >> "$GITHUB_ENV"
+          kaggle kernels list --mine --page-size 1 || echo "::warning::Kaggle auth check failed"
+
       - name: Build and push kernel
         id: push
         env:
