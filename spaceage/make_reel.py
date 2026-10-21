@@ -181,11 +181,11 @@ def render_frames(keyframes, idea, seconds, seed):
     def shot(j, u):
         direction, px, py = moves[j]
         z = 1 + (zoom - 1) * (u if direction > 0 else 1 - u)
-        cw, ch = W * zoom / z, H * zoom / z
         sw, sh = sources[j].size
+        cw, ch = sw / z, sh / z
         cx = sw / 2 + px * (sw - cw) / 2 * u
         cy = sh / 2 + py * (sh - ch) / 2 * u
-        box = (cx - cw / 2, cy - ch / 2, cx + cw / 2, cy + ch / 2)
+        box = (max(0.0, cx - cw / 2), max(0.0, cy - ch / 2), min(sw, cx + cw / 2), min(sh, cy + ch / 2))
         return np.asarray(sources[j].resize((W, H), Image.BILINEAR, box=box), dtype=np.float32)
 
     total = int(seconds * FPS)
