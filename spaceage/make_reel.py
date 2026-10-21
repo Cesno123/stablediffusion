@@ -106,7 +106,7 @@ class Effects:
         d = np.sqrt(((xx - W / 2) / (W / 2)) ** 2 + ((yy - H / 2) / (H / 2)) ** 2)
         self.vignette = (1 - 0.55 * np.clip(d - 0.35, 0, 1) ** 1.5)[..., None]
         self.scan = np.where((np.arange(H) % 4) < 2, 1.0, 0.82).astype(np.float32)[:, None, None]
-        self.grain = [rng.normal(0, 10, (H, W, 1)).astype(np.float32) for _ in range(6)]
+        self.grain = [rng.normal(0, 6, (H, W, 1)).astype(np.float32) for _ in range(6)]
         n = 350
         self.stars = np.c_[rng.uniform(-1, 1, n), rng.uniform(-1, 1, n), rng.uniform(0.05, 1, n)]
 
@@ -274,7 +274,8 @@ def main():
         "ffmpeg", "-y", "-loglevel", "error",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
         "-i", wav,
-        "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-profile:v", "high",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-maxrate", "12M", "-bufsize", "24M",
+        "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1",
         "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
         "-shortest", "-movflags", "+faststart", mp4,
     ]
