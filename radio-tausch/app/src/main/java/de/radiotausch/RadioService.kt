@@ -13,10 +13,12 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.core.app.ServiceCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Metadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -25,12 +27,16 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
+import androidx.media3.extractor.metadata.icy.IcyInfo
+import java.util.Calendar
 
 /**
  * Das Herz der App. Das Radio läuft ständig mit, die KI hört zu.
  * - Radio spielt Musik  -> Radio stumm, Spotify spielt ein Lieblingslied.
  * - Spotify-Lied zu Ende -> Spotify pausieren, Radio wieder laut
  *   (läuft im Radio dann immer noch Musik, darf Spotify weiterspielen).
+ * - Meldet der Sender einen Liedtitel, wird schneller umgeschaltet.
+ * - Zu Nachrichtenzeiten bleibt immer das Radio an.
  */
 @OptIn(UnstableApi::class)
 class RadioService : Service() {
@@ -43,6 +49,8 @@ class RadioService : Service() {
         val musik: Float = 0f,
         val sprache: Float = 0f,
         val spotifyText: String = "",
+        val senderTitel: String? = null,
+        val nachrichten: Boolean = false,
         val meldung: String? = null,
     )
 
@@ -51,10 +59,18 @@ class RadioService : Service() {
         @Volatile var status = Status()
         @Volatile var beobachter: ((Status) -> Unit)? = null
 
-        // Wie viele Sekunden Sprache am Stück, bevor wir es glauben
-        // (für Musik einstellbar in der App, siehe Einstellungen.musikSekunden)
-        // Etwas länger als bei Musik, damit eine kurze Ansage über ein Lied es nicht abbricht
+        // Wie viele Sekunden Sprache am Stück, bevor wir es glauben. Etwas Puffer,
+        // damit eine kurze Ansage über ein Lied es nicht abbricht.
+        // (Für Musik einstellbar in der App, siehe Einstellungen.musikSekunden)
         private const val SEKUNDEN_BIS_SPRACHE = 3
+        // Meldet der Sender gerade einen Liedtitel, reicht so viel Musik zur Bestätigung
+        private const val SEKUNDEN_MIT_LIEDTITEL = 3
+        private const val FRISCHER_TITEL_MS = 30_000L
+        // So lange nach der vollen/halben Stunde bleibt das Radio für Nachrichten an
+        private const val NACHRICHTEN_SEKUNDEN = 5 * 60
+        // Kurz vor der vollen Stunde schon zurück, damit der Anfang nicht fehlt
+        private const val NACHRICHTEN_VORLAUF_SEKUNDEN = 15
+        private val NACHRICHTEN_WOERTER = listOf("nachrichten", "news", "wetter", "verkehr", "werbung", "spot")
         // Musik zählt nur, wenn sie klar erkannt wird und deutlich vor Sprache liegt.
         // So zählt Werbung mit Sprecher über Hintergrundmusik nicht als Musik.
         private const val MUSIK_MINDESTWERT = 0.5f
@@ -82,6 +98,9 @@ class RadioService : Service() {
     private var spotifyStill = 0
     private var spotifySperre = 0
     private var musikWert = 0f
+    // Was der Sender im Stream als "läuft gerade" mitschickt (nicht jeder Sender tut das)
+    private var senderTitel: String? = null
+    private var senderTitelSeit = 0L
     private var sprachWert = 0f
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -107,6 +126,7 @@ class RadioService : Service() {
     private fun wechsleSender(neu: Sender) {
         sender = neu
         radioSpieltMusik = false
+        senderTitel = null
         verlauf.clear()
         sprachFolge = 0
         player?.apply {
@@ -138,6 +158,17 @@ class RadioService : Service() {
         val p = ExoPlayer.Builder(this, renderer).build()
         p.setWakeMode(C.WAKE_MODE_NETWORK)
         p.addListener(object : Player.Listener {
+            override fun onMetadata(metadata: Metadata) {
+                for (i in 0 until metadata.length()) {
+                    val eintrag = metadata.get(i)
+                    if (eintrag is IcyInfo) {
+                        val neu = eintrag.title?.trim()?.ifBlank { null }
+                        if (neu != senderTitel) senderTitelSeit = SystemClock.elapsedRealtime()
+                        senderTitel = neu
+                    }
+                }
+            }
+
             override fun onPlayerError(error: PlaybackException) {
                 aktualisiere("Verbindung unterbrochen, neuer Versuch …")
                 main.postDelayed({
@@ -163,7 +194,7 @@ class RadioService : Service() {
         sprachWert = sprache
         val istMusik = musik >= MUSIK_MINDESTWERT && musik - sprache >= MUSIK_VORSPRUNG
         sprachFolge = if (istMusik) 0 else sprachFolge + 1
-        val fenster = Einstellungen.musikSekunden(this)
+        val fenster = if (titelIstLied()) SEKUNDEN_MIT_LIEDTITEL else Einstellungen.musikSekunden(this)
         verlauf.addLast(istMusik)
         while (verlauf.size > fenster) verlauf.removeFirst()
         // Musik erst glauben, wenn das ganze Fenster voll ist und höchstens eine Sekunde abweicht
@@ -173,6 +204,12 @@ class RadioService : Service() {
         if (radioSpieltMusik && sprachFolge >= SEKUNDEN_BIS_SPRACHE) radioSpieltMusik = false
 
         var meldung: String? = null
+        if (nachrichtenZeit()) {
+            // Nachrichten haben Vorrang: Spotify pausieren, Radio hören
+            if (modus == Modus.SPOTIFY) zurueckZumRadio(spotifyPausieren = true)
+            aktualisiere()
+            return
+        }
         when (modus) {
             Modus.RADIO -> {
                 if (spotifySperre > 0) {
@@ -203,6 +240,31 @@ class RadioService : Service() {
             }
         }
         aktualisiere(meldung)
+    }
+
+    /**
+     * Hat der Sender gerade frisch einen Liedtitel gemeldet ("Interpret - Titel")?
+     * Nur frische Titel zählen: Manche Sender lassen den alten Titel während der Werbung stehen.
+     */
+    private fun titelIstLied(): Boolean {
+        val titel = senderTitel ?: return false
+        if (SystemClock.elapsedRealtime() - senderTitelSeit > FRISCHER_TITEL_MS) return false
+        val klein = titel.lowercase()
+        if (" - " !in titel) return false
+        if (NACHRICHTEN_WOERTER.any { it in klein }) return false
+        val name = sender?.name?.lowercase().orEmpty()
+        return name.isEmpty() || name !in klein
+    }
+
+    /** Nachrichtenzeit laut Uhr, oder der Sender meldet selbst Nachrichten/Werbung. */
+    private fun nachrichtenZeit(): Boolean {
+        val titel = senderTitel?.lowercase()
+        if (titel != null && " - " !in titel && NACHRICHTEN_WOERTER.any { it in titel }) return true
+        val jetzt = Calendar.getInstance()
+        val sekunde = jetzt.get(Calendar.MINUTE) * 60 + jetzt.get(Calendar.SECOND)
+        fun um(start: Int) = (sekunde - start + NACHRICHTEN_VORLAUF_SEKUNDEN + 3600) % 3600 <
+            NACHRICHTEN_SEKUNDEN + NACHRICHTEN_VORLAUF_SEKUNDEN
+        return (Einstellungen.nachrichtenVoll(this) && um(0)) || (Einstellungen.nachrichtenHalb(this) && um(1800))
     }
 
     private fun wechsleZuSpotify() {
@@ -236,6 +298,8 @@ class RadioService : Service() {
             musik = musikWert,
             sprache = sprachWert,
             spotifyText = spotify?.zustand().orEmpty(),
+            senderTitel = senderTitel,
+            nachrichten = nachrichtenZeit(),
             meldung = meldung,
         )
         status = neu

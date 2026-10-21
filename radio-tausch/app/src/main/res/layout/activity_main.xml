@@ -247,7 +247,34 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Springt es bei Werbung hin und her? Wert erhöhen. Hörst du zu viel vom Radio-Lied? Wert senken."
+                    android:text="Springt es bei Werbung hin und her? Wert erhöhen. Hörst du zu viel vom Radio-Lied? Wert senken.\nMeldet der Sender einen Liedtitel, schaltet die App schon nach 3 Sekunden um."
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?android:attr/textColorSecondary" />
+
+                <com.google.android.material.divider.MaterialDivider
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/nachrichtenVoll"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Nachrichten zur vollen Stunde hören"
+                    android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/nachrichtenHalb"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Nachrichten zur halben Stunde hören"
+                    android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Von kurz vorher bis 5 Minuten danach bleibt das Radio an, auch wenn Musik läuft. Meldet der Sender selbst Nachrichten oder Werbung, ebenfalls."
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>

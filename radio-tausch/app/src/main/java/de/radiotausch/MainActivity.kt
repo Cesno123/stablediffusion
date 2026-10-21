@@ -80,6 +80,14 @@ class MainActivity : AppCompatActivity() {
                 zeigeMusikSekunden(wert.toInt())
             }
         }
+        findViewById<MaterialSwitch>(R.id.nachrichtenVoll).apply {
+            isChecked = Einstellungen.nachrichtenVoll(this@MainActivity)
+            setOnCheckedChangeListener { _, an -> Einstellungen.setzeNachrichtenVoll(this@MainActivity, an) }
+        }
+        findViewById<MaterialSwitch>(R.id.nachrichtenHalb).apply {
+            isChecked = Einstellungen.nachrichtenHalb(this@MainActivity)
+            setOnCheckedChangeListener { _, an -> Einstellungen.setzeNachrichtenHalb(this@MainActivity, an) }
+        }
         findViewById<View>(R.id.spotifyTesten).setOnClickListener { testeSpotify() }
         findViewById<View>(R.id.spotifyOeffnen).setOnClickListener {
             val spotify = packageManager.getLaunchIntentForPackage(SpotifyFernbedienung.SPOTIFY)
@@ -199,10 +207,15 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        jetzt.text = s.meldung ?: if (s.hoertSpotify) "🎵 Deine Lieblingssongs" else "📻 ${s.sender}"
+        jetzt.text = s.meldung ?: when {
+            s.hoertSpotify -> "🎵 Deine Lieblingssongs"
+            s.nachrichten -> "📰 Nachrichten – ${s.sender}"
+            else -> "📻 ${s.sender}"
+        }
         radioGerade.text = if (s.radioMusik) "Im Radio läuft gerade Musik" else "Im Radio wird gerade gesprochen"
         musikBalken.setProgressCompat((s.musik * 100).toInt(), true)
         sprachBalken.setProgressCompat((s.sprache * 100).toInt(), true)
-        spotifyStatus.text = s.spotifyText
+        val senderZeile = s.senderTitel?.let { "Sender meldet: $it" } ?: "Sender meldet keinen Titel"
+        spotifyStatus.text = "$senderZeile\n${s.spotifyText}"
     }
 }

@@ -65,6 +65,16 @@ object Einstellungen {
     fun musikSekunden(c: Context) = prefs(c).getInt("musikSekunden", 10)
 
     fun setzeMusikSekunden(c: Context, sekunden: Int) = prefs(c).edit().putInt("musikSekunden", sekunden).apply()
+
+    /** Nachrichten zur vollen Stunde immer im Radio hören. */
+    fun nachrichtenVoll(c: Context) = prefs(c).getBoolean("nachrichtenVoll", true)
+
+    fun setzeNachrichtenVoll(c: Context, an: Boolean) = prefs(c).edit().putBoolean("nachrichtenVoll", an).apply()
+
+    /** Nachrichten zur halben Stunde immer im Radio hören. */
+    fun nachrichtenHalb(c: Context) = prefs(c).getBoolean("nachrichtenHalb", false)
+
+    fun setzeNachrichtenHalb(c: Context, an: Boolean) = prefs(c).edit().putBoolean("nachrichtenHalb", an).apply()
 }
 
 /** Merkt sich den gewählten Sender. */

@@ -16,6 +16,11 @@ Ist das Spotify-Lied zu Ende, geht es mit dem Radio weiter.
 Die App drückt bei Spotify nur Play und Pause, wie die Tasten am Kopfhörer.
 Sie braucht dafür keine Spotify-Entwicklerfreischaltung.
 
+## Extras
+
+- Meldet der Sender im Stream einen Liedtitel („Interpret - Titel“), schaltet die App schon nach 3 s um.
+- Zur vollen (optional halben) Stunde bleibt das Radio für Nachrichten 5 Minuten an.
+
 ## Bekannte Grenzen
 
 - Die ersten Sekunden jedes Radio-Lieds hört man noch (einstellbar, Standard 10 s, damit Werbe-Jingles nicht auslösen).
