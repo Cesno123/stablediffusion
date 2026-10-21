@@ -60,6 +60,11 @@ object Einstellungen {
     fun sofortZurueck(c: Context) = prefs(c).getBoolean("sofortZurueck", true)
 
     fun setzeSofortZurueck(c: Context, an: Boolean) = prefs(c).edit().putBoolean("sofortZurueck", an).apply()
+
+    /** So viele Sekunden muss im Radio Musik laufen, bevor Spotify startet. Höher = unempfindlicher. */
+    fun musikSekunden(c: Context) = prefs(c).getInt("musikSekunden", 10)
+
+    fun setzeMusikSekunden(c: Context, sekunden: Int) = prefs(c).edit().putInt("musikSekunden", sekunden).apply()
 }
 
 /** Merkt sich den gewählten Sender. */

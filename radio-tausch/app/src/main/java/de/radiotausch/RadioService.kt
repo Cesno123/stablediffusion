@@ -51,11 +51,14 @@ class RadioService : Service() {
         @Volatile var status = Status()
         @Volatile var beobachter: ((Status) -> Unit)? = null
 
-        // Wie viele Sekunden am Stück Musik/Sprache, bevor wir es glauben
-        private const val SEKUNDEN_BIS_MUSIK = 4
+        // Wie viele Sekunden Sprache am Stück, bevor wir es glauben
+        // (für Musik einstellbar in der App, siehe Einstellungen.musikSekunden)
         // Etwas länger als bei Musik, damit eine kurze Ansage über ein Lied es nicht abbricht
         private const val SEKUNDEN_BIS_SPRACHE = 3
-        private const val MUSIK_MINDESTWERT = 0.3f
+        // Musik zählt nur, wenn sie klar erkannt wird und deutlich vor Sprache liegt.
+        // So zählt Werbung mit Sprecher über Hintergrundmusik nicht als Musik.
+        private const val MUSIK_MINDESTWERT = 0.5f
+        private const val MUSIK_VORSPRUNG = 0.15f
         // So lange darf Spotify still sein, bevor wir zum Radio zurückgehen
         private const val SPOTIFY_STILL_SEKUNDEN = 10
         // Danach so lange nicht erneut Spotify starten, damit es nicht hin und her springt
@@ -73,7 +76,8 @@ class RadioService : Service() {
     private var sender: Sender? = null
     private var modus = Modus.RADIO
     private var radioSpieltMusik = false
-    private var musikFolge = 0
+    // Die letzten Sekunden: true = Musik. Eine einzelne Ausreißer-Sekunde wird toleriert.
+    private val verlauf = ArrayDeque<Boolean>()
     private var sprachFolge = 0
     private var spotifyStill = 0
     private var spotifySperre = 0
@@ -103,7 +107,7 @@ class RadioService : Service() {
     private fun wechsleSender(neu: Sender) {
         sender = neu
         radioSpieltMusik = false
-        musikFolge = 0
+        verlauf.clear()
         sprachFolge = 0
         player?.apply {
             setMediaItem(MediaItem.fromUri(neu.url))
@@ -157,14 +161,15 @@ class RadioService : Service() {
     private fun beiEinordnung(musik: Float, sprache: Float) {
         musikWert = musik
         sprachWert = sprache
-        if (musik > MUSIK_MINDESTWERT && musik > sprache) {
-            musikFolge++
-            sprachFolge = 0
-        } else {
-            sprachFolge++
-            musikFolge = 0
+        val istMusik = musik >= MUSIK_MINDESTWERT && musik - sprache >= MUSIK_VORSPRUNG
+        sprachFolge = if (istMusik) 0 else sprachFolge + 1
+        val fenster = Einstellungen.musikSekunden(this)
+        verlauf.addLast(istMusik)
+        while (verlauf.size > fenster) verlauf.removeFirst()
+        // Musik erst glauben, wenn das ganze Fenster voll ist und höchstens eine Sekunde abweicht
+        if (!radioSpieltMusik && verlauf.size >= fenster && verlauf.count { it } >= fenster - 1) {
+            radioSpieltMusik = true
         }
-        if (!radioSpieltMusik && musikFolge >= SEKUNDEN_BIS_MUSIK) radioSpieltMusik = true
         if (radioSpieltMusik && sprachFolge >= SEKUNDEN_BIS_SPRACHE) radioSpieltMusik = false
 
         var meldung: String? = null

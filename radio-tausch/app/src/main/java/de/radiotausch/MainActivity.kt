@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.slider.Slider
 import com.google.android.material.progressindicator.LinearProgressIndicator
 
 class MainActivity : AppCompatActivity() {
@@ -68,6 +69,18 @@ class MainActivity : AppCompatActivity() {
         findViewById<MaterialSwitch>(R.id.sofortZurueck).apply {
             isChecked = Einstellungen.sofortZurueck(this@MainActivity)
             setOnCheckedChangeListener { _, an -> Einstellungen.setzeSofortZurueck(this@MainActivity, an) }
+        }
+        val musikText = findViewById<TextView>(R.id.musikSekundenText)
+        fun zeigeMusikSekunden(s: Int) {
+            musikText.text = "Spotify erst nach $s Sekunden Musik im Radio"
+        }
+        findViewById<Slider>(R.id.musikSekunden).apply {
+            value = Einstellungen.musikSekunden(this@MainActivity).toFloat().coerceIn(valueFrom, valueTo)
+            zeigeMusikSekunden(value.toInt())
+            addOnChangeListener { _, wert, _ ->
+                Einstellungen.setzeMusikSekunden(this@MainActivity, wert.toInt())
+                zeigeMusikSekunden(wert.toInt())
+            }
         }
         findViewById<View>(R.id.spotifyTesten).setOnClickListener { testeSpotify() }
         findViewById<View>(R.id.spotifyOeffnen).setOnClickListener {

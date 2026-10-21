@@ -224,6 +224,33 @@
                     android:text="An: Spotify pausiert, sobald im Radio gesprochen wird, und spielt beim nächsten Radio-Lied an derselben Stelle weiter.\nAus: Das Spotify-Lied läuft immer zu Ende."
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?android:attr/textColorSecondary" />
+
+                <com.google.android.material.divider.MaterialDivider
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/musikSekundenText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/musikSekunden"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:stepSize="1"
+                    android:valueFrom="4"
+                    android:valueTo="20" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Springt es bei Werbung hin und her? Wert erhöhen. Hörst du zu viel vom Radio-Lied? Wert senken."
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

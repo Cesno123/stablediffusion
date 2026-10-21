@@ -18,7 +18,7 @@ Sie braucht dafür keine Spotify-Entwicklerfreischaltung.
 
 ## Bekannte Grenzen
 
-- Die ersten ~4 Sekunden jedes Radio-Lieds hört man noch (so lange braucht die Erkennung).
+- Die ersten Sekunden jedes Radio-Lieds hört man noch (einstellbar, Standard 10 s, damit Werbe-Jingles nicht auslösen).
 - Ist dein Spotify-Lied länger als das Radio-Lied, verpasst du die Moderation dazwischen
   (das Radio läuft live weiter).
 - Werbung mit Musik oder Moderation über Musik kann falsch erkannt werden.
