@@ -14,7 +14,8 @@
 
     <application
         android:icon="@mipmap/ic_launcher"
-        android:label="Radio-Tausch"
+        android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.RadioTausch"
         android:usesCleartextTraffic="true">
@@ -42,11 +43,20 @@
         <service
             android:name=".MedienZugriff"
             android:exported="true"
-            android:label="Radio-Tausch"
+            android:label="@string/app_name"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
+        </service>
+        <!-- Merkt sich die gewählte App-Sprache auf Android 12 und älter -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
         </service>
     </application>
 </manifest>

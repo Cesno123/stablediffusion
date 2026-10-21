@@ -1,13 +1,13 @@
+<!-- Radio ⇄ Musiknote: die Idee der App ohne Worte -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:fillColor="#FFFFFF" android:pathData="M42,66a8,8 0,1 0,16 0a8,8 0,1 0,-16 0z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M54,38h4v28h-4z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M58,38c5,2 10,5 10,12c0,3 -1,5 -3,7c0.5,-5 -2,-9 -7,-10z" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round" android:pathData="M36,44a14,14 0,0 0,0 20" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round" android:strokeAlpha="0.7" android:pathData="M29,38a22,22 0,0 0,0 32" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round" android:pathData="M72,44a14,14 0,0 1,0 20" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round" android:strokeAlpha="0.7" android:pathData="M79,38a22,22 0,0 1,0 32" />
+    <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M28,48h16a4,4 0,0 1,4 4v12a4,4 0,0 1,-4 4h-16a4,4 0,0 1,-4 -4v-12a4,4 0,0 1,4 -4z M32,53.5a4.5,4.5 0,1 0,0.01 0z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M39,53h6v2h-6z M39,57.5h6v2h-6z M39,62h6v2h-6z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="2.5" android:strokeLineCap="round" android:pathData="M30,48L39,39" />
+    <path android:fillColor="#FFFFFF" android:pathData="M64.5,66a5.5,5.5 0,1 0,11 0a5.5,5.5 0,1 0,-11 0z M72.5,42h3v24h-3z M75.5,42c3,1.5 6.5,3.5 6.5,7.5c0,2 -1,3.5 -2,4.5c0,-3 -1.5,-5 -4.5,-6z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="2.5" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeAlpha="0.9" android:pathData="M52,52h9M58,49l3,3l-3,3" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="2.5" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeAlpha="0.9" android:pathData="M61,61h-9M55,58l-3,3l3,3" />
 </vector>

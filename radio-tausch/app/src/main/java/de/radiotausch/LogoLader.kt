@@ -41,7 +41,7 @@ object LogoLader {
         val verbindung = URL(adresse).openConnection() as HttpURLConnection
         verbindung.connectTimeout = 5_000
         verbindung.readTimeout = 5_000
-        verbindung.setRequestProperty("User-Agent", "RadioTausch/0.2")
+        verbindung.setRequestProperty("User-Agent", "RadioSwap/0.3")
         val daten = verbindung.inputStream.use { it.readBytes() }
         val bild = BitmapFactory.decodeByteArray(daten, 0, daten.size) ?: return null
         if (bild.width < 16) return null // winzige Favicons sehen schlechter aus als der Platzhalter

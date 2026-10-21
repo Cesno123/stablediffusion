@@ -34,14 +34,14 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Radio-Tausch"
+                    android:text="@string/app_name"
                     android:textAppearance="?attr/textAppearanceHeadlineSmall"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Radio hören – mit deiner Musik"
+                    android:text="@string/tagline"
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
@@ -50,7 +50,7 @@
         <!-- Sender -->
         <TextView
             style="@style/Ueberschrift"
-            android:text="SENDER" />
+            android:text="@string/station_header" />
 
         <com.google.android.material.card.MaterialCardView
             style="?attr/materialCardViewFilledStyle"
@@ -106,7 +106,7 @@
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Ändern" />
+                    android:text="@string/change" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -116,7 +116,7 @@
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:layout_marginTop="20dp"
-            android:text="Start"
+            android:text="@string/start"
             android:textSize="18sp"
             app:cornerRadius="32dp"
             app:icon="@drawable/ic_play"
@@ -155,7 +155,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Musik im Radio"
+                    android:text="@string/music_label"
                     android:textAppearance="?attr/textAppearanceLabelMedium" />
 
                 <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -171,7 +171,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="Sprache im Radio"
+                    android:text="@string/talk_label"
                     android:textAppearance="?attr/textAppearanceLabelMedium" />
 
                 <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -196,7 +196,7 @@
         <!-- Verhalten -->
         <TextView
             style="@style/Ueberschrift"
-            android:text="VERHALTEN" />
+            android:text="@string/behaviour_header" />
 
         <com.google.android.material.card.MaterialCardView
             style="?attr/materialCardViewOutlinedStyle"
@@ -214,13 +214,13 @@
                     android:id="@+id/sofortZurueck"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Bei Moderation sofort zum Radio"
+                    android:text="@string/instant_back"
                     android:textAppearance="?attr/textAppearanceTitleSmall" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="An: Spotify pausiert, sobald im Radio gesprochen wird, und spielt beim nächsten Radio-Lied an derselben Stelle weiter.\nAus: Das Spotify-Lied läuft immer zu Ende."
+                    android:text="@string/instant_back_info"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?android:attr/textColorSecondary" />
 
@@ -247,7 +247,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Springt es bei Werbung hin und her? Wert erhöhen. Hörst du zu viel vom Radio-Lied? Wert senken.\nMeldet der Sender einen Liedtitel, schaltet die App schon nach 3 Sekunden um."
+                    android:text="@string/music_seconds_info"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?android:attr/textColorSecondary" />
 
@@ -261,29 +261,73 @@
                     android:id="@+id/nachrichtenVoll"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Nachrichten zur vollen Stunde hören"
+                    android:text="@string/news_hour"
                     android:textAppearance="?attr/textAppearanceTitleSmall" />
 
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/nachrichtenHalb"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Nachrichten zur halben Stunde hören"
+                    android:text="@string/news_half"
                     android:textAppearance="?attr/textAppearanceTitleSmall" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Von kurz vorher bis 5 Minuten danach bleibt das Radio an, auch wenn Musik läuft. Meldet der Sender selbst Nachrichten oder Werbung, ebenfalls."
+                    android:text="@string/news_info"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?android:attr/textColorSecondary" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Sprache -->
+        <TextView
+            style="@style/Ueberschrift"
+            android:text="@string/language_header" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="?attr/materialCardViewOutlinedStyle"
+            android:id="@+id/spracheKarte"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🌐"
+                    android:textSize="24sp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:text="@string/language_title"
+                    android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+                <TextView
+                    android:id="@+id/spracheAktuell"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorPrimary" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <!-- Einrichtung -->
         <TextView
             style="@style/Ueberschrift"
-            android:text="EINRICHTUNG" />
+            android:text="@string/setup_header" />
 
         <com.google.android.material.card.MaterialCardView
             style="?attr/materialCardViewOutlinedStyle"
@@ -301,7 +345,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1. Spotify steuern erlauben"
+                    android:text="@string/step1"
                     android:textAppearance="?attr/textAppearanceTitleSmall" />
 
                 <TextView
@@ -327,7 +371,7 @@
                             android:id="@+id/zugriff"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Erlauben" />
+                            android:text="@string/allow" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/appInfo"
@@ -335,14 +379,14 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:text="App-Info" />
+                            android:text="@string/app_info" />
                     </LinearLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Gesperrt („Zugriff verweigert“)? Tippe „App-Info“ → ⋮ oben rechts → „Eingeschränkte Einstellungen zulassen“. Danach nochmal „Erlauben“."
+                        android:text="@string/blocked_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?android:attr/textColorSecondary" />
                 </LinearLayout>
@@ -356,14 +400,14 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="2. Spotify vorbereiten"
+                    android:text="@string/step2"
                     android:textAppearance="?attr/textAppearanceTitleSmall" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Spotify öffnen → „Lieblingssongs“ → Zufallswiedergabe an → ein Lied starten und gleich wieder pausieren."
+                    android:text="@string/step2_info"
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <LinearLayout
@@ -377,7 +421,7 @@
                         style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Spotify öffnen" />
+                        android:text="@string/open_spotify" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/spotifyTesten"
@@ -385,7 +429,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
-                        android:text="Spotify testen" />
+                        android:text="@string/test_spotify" />
                 </LinearLayout>
 
                 <TextView

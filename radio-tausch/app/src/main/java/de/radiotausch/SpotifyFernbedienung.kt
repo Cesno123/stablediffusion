@@ -75,23 +75,26 @@ class SpotifyFernbedienung(
 
     fun spieltGerade() = spotifySitzungen().any { laeuft(it) }
 
-    /** Kurzer Text für die Anzeige in der App. */
-    fun zustand(): String {
-        val c = waehle() ?: return "Spotify: nicht gefunden – siehe Einrichtung, Schritt 2"
-        val titel = titel(c.metadata)?.let { " – $it" }.orEmpty()
-        return if (spieltGerade()) "Spotify: spielt ▶$titel" else "Spotify: pausiert ⏸$titel"
+    enum class Zustand { WEG, SPIELT, PAUSIERT, GESTOPPT, LAEDT, LEER }
+
+    /** Zustand der gerade gewählten Spotify-Sitzung (für den Test). */
+    fun zustand(): Zustand = when (waehle()?.playbackState?.state) {
+        null -> Zustand.WEG
+        PlaybackState.STATE_PLAYING -> Zustand.SPIELT
+        PlaybackState.STATE_PAUSED -> Zustand.PAUSIERT
+        PlaybackState.STATE_STOPPED -> Zustand.GESTOPPT
+        PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING -> Zustand.LAEDT
+        else -> Zustand.LEER
     }
 
-    /** Kurzer Zustand für den Test: spielt, pausiert, lädt … */
-    fun zustandKurz(): String = when (val z = waehle()?.playbackState?.state) {
-        null -> "weg"
-        PlaybackState.STATE_PLAYING -> "spielt"
-        PlaybackState.STATE_PAUSED -> "pausiert"
-        PlaybackState.STATE_STOPPED -> "gestoppt"
-        PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING -> "lädt"
-        PlaybackState.STATE_NONE -> "leer"
-        else -> "Zustand $z"
+    /** Für die Anzeige: spielt irgendeine Spotify-Sitzung, ist Spotify da, oder fehlt es? */
+    fun zustandFuerAnzeige(): Zustand = when {
+        spieltGerade() -> Zustand.SPIELT
+        verfuegbar() -> Zustand.PAUSIERT
+        else -> Zustand.WEG
     }
+
+    fun aktuellerTitel(): String? = titel(waehle()?.metadata)
 
     /**
      * Drückt Play. Es gibt drei Wege, weil nicht jedes Handy/jede Spotify-Version auf jeden hört:

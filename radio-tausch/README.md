@@ -1,6 +1,6 @@
-# Radio-Tausch
+# RadioSwap (Radio-Tausch)
 
-Android-App: Du hörst einen lokalen Radiosender (z. B. Radio Köln) mit Moderation,
+Android-App (Deutsch, English, Français, Español, Italiano, Türkçe): Du hörst einen lokalen Radiosender (z. B. Radio Köln) mit Moderation,
 Nachrichten und Werbung. Sobald der Sender ein Lied spielt, schaltet die App das
 Radio stumm und spielt stattdessen ein Lied aus deinen Spotify-Lieblingssongs.
 Ist das Spotify-Lied zu Ende, geht es mit dem Radio weiter.

@@ -14,8 +14,8 @@ object SenderSuche {
 
     private val server = listOf("all.api.radio-browser.info", "de1.api.radio-browser.info", "fi1.api.radio-browser.info")
 
-    /** Die meistgehörten Sender in Deutschland, für den Start ohne Suchbegriff. */
-    fun beliebt() = abfrage("countrycode=DE&order=clickcount&reverse=true&hidebroken=true&limit=50")
+    /** Die meistgehörten Sender im Land (Ländercode wie "DE"), für den Start ohne Suchbegriff. */
+    fun beliebt(land: String) = abfrage("countrycode=$land&order=clickcount&reverse=true&hidebroken=true&limit=50")
 
     fun suche(text: String) = abfrage(
         "name=" + URLEncoder.encode(text, "UTF-8") + "&order=clickcount&reverse=true&hidebroken=true&limit=50"
@@ -26,7 +26,7 @@ object SenderSuche {
         for (host in server) {
             try {
                 val verbindung = URL("https://$host/json/stations/search?$parameter").openConnection() as HttpURLConnection
-                verbindung.setRequestProperty("User-Agent", "RadioTausch/0.2")
+                verbindung.setRequestProperty("User-Agent", "RadioSwap/0.3")
                 verbindung.connectTimeout = 10_000
                 verbindung.readTimeout = 10_000
                 val treffer = JSONArray(verbindung.inputStream.bufferedReader().use { it.readText() })

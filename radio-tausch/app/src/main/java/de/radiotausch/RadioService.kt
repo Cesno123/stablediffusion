@@ -48,10 +48,12 @@ class RadioService : Service() {
         val radioMusik: Boolean = false,
         val musik: Float = 0f,
         val sprache: Float = 0f,
-        val spotifyText: String = "",
+        val spotifyZustand: SpotifyFernbedienung.Zustand = SpotifyFernbedienung.Zustand.WEG,
+        val spotifyTitel: String? = null,
         val senderTitel: String? = null,
         val nachrichten: Boolean = false,
-        val meldung: String? = null,
+        val spotifySperre: Int = 0,
+        val verbindungVerloren: Boolean = false,
     )
 
     companion object {
@@ -70,7 +72,11 @@ class RadioService : Service() {
         private const val NACHRICHTEN_SEKUNDEN = 5 * 60
         // Kurz vor der vollen Stunde schon zurück, damit der Anfang nicht fehlt
         private const val NACHRICHTEN_VORLAUF_SEKUNDEN = 15
-        private val NACHRICHTEN_WOERTER = listOf("nachrichten", "news", "wetter", "verkehr", "werbung", "spot")
+        // Kommt eins dieser Wörter im Sendertitel vor, laufen Nachrichten/Werbung (mehrsprachig)
+        private val NACHRICHTEN_WOERTER = listOf(
+            "nachrichten", "news", "wetter", "verkehr", "werbung", "spot",
+            "weather", "traffic", "infos", "météo", "noticias", "notizie", "haber",
+        )
         // Musik zählt nur, wenn sie klar erkannt wird und deutlich vor Sprache liegt.
         // So zählt Werbung mit Sprecher über Hintergrundmusik nicht als Musik.
         private const val MUSIK_MINDESTWERT = 0.5f
@@ -170,7 +176,7 @@ class RadioService : Service() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                aktualisiere("Verbindung unterbrochen, neuer Versuch …")
+                aktualisiere(verbindungVerloren = true)
                 main.postDelayed({
                     player?.apply {
                         seekToDefaultPosition()
@@ -203,7 +209,6 @@ class RadioService : Service() {
         }
         if (radioSpieltMusik && sprachFolge >= SEKUNDEN_BIS_SPRACHE) radioSpieltMusik = false
 
-        var meldung: String? = null
         if (nachrichtenZeit()) {
             // Nachrichten haben Vorrang: Spotify pausieren, Radio hören
             if (modus == Modus.SPOTIFY) zurueckZumRadio(spotifyPausieren = true)
@@ -214,7 +219,6 @@ class RadioService : Service() {
             Modus.RADIO -> {
                 if (spotifySperre > 0) {
                     spotifySperre--
-                    meldung = "Spotify hat nicht reagiert – neuer Versuch in $spotifySperre s"
                 } else if (radioSpieltMusik) {
                     wechsleZuSpotify()
                 }
@@ -239,7 +243,7 @@ class RadioService : Service() {
                 }
             }
         }
-        aktualisiere(meldung)
+        aktualisiere()
     }
 
     /**
@@ -289,7 +293,7 @@ class RadioService : Service() {
         aktualisiere()
     }
 
-    private fun aktualisiere(meldung: String? = null) {
+    private fun aktualisiere(verbindungVerloren: Boolean = false) {
         val neu = Status(
             laeuft = !beendet,
             sender = sender?.name.orEmpty(),
@@ -297,10 +301,12 @@ class RadioService : Service() {
             radioMusik = radioSpieltMusik,
             musik = musikWert,
             sprache = sprachWert,
-            spotifyText = spotify?.zustand().orEmpty(),
+            spotifyZustand = spotify?.zustandFuerAnzeige() ?: SpotifyFernbedienung.Zustand.WEG,
+            spotifyTitel = spotify?.aktuellerTitel(),
             senderTitel = senderTitel,
             nachrichten = nachrichtenZeit(),
-            meldung = meldung,
+            spotifySperre = if (modus == Modus.RADIO) spotifySperre else 0,
+            verbindungVerloren = verbindungVerloren,
         )
         status = neu
         beobachter?.invoke(neu)
@@ -313,15 +319,16 @@ class RadioService : Service() {
         val stopp = PendingIntent.getService(
             this, 1, Intent(this, RadioService::class.java).setAction(AKTION_STOPP), PendingIntent.FLAG_IMMUTABLE
         )
-        val text = if (modus == Modus.SPOTIFY) "Spielt gerade: deine Lieblingssongs"
-        else "Spielt gerade: ${sender?.name.orEmpty()}"
+        val texte = inAppSprache()
+        val text = if (modus == Modus.SPOTIFY) texte.getString(R.string.notif_spotify)
+        else texte.getString(R.string.notif_radio, sender?.name.orEmpty())
         return Notification.Builder(this, "radio")
-            .setContentTitle("Radio-Tausch")
+            .setContentTitle(texte.getString(R.string.app_name))
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_stat_radio)
             .setColor(getColor(R.color.icon_start))
             .setContentIntent(oeffnen)
-            .addAction(Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_stop), "Stopp", stopp).build())
+            .addAction(Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_stop), texte.getString(R.string.stop), stopp).build())
             .setOngoing(true)
             .build()
     }
@@ -332,7 +339,7 @@ class RadioService : Service() {
 
     private fun alsVordergrundStarten() {
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel("radio", "Radio-Tausch", NotificationManager.IMPORTANCE_LOW))
+        nm.createNotificationChannel(NotificationChannel("radio", getString(R.string.app_name), NotificationManager.IMPORTANCE_LOW))
         val typ = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
         ServiceCompat.startForeground(this, 1, baueHinweis(), typ)
     }

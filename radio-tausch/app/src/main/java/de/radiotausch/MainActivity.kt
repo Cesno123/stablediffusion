@@ -18,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.android.material.progressindicator.LinearProgressIndicator
@@ -70,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         }
         val musikText = findViewById<TextView>(R.id.musikSekundenText)
         fun zeigeMusikSekunden(s: Int) {
-            musikText.text = "Spotify erst nach $s Sekunden Musik im Radio"
+            musikText.text = getString(R.string.music_seconds, s)
         }
         findViewById<Slider>(R.id.musikSekunden).apply {
             value = Einstellungen.musikSekunden(this@MainActivity).toFloat().coerceIn(valueFrom, valueTo)
@@ -92,9 +93,41 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.spotifyOeffnen).setOnClickListener {
             val spotify = packageManager.getLaunchIntentForPackage(SpotifyFernbedienung.SPOTIFY)
             if (spotify != null) startActivity(spotify)
-            else Toast.makeText(this, "Spotify ist nicht installiert", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(this, R.string.spotify_not_installed, Toast.LENGTH_SHORT).show()
         }
+        zeigeSprache()
+        findViewById<View>(R.id.spracheKarte).setOnClickListener { waehleSprache() }
     }
+
+    private fun sprachName(kuerzel: String) =
+        Sprache.auswahl.firstOrNull { it.first == kuerzel }?.second ?: getString(R.string.language_system)
+
+    private fun zeigeSprache() {
+        findViewById<TextView>(R.id.spracheAktuell).text = sprachName(Sprache.aktuell())
+    }
+
+    private fun waehleSprache() {
+        val namen = Sprache.auswahl.map { sprachName(it.first) }.toTypedArray()
+        val gewaehlt = Sprache.auswahl.indexOfFirst { it.first == Sprache.aktuell() }.coerceAtLeast(0)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.language_title)
+            .setSingleChoiceItems(namen, gewaehlt) { dialog, i ->
+                dialog.dismiss()
+                Sprache.setze(Sprache.auswahl[i].first) // baut den Bildschirm in der neuen Sprache neu auf
+            }
+            .show()
+    }
+
+    private fun zustandText(z: SpotifyFernbedienung.Zustand) = getString(
+        when (z) {
+            SpotifyFernbedienung.Zustand.SPIELT -> R.string.state_playing
+            SpotifyFernbedienung.Zustand.PAUSIERT -> R.string.state_paused
+            SpotifyFernbedienung.Zustand.GESTOPPT -> R.string.state_stopped
+            SpotifyFernbedienung.Zustand.LAEDT -> R.string.state_loading
+            SpotifyFernbedienung.Zustand.LEER -> R.string.state_empty
+            SpotifyFernbedienung.Zustand.WEG -> R.string.state_gone
+        }
+    )
 
     /**
      * Probiert alle drei Play-Wege nacheinander aus und schreibt auf, was Spotify jeweils
@@ -106,7 +139,7 @@ class MainActivity : AppCompatActivity() {
         if (RadioService.status.laeuft) stopService(Intent(this, RadioService::class.java))
         val handler = Handler(Looper.getMainLooper())
         val fernbedienung = SpotifyFernbedienung(this, handler) {}
-        val ergebnis = StringBuilder("Vorher: ${fernbedienung.zustandKurz()}\n")
+        val ergebnis = StringBuilder(getString(R.string.test_before, zustandText(fernbedienung.zustand())) + "\n")
         knopf.isEnabled = false
         ausgabe.visibility = View.VISIBLE
 
@@ -114,16 +147,16 @@ class MainActivity : AppCompatActivity() {
             fernbedienung.pausiere()
             fernbedienung.beende()
             knopf.isEnabled = true
-            ausgabe.text = ergebnis.toString() + "\nBitte Screenshot davon an Claude schicken."
+            ausgabe.text = ergebnis.toString() + "\n" + getString(R.string.test_done)
         }
 
         fun teste(weg: Int) {
             if (weg > 2) return fertig()
-            ausgabe.text = ergebnis.toString() + "Teste Weg ${weg + 1} von 3 …"
+            ausgabe.text = ergebnis.toString() + getString(R.string.test_running, weg + 1)
             fernbedienung.pausiere()
             handler.postDelayed({
                 if (!fernbedienung.spiele(weg)) {
-                    ergebnis.append("Spotify nicht gefunden – Schritt 2 machen.\n")
+                    ergebnis.append(getString(R.string.test_not_found)).append("\n")
                     return@postDelayed fertig()
                 }
                 val start = SystemClock.elapsedRealtime()
@@ -132,14 +165,14 @@ class MainActivity : AppCompatActivity() {
                 handler.post(object : Runnable {
                     override fun run() {
                         val vergangen = SystemClock.elapsedRealtime() - start
-                        val zustand = fernbedienung.zustandKurz()
+                        val zustand = zustandText(fernbedienung.zustand())
                         if (zustand != zuletzt) {
                             verlauf.append(" %.1fs %s".format(vergangen / 1000.0, zustand))
                             zuletzt = zustand
                         }
                         if (vergangen < 6000) handler.postDelayed(this, 250)
                         else {
-                            ergebnis.append("Weg ${weg + 1}:$verlauf\n")
+                            ergebnis.append(getString(R.string.test_method, weg + 1, verlauf)).append("\n")
                             teste(weg + 1)
                         }
                     }
@@ -177,8 +210,8 @@ class MainActivity : AppCompatActivity() {
         val info = findViewById<TextView>(R.id.senderInfo)
         val logo = findViewById<ImageView>(R.id.senderLogo)
         if (sender == null) {
-            name.text = "Noch kein Sender"
-            info.text = "Tippe hier, um einen auszuwählen"
+            name.setText(R.string.no_station)
+            info.setText(R.string.no_station_hint)
             LogoLader.zeige(logo, "?", "")
         } else {
             name.text = sender.name
@@ -190,32 +223,41 @@ class MainActivity : AppCompatActivity() {
     private fun zeigeZugriff() {
         val erlaubt = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
         findViewById<TextView>(R.id.zugriffStatus).text =
-            if (erlaubt) "✓ Erlaubt" else "Noch nicht erlaubt – ohne das kann die App Spotify nicht starten."
+            getString(if (erlaubt) R.string.allowed else R.string.not_allowed)
         findViewById<View>(R.id.zugriffBereich).visibility = if (erlaubt) View.GONE else View.VISIBLE
     }
 
     private fun zeige(s: RadioService.Status) {
-        startStop.text = if (s.laeuft) "Stopp" else "Start"
+        startStop.setText(if (s.laeuft) R.string.stop else R.string.start)
         startStop.setIconResource(if (s.laeuft) R.drawable.ic_stop else R.drawable.ic_play)
         if (!s.laeuft) {
             // Karte bleibt sichtbar, damit man sie kennt, auch wenn gerade nichts läuft
-            jetzt.text = "⏸ Bereit"
-            radioGerade.text = "Tippe auf Start"
+            jetzt.setText(R.string.ready)
+            radioGerade.setText(R.string.tap_start)
             musikBalken.setProgressCompat(0, true)
             sprachBalken.setProgressCompat(0, true)
             spotifyStatus.text = ""
             return
         }
 
-        jetzt.text = s.meldung ?: when {
-            s.hoertSpotify -> "🎵 Deine Lieblingssongs"
-            s.nachrichten -> "📰 Nachrichten – ${s.sender}"
-            else -> "📻 ${s.sender}"
+        jetzt.text = when {
+            s.verbindungVerloren -> getString(R.string.connection_lost)
+            s.spotifySperre > 0 -> getString(R.string.spotify_blocked, s.spotifySperre)
+            s.hoertSpotify -> getString(R.string.now_spotify)
+            s.nachrichten -> getString(R.string.now_news, s.sender)
+            else -> getString(R.string.now_radio, s.sender)
         }
-        radioGerade.text = if (s.radioMusik) "Im Radio läuft gerade Musik" else "Im Radio wird gerade gesprochen"
+        radioGerade.setText(if (s.radioMusik) R.string.radio_music else R.string.radio_talk)
         musikBalken.setProgressCompat((s.musik * 100).toInt(), true)
         sprachBalken.setProgressCompat((s.sprache * 100).toInt(), true)
-        val senderZeile = s.senderTitel?.let { "Sender meldet: $it" } ?: "Sender meldet keinen Titel"
-        spotifyStatus.text = "$senderZeile\n${s.spotifyText}"
+        val senderZeile = s.senderTitel?.let { getString(R.string.station_reports, it) }
+            ?: getString(R.string.station_reports_nothing)
+        val titel = s.spotifyTitel?.let { " – $it" }.orEmpty()
+        val spotifyZeile = when (s.spotifyZustand) {
+            SpotifyFernbedienung.Zustand.SPIELT -> getString(R.string.spotify_playing, titel)
+            SpotifyFernbedienung.Zustand.WEG -> getString(R.string.spotify_missing)
+            else -> getString(R.string.spotify_paused, titel)
+        }
+        spotifyStatus.text = "$senderZeile\n$spotifyZeile"
     }
 }

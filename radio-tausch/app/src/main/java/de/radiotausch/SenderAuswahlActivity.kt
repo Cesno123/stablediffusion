@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
+import java.util.Locale
 import java.util.concurrent.Executors
 
 class SenderAuswahlActivity : AppCompatActivity() {
@@ -59,12 +60,15 @@ class SenderAuswahlActivity : AppCompatActivity() {
         lade("")
     }
 
+    // Land des Handys, damit z. B. Franzosen zuerst französische Sender sehen
+    private val land = Locale.getDefault().country.ifBlank { "DE" }
+
     private fun lade(text: String) {
         val nummer = ++anfrageNummer
         laden.visibility = View.VISIBLE
         hintergrund.execute {
             val ergebnis = try {
-                if (text.length < 2) SenderSuche.beliebt() else SenderSuche.suche(text)
+                if (text.length < 2) SenderSuche.beliebt(land) else SenderSuche.suche(text)
             } catch (e: Exception) {
                 null
             }
@@ -73,10 +77,10 @@ class SenderAuswahlActivity : AppCompatActivity() {
                 laden.visibility = View.INVISIBLE
                 liste.eintraege = ergebnis.orEmpty()
                 hinweis.text = when {
-                    ergebnis == null -> "Keine Verbindung zum Senderverzeichnis. Internet prüfen."
-                    ergebnis.isEmpty() -> "Nichts gefunden. Anders schreiben?"
-                    text.length < 2 -> "Beliebt in Deutschland"
-                    else -> "${ergebnis.size} Treffer"
+                    ergebnis == null -> getString(R.string.no_connection)
+                    ergebnis.isEmpty() -> getString(R.string.nothing_found)
+                    text.length < 2 -> getString(R.string.popular_in, Locale("", land).displayCountry)
+                    else -> getString(R.string.results, ergebnis.size)
                 }
             }
         }

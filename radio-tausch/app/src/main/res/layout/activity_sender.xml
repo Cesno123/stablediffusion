@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="Sender wählen" />
+        app:title="@string/choose_station" />
 
     <com.google.android.material.textfield.TextInputLayout
         style="?attr/textInputOutlinedStyle"
@@ -18,7 +18,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
-        android:hint="Sender suchen, z. B. Radio Köln, WDR 2, 1Live"
+        android:hint="@string/search_hint"
         app:endIconMode="clear_text"
         app:shapeAppearanceOverlay="@style/Rund12">
 

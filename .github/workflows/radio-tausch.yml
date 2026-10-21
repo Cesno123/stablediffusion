@@ -45,6 +45,6 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk RadioTausch.apk
           gh release create "radio-tausch-${{ github.run_number }}" RadioTausch.apk \
             --target "${{ github.sha }}" \
-            --title "Radio-Tausch Version ${{ github.run_number }}" \
-            --notes "Auf dem Handy die Datei RadioTausch.apk antippen und installieren." \
+            --title "RadioSwap Version ${{ github.run_number }}" \
+            --notes "Tap RadioTausch.apk on your phone to install. / Auf dem Handy RadioTausch.apk antippen und installieren." \
             --latest
