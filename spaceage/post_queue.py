@@ -44,10 +44,13 @@ CAPTION = (
 
 def added_at(path):
     """Unix time the file was first committed (upload order); mtime as fallback."""
-    out = subprocess.run(
-        ["git", "log", "--diff-filter=A", "--format=%ct", "--", path],
-        capture_output=True, text=True, cwd=HERE,
-    ).stdout.split()
+    try:
+        out = subprocess.run(
+            ["git", "log", "--diff-filter=A", "--format=%ct", "--", path],
+            capture_output=True, text=True, cwd=HERE,
+        ).stdout.split()
+    except OSError:  # no git (own server)
+        out = []
     return int(out[-1]) if out else int(os.path.getmtime(path))
 
 
@@ -77,6 +80,8 @@ def ffmpeg_exe():
         return imageio_ffmpeg.get_ffmpeg_exe()
     except ImportError:
         return "ffmpeg"
+
+
 ZOOM = 0.08  # total zoom over the clip: slow and subtle
 
 
@@ -103,7 +108,7 @@ def reel_frame(img):
 
 def to_reel(src, dst, seed):
     """Still image -> 9:16 MP4 with a slow centered zoom and ambient sound."""
-    from make_reel import synth_audio  # numpy; only needed for images
+    from ambience import synth_audio  # numpy; only needed for images
 
     img = Image.open(src).convert("RGB")
     frame = dst + ".png"

@@ -16,7 +16,6 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from prompt_library import PROMPTS  # noqa: E402
-from random_prompt import make_prompt  # noqa: E402
 
 API = os.environ.get("BFL_API_URL", "https://api.bfl.ai/v1")
 MODELS = {
@@ -88,6 +87,7 @@ def main():
         rest = [p for p in PROMPTS if p[0] not in args.include]
         jobs = (forced + rng.sample(rest, len(rest)))[:args.count]
     else:
+        from random_prompt import make_prompt
         jobs = [("random", make_prompt(rng)[0]) for _ in range(args.count)]
     failures = 0
     for i, (title, prompt) in enumerate(jobs, 1):
