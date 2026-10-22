@@ -27,9 +27,11 @@ write_files:
     encoding: b64
     content: {code}
 runcmd:
-  - mkdir -p /opt/spaceage
+  - mkdir -p /opt/spaceage /srv/spaceage/setup
+  - echo "Einrichtung laeuft ..." > /srv/spaceage/setup/log.txt
+  - systemd-run --unit=spaceage-setuplog python3 -m http.server 8080 --directory /srv/spaceage/setup
   - tar -xzf /root/spaceage.tar.gz -C /opt/spaceage
-  - bash /opt/spaceage/spaceage/server/install.sh
+  - bash /opt/spaceage/spaceage/server/install.sh >> /srv/spaceage/setup/log.txt 2>&1 || echo "FEHLER beim Einrichten (siehe oben)" >> /srv/spaceage/setup/log.txt
 """
 
 

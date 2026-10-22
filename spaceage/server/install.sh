@@ -10,8 +10,9 @@ if [ ! -f /swapfile ]; then
 	fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
 	echo "/swapfile none swap sw 0 0" >> /etc/fstab
 fi
-apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y python3-venv caddy cron curl ffmpeg
+# wait for the first-boot automatic updates instead of failing on the dpkg lock
+apt-get -o DPkg::Lock::Timeout=900 update
+DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=900 install -y python3-venv caddy cron curl ffmpeg
 python3 -m venv "$APP/venv"
 "$APP/venv/bin/pip" install --quiet requests pillow numpy
 
@@ -43,4 +44,6 @@ CRON
 # First check: is the Instagram token ok? Result on https://$host/status.txt
 sleep 20  # give Caddy time for the certificate
 sudo -u spaceage "$APP/spaceage/server/run.sh" --check >> /var/log/spaceage.log 2>&1 || true
-echo "SpaceAge ready: https://$host/status.txt"
+echo "FERTIG: https://$host/status.txt"
+# setup log page on port 8080 is no longer needed
+systemctl stop spaceage-setuplog || true
