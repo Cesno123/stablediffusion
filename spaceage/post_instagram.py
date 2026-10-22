@@ -46,6 +46,12 @@ def create_container(user_id, token, caption, video_url=None):
     return check(requests.post(f"{GRAPH}/{user_id}/media", data=data, timeout=60))["id"]
 
 
+def create_image_container(user_id, token, caption, image_url):
+    """Feed photo. The API only accepts a public JPEG URL for images."""
+    data = {"image_url": image_url, "caption": caption, "access_token": token}
+    return check(requests.post(f"{GRAPH}/{user_id}/media", data=data, timeout=60))["id"]
+
+
 def upload_file(container_id, token, path):
     size = os.path.getsize(path)
     with open(path, "rb") as f:
@@ -98,6 +104,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--video", help="local MP4 to upload")
     ap.add_argument("--video-url", help="public URL of the MP4 instead of --video")
+    ap.add_argument("--image-url", help="public URL of a JPEG to post as a feed photo")
     ap.add_argument("--caption-file")
     ap.add_argument("--refresh-token", action="store_true")
     args = ap.parse_args()
@@ -112,13 +119,16 @@ def main():
     user_id = os.environ.get("IG_USER_ID")
     if not user_id:
         sys.exit("IG_USER_ID is not set")
-    if not (args.video or args.video_url):
-        sys.exit("pass --video or --video-url")
+    if not (args.video or args.video_url or args.image_url):
+        sys.exit("pass --video, --video-url or --image-url")
     caption = open(args.caption_file).read() if args.caption_file else ""
 
-    container = create_container(user_id, token, caption, args.video_url)
+    if args.image_url:
+        container = create_image_container(user_id, token, caption, args.image_url)
+    else:
+        container = create_container(user_id, token, caption, args.video_url)
     print(f"created container {container}", flush=True)
-    if not args.video_url:
+    if args.video and not args.video_url and not args.image_url:
         upload_file(container, token, args.video)
         print("upload complete", flush=True)
     wait_until_ready(container, token)
