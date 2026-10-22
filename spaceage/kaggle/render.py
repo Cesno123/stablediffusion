@@ -99,6 +99,7 @@ def make_images(items):
             raise RuntimeError("FLUX produced a blank image")
     except Exception:
         traceback.print_exc()
+        report["flux_error"] = traceback.format_exc()[-1500:]
         log("FLUX failed, falling back to SDXL")
         gc.collect()
         torch.cuda.empty_cache()

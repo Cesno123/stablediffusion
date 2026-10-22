@@ -58,6 +58,8 @@ def assemble(args):
     os.makedirs(args.out, exist_ok=True)
     notes = [f"GPU: {result['report'].get('gpu')} · Bildmodell: {result['report'].get('image_model')} "
              f"· Dauer: {result['report'].get('minutes')} min"]
+    if result["report"].get("flux_error"):
+        notes.append("\n⚠️ FLUX-Fehler (Ersatz SDXL benutzt):\n```\n" + result["report"]["flux_error"][-800:] + "\n```")
     if result["report"].get("video_error"):
         notes.append("\n⚠️ Video-Fehler:\n```\n" + result["report"]["video_error"][-800:] + "\n```")
     for i, item in enumerate(result["items"], 1):
