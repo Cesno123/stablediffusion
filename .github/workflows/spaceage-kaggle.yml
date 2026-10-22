@@ -114,7 +114,9 @@ jobs:
           EOF
 
       - name: Assemble reels
-        run: python spaceage/kaggle_job.py assemble --src kaggle_out --out out
+        run: |
+          python spaceage/kaggle_job.py assemble --src kaggle_out --out out
+          cat out/notes.md
 
       - uses: actions/upload-artifact@v4
         with:
@@ -129,8 +131,12 @@ jobs:
         run: |
           shopt -s nullglob
           tag="cover-$(date -u +%Y%m%d)-$RUN_NUMBER"
-          gh release create "$tag" out/*.png out/*.mp4 \
-            --target "$GITHUB_SHA" --prerelease \
-            --title "Cover-Art $(date -u +%d.%m.%Y) #$RUN_NUMBER" \
-            --notes-file out/notes.md
+          for attempt in 1 2 3; do
+            gh release create "$tag" out/*.png out/*.mp4 \
+              --target "$GITHUB_SHA" --prerelease \
+              --title "Cover-Art $(date -u +%d.%m.%Y) #$RUN_NUMBER" \
+              --notes-file out/notes.md && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep 20
+          done
           echo "### [Ergebnisse ansehen](https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag)" >> "$GITHUB_STEP_SUMMARY"
