@@ -68,10 +68,13 @@ class RadioService : Service() {
         // Meldet der Sender gerade einen Liedtitel, reicht so viel Musik zur Bestätigung
         private const val SEKUNDEN_MIT_LIEDTITEL = 3
         private const val FRISCHER_TITEL_MS = 30_000L
-        // So lange nach der vollen/halben Stunde bleibt das Radio für Nachrichten an
-        private const val NACHRICHTEN_SEKUNDEN = 5 * 60
-        // Kurz vor der vollen Stunde schon zurück, damit der Anfang nicht fehlt
-        private const val NACHRICHTEN_VORLAUF_SEKUNDEN = 15
+        // Nachrichtenfenster um die volle/halbe Stunde. Großzügig nach hinten, weil der Stream
+        // der echten Uhrzeit oft 10–60 s hinterherläuft.
+        private const val NACHRICHTEN_SEKUNDEN = 6 * 60
+        // Ab hier startet kein neues Spotify-Lied mehr
+        private const val NACHRICHTEN_VORLAUF_SEKUNDEN = 30
+        // Im Nachrichtenfenster reicht so viel Sprache, um Spotify anzuhalten
+        private const val SEKUNDEN_BIS_NACHRICHTEN = 2
         // Kommt eins dieser Wörter im Sendertitel vor, laufen Nachrichten/Werbung (mehrsprachig)
         private val NACHRICHTEN_WOERTER = listOf(
             "nachrichten", "news", "wetter", "verkehr", "werbung", "spot",
@@ -210,8 +213,11 @@ class RadioService : Service() {
         if (radioSpieltMusik && sprachFolge >= SEKUNDEN_BIS_SPRACHE) radioSpieltMusik = false
 
         if (nachrichtenZeit()) {
-            // Nachrichten haben Vorrang: Spotify pausieren, Radio hören
-            if (modus == Modus.SPOTIFY) zurueckZumRadio(spotifyPausieren = true)
+            // Kein neues Spotify-Lied starten. Ein laufendes erst anhalten, wenn im Radio
+            // wirklich gesprochen wird – nicht nach der Uhr, die dem Stream voraus ist.
+            if (modus == Modus.SPOTIFY && sprachFolge >= SEKUNDEN_BIS_NACHRICHTEN) {
+                zurueckZumRadio(spotifyPausieren = true)
+            }
             aktualisiere()
             return
         }

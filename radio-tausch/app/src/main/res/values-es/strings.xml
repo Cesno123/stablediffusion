@@ -29,7 +29,7 @@
     <string name="music_seconds_info">¿Salta durante los anuncios? Aumenta. ¿Oyes demasiado la canción de la radio? Reduce.\nSi la emisora indica un título, la app cambia tras solo 3 segundos.</string>
     <string name="news_hour">Escuchar las noticias a la hora en punto</string>
     <string name="news_half">Escuchar las noticias a la media hora</string>
-    <string name="news_info">Desde poco antes hasta 5 minutos después, la radio sigue sonando aunque haya música. También si la emisora indica noticias o anuncios.</string>
+    <string name="news_info">A esa hora no empieza ninguna canción nueva de Spotify. Una que ya suena se detiene en cuanto la radio empieza a hablar. También si la emisora indica noticias o anuncios.</string>
     <string name="language_header">IDIOMA</string>
     <string name="language_title">Idioma de la app</string>
     <string name="language_system">Como el teléfono</string>

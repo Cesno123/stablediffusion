@@ -29,7 +29,7 @@
     <string name="music_seconds_info">Ça saute pendant les pubs ? Augmente. Tu entends trop le titre de la radio ? Diminue.\nSi la station indique un titre, l\'app bascule après 3 secondes.</string>
     <string name="news_hour">Écouter les infos à l\'heure pile</string>
     <string name="news_half">Écouter les infos à la demi-heure</string>
-    <string name="news_info">De peu avant jusqu\'à 5 minutes après, la radio reste allumée même avec de la musique. Idem si la station indique infos ou pub.</string>
+    <string name="news_info">À ce moment-là, aucun nouveau titre Spotify ne démarre. Un titre en cours s\'arrête dès que la radio parle vraiment. Idem si la station indique infos ou pub.</string>
     <string name="language_header">LANGUE</string>
     <string name="language_title">Langue de l\'app</string>
     <string name="language_system">Comme le téléphone</string>

@@ -19,7 +19,7 @@ Sie braucht dafür keine Spotify-Entwicklerfreischaltung.
 ## Extras
 
 - Meldet der Sender im Stream einen Liedtitel („Interpret - Titel“), schaltet die App schon nach 3 s um.
-- Zur vollen (optional halben) Stunde bleibt das Radio für Nachrichten 5 Minuten an.
+- Zur vollen (optional halben) Stunde startet kein neues Spotify-Lied; ein laufendes stoppt, sobald im Radio gesprochen wird.
 
 ## Bekannte Grenzen
 
