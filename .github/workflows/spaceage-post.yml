@@ -1,9 +1,9 @@
-name: SpaceAge daily post
+name: SpaceAge post
 
 on:
   schedule:
-    # 17:07 UTC = 18:07 Berlin in winter, 19:07 in summer
-    - cron: "7 17 * * *"
+    # every 3 hours at :07 UTC (Berlin: 01:07, 04:07, ... in winter)
+    - cron: "7 */3 * * *"
   workflow_dispatch:
   # A push to the posting code only runs the read-only access check below.
   push:
