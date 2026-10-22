@@ -78,7 +78,7 @@ def ffmpeg_exe():
     try:
         import imageio_ffmpeg
         return imageio_ffmpeg.get_ffmpeg_exe()
-    except ImportError:
+    except (ImportError, RuntimeError):  # e.g. no bundled binary for Arm
         return "ffmpeg"
 
 

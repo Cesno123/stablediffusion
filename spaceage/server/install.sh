@@ -6,9 +6,9 @@ APP=/opt/spaceage
 
 timedatectl set-timezone Europe/Berlin
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y python3-venv caddy cron curl
+DEBIAN_FRONTEND=noninteractive apt-get install -y python3-venv caddy cron curl ffmpeg
 python3 -m venv "$APP/venv"
-"$APP/venv/bin/pip" install --quiet requests pillow numpy imageio-ffmpeg
+"$APP/venv/bin/pip" install --quiet requests pillow numpy
 
 id spaceage >/dev/null 2>&1 || useradd --system --home-dir /var/lib/spaceage --shell /usr/sbin/nologin spaceage
 mkdir -p /var/lib/spaceage /srv/spaceage/www "$APP/spaceage/queue" "$APP/spaceage/posted"

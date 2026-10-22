@@ -22,7 +22,7 @@ neuen Schlüssel erstellen und kopieren. Den alten dort löschen.
 2. Projekt anlegen → **Server hinzufügen**:
    - Standort: Nürnberg oder Falkenstein
    - Image: **Ubuntu 24.04**
-   - Typ: der günstigste **x86** (Intel/AMD), nicht Arm
+   - Typ: der günstigste, der verfügbar ist (CX23 oder CAX11)
    - Netzwerk: **öffentliche IPv4** angehakt lassen
    - SSH-Schlüssel: überspringen
    - **Cloud config**: den kompletten Inhalt der Datei `cloud-init.yaml`
