@@ -173,3 +173,197 @@ PROMPTS = [
      "Vintage science fiction illustration from the 1980s with a grainy, well-preserved postcard texture, "
      "deep reds and blacks, no text."),
 ]
+
+PROMPTS += [
+    ("Ice moon harbour",
+     "A deep-space supply ship with a stubby insulated hull, frosted cargo pods and amber floodlights settles onto "
+     "a landing ring carved into the ice cliffs of a frozen moon. Plumes of vapor curl from its thrusters, tiny "
+     "workers in orange suits wait on a gantry, and the banded gas giant the moon orbits fills half of the "
+     "violet sky. Cinematic science fiction concept painting, cold cyan and steel tones with warm amber "
+     "accents, crisp mechanical detail, sense of bitter cold and quiet routine, no text."),
+    ("Canyon city",
+     "A vertical city built into both walls of a red sandstone canyon on an alien world, terraces, hanging "
+     "gardens, cable cars and slender bridges strung between the cliffs, tiny hover skiffs gliding below and a "
+     "winding turquoise river at the bottom. Two pale moons hang in a dusty apricot sky. Detailed 1970s "
+     "science fiction book illustration, warm terracotta and turquoise palette, airbrushed acrylic, deep "
+     "perspective looking down the canyon, no text."),
+    ("Derelict giant",
+     "The broken hull of a colossal ancient warship drifts through a dim asteroid field, its armor plates peeled "
+     "back to reveal skeletal ribs and dark corridors, with frozen debris and a cloud of glittering ice "
+     "crystals around the breach. A small salvage tug with a single bright searchlight probes the wreck. "
+     "Moody cinematic science fiction painting, desaturated greys and rust with one cold white light beam, "
+     "eerie silence, rich texture, no text."),
+    ("Solar sail regatta",
+     "A fleet of slender spacecraft with enormous golden solar sails, thin as foil and shimmering with rainbow "
+     "interference, races past a blazing white sun, their sails catching the light like the wings of insects. "
+     "The closest ship shows fine rigging lines and a small glowing cabin. Elegant retro-futurist "
+     "illustration in the tradition of 1960s space-age art, gold, white and deep navy, luminous and serene, "
+     "no text."),
+    ("Mech in the rain",
+     "A battered bipedal walker mech, twice the height of a house, stands motionless in a flooded city street "
+     "at night, rain streaming off its olive-drab armor, a cracked cockpit window glowing faint green, cables "
+     "hanging from its shoulder joint. Neon shop signs without readable letters reflect in the puddles, and a "
+     "lone figure with an umbrella looks up at it. Cinematic film still, moody teal and magenta lighting, "
+     "photoreal wet materials, shallow depth of field, no text."),
+    ("Lighthouse station",
+     "A tall lighthouse-like beacon station stands alone on a small rocky planetoid at the edge of a spiral "
+     "galaxy, its rotating lamp throwing a long beam across space, a tiny cottage-like habitat at its base with "
+     "warm windows and a little shuttle parked beside it. The galaxy swirls in rich purples and blues behind. "
+     "Storybook science fiction painting, gouache, gentle and lonely mood, warm light against a cool cosmos, "
+     "no text."),
+    ("Rover at dawn",
+     "A six-wheeled exploration rover with a pressurized cabin, solar panels and a mast of antennas crests a "
+     "dune on a rust-colored planet at sunrise, its headlights still on, long shadows stretching across rippled "
+     "sand. Two astronauts walk ahead with lamps, and a thin blue dawn glows over distant mesas. Vintage NASA "
+     "concept art from the 1970s, painterly realism, warm ochre and cool blue, quiet sense of exploration, "
+     "no text."),
+    ("Orbital shipyard",
+     "A massive starship under construction inside an orbital shipyard, its half-finished hull surrounded by "
+     "scaffolding frames, robotic welding arms throwing bright sparks, cargo drones carrying hull plates, and "
+     "a curved Earth-like planet glowing below with city lights on the night side. Hard-edged science fiction "
+     "illustration from a 1980s technical art book, airbrushed, cool silver and blue with orange sparks, "
+     "intricate detail, no text."),
+    ("Jungle temple ship",
+     "An ancient alien starship overgrown with vines and moss rests half sunk in a misty jungle, its curved hull "
+     "patterned like a carved temple, giant ferns and glowing blue flowers around it. A small expedition team "
+     "with lanterns approaches through the fog, light rays falling through the canopy. Atmospheric science "
+     "fiction adventure painting, lush greens with turquoise glow, oil painting texture, sense of discovery, "
+     "no text."),
+    ("Twin-sun duel",
+     "Two sleek starfighters, one white with blue stripes, one black with red, chase each other low over an "
+     "endless salt flat under two setting suns, their engine trails glowing, their shadows racing across the "
+     "cracked white ground. Dynamic 1980s science fiction cover painting, strong diagonal motion, warm "
+     "sunset gradient sky, crisp airbrushed metal, no text."),
+    ("Glass dome garden",
+     "Inside a vast glass-domed garden on the Moon, terraced fields, fruit trees and a small lake glow under "
+     "warm grow lights, while beyond the dome the grey cratered surface and a blue Earth hang in a black sky. "
+     "Families stroll along curved paths and a monorail glides overhead. Optimistic retro-futurist "
+     "illustration in the style of 1970s space colony art, soft greens and golds against black, highly "
+     "detailed, no text."),
+    ("Storm planet dive",
+     "A heavy armored lander plunges through the churning cloud bands of a giant storm planet, lightning "
+     "forking around it, its heat shield glowing orange-white, stabilizer fins extended. Far below, a red "
+     "vortex the size of a continent spins. Dramatic science fiction painting, swirling ochre and deep "
+     "brown clouds with electric blue lightning, intense motion, airbrushed realism, no text."),
+    ("Ringed world sunrise",
+     "Sunrise seen from the surface of a moon: the edge of a giant ringed planet rises over a jagged horizon of "
+     "dark basalt peaks, its rings a sharp bright line across the sky, a small domed outpost with a glowing "
+     "window in the foreground and a lone astronaut planting a beacon. Classic 1950s and 1960s space art, "
+     "precise astronomical realism, deep blacks with luminous gold and cream, no text."),
+    ("Cargo convoy",
+     "A convoy of long boxy cargo haulers linked like a space train moves through an asteroid belt, escorted by "
+     "two small arrowhead fighters, navigation beacons blinking along their hulls, one hauler painted in faded "
+     "yellow and black hazard stripes. A distant orange star lights the scene from the side. Industrial "
+     "science fiction illustration, gritty weathered metal, warm side light and deep shadow, 1980s paperback "
+     "cover style, no text."),
+    ("Sky whales",
+     "Enormous graceful space creatures shaped like whales, their translucent bodies glowing with soft "
+     "bioluminescent patterns, glide past a small research ship near a pastel nebula. Tiny drones follow "
+     "them taking measurements. Dreamlike science fiction painting, iridescent blues, pinks and pearl white, "
+     "soft airbrush gradients, peaceful and awe-inspiring, no text."),
+    ("Neon spaceport",
+     "A crowded spaceport at night on a rain-soaked megacity rooftop, a scuffed freighter with glowing engines "
+     "lifting off between towering skyscrapers, holographic signs made of abstract symbols, steam vents, "
+     "pilots and dock workers silhouetted against the light. Cyberpunk science fiction concept art, magenta "
+     "and cyan neon, wet reflective surfaces, cinematic depth, no text."),
+    ("Monolith plain",
+     "A towering black monolith of perfect smoothness stands in the middle of a vast salt plain under a pale "
+     "green sky, a ring of small explorers and their parked hover vehicle dwarfed beside it, long shadows "
+     "pointing toward the viewer. A faint ring of light hovers above the monolith. Minimal surreal science "
+     "fiction painting, restrained palette of black, bone white and sage green, strong geometry, no text."),
+    ("Mars greenhouse",
+     "A cozy greenhouse habitat on Mars at dusk, rows of tomatoes and herbs under violet grow lights, a robot "
+     "gardener with soft rounded shapes watering plants, and through the curved window a dusty red landscape "
+     "with a blue Martian sunset. Warm detailed science fiction illustration, inviting interior light, "
+     "contrast between green life and red desert, painterly, no text."),
+    ("Battle above the moon",
+     "Two great fleets clash above a grey cratered moon, capital ships firing streams of glowing tracer fire, "
+     "explosions blooming silently, fighters weaving between them, debris spinning in the foreground. The "
+     "bright blue limb of a planet curves across the top of the frame. Epic space opera painting, 1980s book "
+     "cover style, airbrushed, high contrast oranges and blues, dense detail, no text."),
+    ("Underwater base",
+     "A research base of linked glowing domes anchored to the sea floor beneath the ice of a frozen moon, a "
+     "small submarine with headlights approaching, strange luminous jellyfish-like creatures drifting nearby, "
+     "and faint light filtering down through cracks in the ice ceiling far above. Atmospheric science fiction "
+     "concept painting, deep teal and black with warm interior lights, sense of mystery, no text."),
+    ("Retro rocket parade",
+     "Three gleaming retro rockets with tail fins and chrome bands stand ready on launch towers at a coastal "
+     "spaceport at dawn, crowds of tiny spectators behind fences, searchlights fading as the sun rises over the "
+     "ocean, a flock of seabirds crossing the sky. 1950s pulp science fiction magazine illustration, bold "
+     "optimistic colors, peach and turquoise sky, painted gouache, no text."),
+    ("Cathedral ship",
+     "A vast gothic battleship shaped like a flying cathedral, with spires, flying buttresses, stained glass "
+     "windows glowing red and gold, and banks of engines along its keel, drifts slowly through a dark violet "
+     "nebula. Small escort ships trail behind it like moths. Dark baroque science fiction oil painting, "
+     "dramatic chiaroscuro, deep purples, black and gold, monumental scale, no text."),
+    ("Wandering planet",
+     "A rogue planet with a thin glowing atmosphere drifts through interstellar darkness, its night side "
+     "covered with the lights of scattered cities, while a lone small starship approaches with its landing "
+     "lights on. A faint band of the galaxy arcs behind. Quiet contemplative space art, minimal composition, "
+     "deep navy and black with warm golden city lights, airbrushed realism, no text."),
+    ("Skyhook elevator",
+     "A space elevator rises from a green tropical island into the sky, its tether a thin silver line "
+     "vanishing into the clouds, a climber pod halfway up catching the sunlight, a station ring visible in "
+     "orbit far above. Turquoise sea, white beaches and boats in the foreground. Bright optimistic "
+     "retro-futurist poster painting, clean shapes, turquoise, white and sunny yellow, no text."),
+    ("Desert caravan",
+     "A caravan of tall walking machines with rounded cargo cabins on spindly legs crosses a vast orange desert "
+     "at sunset, cloth banners fluttering, robed travelers riding on their decks, a ringed planet low on the "
+     "horizon. Long shadows stretch across the dunes. Science fiction adventure painting in the spirit of "
+     "European comic albums of the 1970s, clean lines, warm flat colors, wide panoramic view, no text."),
+    ("Pilot portrait",
+     "Portrait of a weathered starship pilot in a worn flight jacket with mission patches without letters, a "
+     "scratched helmet under her arm, standing in a dim hangar, a large fighter's nose cone behind her lit by "
+     "warm work lights. Her expression is calm and tired. Cinematic science fiction character painting, "
+     "realistic oil technique, warm amber and cool shadow, shallow depth, no text."),
+    ("Comet miners",
+     "Miners in bulky suits anchor drilling rigs on the surface of a comet, jets of glittering gas and dust "
+     "erupting around them, their tethered ship hovering above with floodlights, and the long glowing tail of "
+     "the comet stretching across a field of stars. Detailed 1980s science fiction illustration, icy whites "
+     "and blues with sodium orange lights, airbrushed, sense of danger, no text."),
+    ("Ancient gate",
+     "A gigantic ring-shaped alien gate made of dark stone and metal floats in space near a red dwarf star, its "
+     "inner edge rippling with a shimmering field of light, a small scout ship approaching cautiously. Strange "
+     "carved symbols cover the ring, worn and cracked. Mysterious science fiction painting, deep red and black "
+     "with an electric blue glow, airbrushed, epic scale, no text."),
+    ("Floating market",
+     "A busy floating market in the clouds of a gas giant, airships and small hover barges tied to a central "
+     "platform hung with lanterns and colorful awnings, traders exchanging crates, cloud layers glowing peach "
+     "and lavender at sunset. Whimsical detailed science fiction illustration, warm festive colors, "
+     "painterly, lively atmosphere, no text."),
+    ("Last launch",
+     "The last rocket leaving a dying, overgrown city at night, its exhaust lighting up abandoned towers covered "
+     "in vines, a small crowd watching from a rooftop, fireflies and stars above. Emotional cinematic science "
+     "fiction painting, deep greens and blacks with a brilliant white-orange exhaust plume, hopeful and "
+     "melancholic, no text."),
+    ("Asteroid hermit",
+     "A tiny hand-built home on a small asteroid: a patched-together cabin with a round door, a satellite dish, "
+     "a vegetable patch under a glass cover and a little shuttle parked beside it, a cat sitting in the window. "
+     "The whole asteroid floats against a colorful nebula. Cozy storybook science fiction illustration, "
+     "gouache, warm and charming, soft pastel space colors, no text."),
+    ("Titan lake",
+     "A small exploration boat with a bright orange hull floats on a methane lake on Titan, thick golden haze "
+     "overhead, the faint shadow of Saturn visible through the clouds, rounded hills of ice along the shore. "
+     "A crew member stands at the bow with a sampling pole. Realistic space art, muted gold, umber and slate, "
+     "soft diffused light, quiet and alien, no text."),
+    ("Crystal flagship",
+     "A colossal wedge-shaped flagship made of white crystal and silver metal emerges from a burst of white "
+     "light, its edges glowing, smaller ships scattering from its path, a blue nebula rippling around it like "
+     "water. Majestic science fiction concept art, cool white, silver and cobalt, high contrast, cinematic "
+     "lens flare, no text."),
+    ("Robot repair",
+     "Inside a cramped workshop aboard a freighter, an old maintenance robot with chipped yellow paint repairs "
+     "a small drone at a workbench, tools hanging on the wall, a round porthole showing stars and a passing "
+     "planet. Warm cozy science fiction interior, detailed clutter, tungsten light, painterly illustration "
+     "with a nostalgic 1980s feel, no text."),
+    ("Crystal canyon",
+     "A lone astronaut walks through a canyon of giant translucent crystals that glow from within in pink, "
+     "violet and teal, light refracting into rainbows on the ground, a small lander waiting in the distance. "
+     "Fantasy science fiction painting, luminous colors, detailed crystal facets, wonder and solitude, "
+     "no text."),
+    ("Polar launch base",
+     "A launch base at the polar circle at night, a slim white rocket on the pad lit by floodlights, aurora "
+     "curtains of green and violet rippling across the sky, snow drifting across the concrete and a row of "
+     "small red lights along the tower. Cinematic realistic painting, cold blues with vivid aurora colors, "
+     "crisp detail, quiet anticipation, no text."),
+]

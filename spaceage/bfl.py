@@ -51,7 +51,7 @@ def generate(prompt, model, key, seed, raw=False, refs=()):
     headers = {"x-key": key, "accept": "application/json"}
     r = requests.post(f"{API}/{endpoint}", json=body, headers=headers, timeout=60)
     if not r.ok:
-        sys.exit(f"BFL request failed {r.status_code}: {r.text}")
+        raise RuntimeError(f"BFL request failed {r.status_code}: {r.text}")
     job = r.json()
     poll = job.get("polling_url") or f"{API}/get_result?id={job['id']}"
     deadline = time.time() + 300

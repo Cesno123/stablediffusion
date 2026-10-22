@@ -147,7 +147,7 @@ def main():
         print("upload complete", flush=True)
     wait_until_ready(container, token)
     media_id = publish(user_id, token, container)
-    print(f"published reel, media id {media_id}")
+    print(f"published, media id {media_id}")
 
 
 if __name__ == "__main__":
