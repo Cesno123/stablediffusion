@@ -25,12 +25,40 @@ chmod +x "$APP/spaceage/server/run.sh"
 # Public HTTPS address without an own domain: <ip>.sslip.io, certificate by Caddy
 ip=$(curl -4 -fsS https://api.ipify.org)
 host="${ip//./-}.sslip.io"
+# Upload page for own images: https://$host/upload, user "spaceage" + password
+pwfile=/root/spaceage-upload-passwort.txt
+[ -s "$pwfile" ] || { tr -dc 'a-z2-9' < /dev/urandom | head -c 12 > "$pwfile"; chmod 600 "$pwfile"; }
+pwhash=$(caddy hash-password --plaintext "$(cat "$pwfile")")
 cat > /etc/caddy/Caddyfile <<CADDY
 $host {
-	root * /srv/spaceage/www
-	file_server
+	handle /upload* {
+		basicauth {
+			spaceage $pwhash
+		}
+		reverse_proxy 127.0.0.1:8081
+	}
+	handle {
+		root * /srv/spaceage/www
+		file_server
+	}
 }
 CADDY
+cat > /etc/systemd/system/spaceage-upload.service <<UNIT
+[Unit]
+Description=SpaceAge upload page
+After=network.target
+
+[Service]
+User=spaceage
+ExecStart=$APP/venv/bin/python $APP/spaceage/server/upload.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable spaceage-upload
+systemctl restart spaceage-upload
 systemctl restart caddy
 grep -q '^SPACEAGE_PUBLIC_URL=' /etc/spaceage.env || echo "SPACEAGE_PUBLIC_URL=https://$host" >> /etc/spaceage.env
 chown root:spaceage /etc/spaceage.env
@@ -44,6 +72,6 @@ CRON
 # First check: is the Instagram token ok? Result on https://$host/status.txt
 sleep 20  # give Caddy time for the certificate
 runuser -u spaceage -- "$APP/spaceage/server/run.sh" --check >> /var/log/spaceage.log 2>&1 || true
-echo "FERTIG: https://$host/status.txt"
+echo "FERTIG: https://$host/status.txt - Uploads: https://$host/upload"
 # setup log page on port 8080 is no longer needed
 systemctl stop spaceage-setup || true

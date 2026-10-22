@@ -15,7 +15,7 @@ import tarfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 SPACEAGE = os.path.dirname(HERE)
 FILES = ["ambience.py", "autogen.py", "bfl.py", "post_instagram.py", "post_queue.py", "prompt_library.py",
-         "server/run.py", "server/run.sh", "server/install.sh"]
+         "server/run.py", "server/run.sh", "server/install.sh", "server/upload.py"]
 
 TEMPLATE = """#!/bin/bash
 # SpaceAge42 setup. Replace the two HIER_EINTRAGEN below with your keys.
