@@ -1,0 +1,44 @@
+name: SpaceAge FLUX test
+
+# Renders a few random images with FLUX Pro and FLUX Ultra for a quality
+# comparison and publishes them on a preview release. Posts nothing.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "spaceage/bfl.py"
+      - "spaceage/random_prompt.py"
+      - ".github/workflows/spaceage-bfl-test.yml"
+
+permissions:
+  contents: write  # create the preview release
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BFL_API_KEY: ${{ secrets.BFL_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests
+      - name: Render 3 x FLUX Pro
+        run: python spaceage/bfl.py --out out --count 3 --model pro --prefix pro
+      - name: Render 3 x FLUX Ultra
+        run: python spaceage/bfl.py --out out --count 3 --model ultra --prefix ultra
+      - name: Publish preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          shopt -s nullglob
+          {
+            echo "Zufällige Testbilder (nichts gepostet). pro_* = FLUX 1.1 Pro, ultra_* = FLUX Ultra."
+            for t in out/*.txt; do echo; echo "**$(basename "$t" .txt)**: $(cat "$t")"; done
+          } > notes.md
+          cat notes.md
+          gh release create "flux-test-$RUN_NUMBER" out/*.jpg --target "$GITHUB_SHA" --prerelease \
+            --title "FLUX-Test #$RUN_NUMBER" --notes-file notes.md
