@@ -5,6 +5,11 @@ set -euo pipefail
 APP=/opt/spaceage
 
 timedatectl set-timezone Europe/Berlin
+# 2 GB swap as a safety net: building a reel needs ~0.6 GB for ffmpeg
+if [ ! -f /swapfile ]; then
+	fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+	echo "/swapfile none swap sw 0 0" >> /etc/fstab
+fi
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y python3-venv caddy cron curl ffmpeg
 python3 -m venv "$APP/venv"
