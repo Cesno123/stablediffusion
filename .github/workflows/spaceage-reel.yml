@@ -1,0 +1,108 @@
+name: SpaceAge reel
+
+# CPU-only fallback (animated SD-Turbo stills). Manual runs only;
+# the GPU pipeline is spaceage-kaggle.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      post:
+        description: "Post to Instagram after rendering"
+        type: boolean
+        default: false
+      no_ai:
+        description: "Procedural keyframes instead of SD-Turbo"
+        type: boolean
+        default: false
+      seed:
+        description: "Seed (empty = today's date)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write  # create the preview release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: spaceage/requirements.txt
+
+      - name: Cache model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-sd-turbo-v1
+
+      - name: Install
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r spaceage/requirements.txt
+
+      - name: Render reel
+        env:
+          SEED: ${{ inputs.seed }}
+          NO_AI: ${{ inputs.no_ai }}
+        run: |
+          args=(--out out)
+          if [ -n "$SEED" ]; then args+=(--seed "$SEED"); fi
+          if [ "$NO_AI" = "true" ]; then args+=(--no-ai); fi
+          python spaceage/make_reel.py "${args[@]}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reel
+          path: out/
+          retention-days: 14
+
+      # Plain MP4 on a release page: opens on a phone without unzipping.
+      - name: Publish preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          tag="reel-$(date -u +%Y%m%d)-$RUN_NUMBER"
+          style=$(python -c "import json; print(json.load(open('out/meta.json'))['style'])")
+          gh release create "$tag" out/reel.mp4 out/keyframe_1.png \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Reel $(date -u +%d.%m.%Y) #$RUN_NUMBER – $style" \
+            --notes-file out/caption.txt
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/reel.mp4"
+          echo "Video: $url"
+          echo "### [▶ Reel ansehen]($url)" >> "$GITHUB_STEP_SUMMARY"
+
+  post:
+    needs: render
+    if: >-
+      (github.event_name == 'schedule' && vars.SPACEAGE_AUTOPOST == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.post)
+    runs-on: ubuntu-latest
+    # Add required reviewers to this environment to approve each post by hand.
+    environment: instagram
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install requests
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: reel
+          path: out/
+
+      - name: Publish
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: python spaceage/post_instagram.py --video out/reel.mp4 --caption-file out/caption.txt
