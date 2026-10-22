@@ -5,6 +5,12 @@ on:
     # 17:07 UTC = 18:07 Berlin in winter, 19:07 in summer
     - cron: "7 17 * * *"
   workflow_dispatch:
+  # A push to the posting code only runs the read-only access check below.
+  push:
+    paths:
+      - "spaceage/post_instagram.py"
+      - "spaceage/post_queue.py"
+      - ".github/workflows/spaceage-post.yml"
 
 permissions:
   contents: write  # move posted files out of the queue
@@ -14,7 +20,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests
+      - name: Check Instagram access (posts nothing)
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: python spaceage/post_instagram.py --check
+
   post:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

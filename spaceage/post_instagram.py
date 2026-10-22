@@ -90,6 +90,16 @@ def publish(user_id, token, container_id):
     ))["id"]
 
 
+def check_access(user_id, token):
+    """Read-only: confirm the token works and belongs to IG_USER_ID."""
+    info = check(requests.get(
+        f"{GRAPH}/me", params={"fields": "user_id,username", "access_token": token}, timeout=60))
+    print(f"token belongs to @{info.get('username')}")
+    if user_id and str(info.get("user_id")) != str(user_id) and str(info.get("id")) != str(user_id):
+        sys.exit("IG_USER_ID does not match the account of IG_ACCESS_TOKEN")
+    print("IG_USER_ID matches")
+
+
 def refresh_token(token):
     info = check(requests.get(
         "https://graph.instagram.com/refresh_access_token",
@@ -107,6 +117,7 @@ def main():
     ap.add_argument("--image-url", help="public URL of a JPEG to post as a feed photo")
     ap.add_argument("--caption-file")
     ap.add_argument("--refresh-token", action="store_true")
+    ap.add_argument("--check", action="store_true", help="verify access without posting")
     args = ap.parse_args()
 
     token = os.environ.get("IG_ACCESS_TOKEN")
@@ -117,6 +128,9 @@ def main():
         return
 
     user_id = os.environ.get("IG_USER_ID")
+    if args.check:
+        check_access(user_id, token)
+        return
     if not user_id:
         sys.exit("IG_USER_ID is not set")
     if not (args.video or args.video_url or args.image_url):
