@@ -4,7 +4,7 @@ Images (png/jpg/webp) become a feed photo: converted to JPEG and cropped to
 Instagram's tallest allowed ratio (4:5) if needed. Videos (mp4/mov) become a
 reel. The oldest upload (by git history) goes first.
 
-Caption: queue/<name>.txt if it exists, otherwise one is generated.
+Caption: queue/<name>.txt if it exists, otherwise the fixed CAPTION.
 The original, the prepared file and the caption move to posted/.
 Prints key=value lines for $GITHUB_OUTPUT.
 """
@@ -12,7 +12,6 @@ Prints key=value lines for $GITHUB_OUTPUT.
 import argparse
 import datetime as dt
 import os
-import random
 import shutil
 import subprocess
 import sys
@@ -25,20 +24,19 @@ POSTED = os.path.join(HERE, "posted")
 IMAGES = {".png", ".jpg", ".jpeg", ".webp"}
 VIDEOS = {".mp4", ".mov"}
 
-HOOKS = [
-    "Cover art from a book that was never written.",
-    "Found on a paperback from 2187.",
-    "Which mission would you join?",
-    "They built it to last a thousand years.",
-    "Departure in T-minus 10. 🚀",
-    "Retro future, rendered today.",
-    "Would you live here?",
-    "Last transmission before the jump.",
-    "Somewhere beyond the outer rim.",
-    "Not all who wander are lost in space.",
-]
-TAGS = ("#scifi #scifiart #retrofuturism #80sscifi #vintagescifi #spaceart "
-        "#conceptart #aiart #midjourney #spaceage42")
+# Fixed caption for every post (the owner's text). Instagram allows at most
+# 30 hashtags; #nasa was dropped because it duplicates #NASA.
+CAPTION = (
+    "🚀 Step into the future with SpaceAge42 – your gateway to cosmic art and sci-fi "
+    "visions! 🌌 Perfect for dreamers, explorers, and tech lovers. From interstellar "
+    "landscapes to futuristic worlds, our gallery brings the thrill of space exploration "
+    "to life. ✨\n\n"
+    "#SpaceAge42 #SciFiArt #SpaceArt #FuturisticVibes #CosmicDreams #ExploreTheUniverse "
+    "#DigitalArt #FutureWorlds #SciFiCommunity #AstronomyLovers #CyberpunkArt #GalaxyVibes "
+    "#StarsAndBeyond #NewWorlds #DeepSpaceDreams #SciFiUniverse #SpaceExploration "
+    "#OuterSpaceArt #StellarVisions #NextFrontier #NASA #SpaceX #StarWarsFans "
+    "#StarTrekUniverse #MarsMission #space #astronomy #starwars #startrek #dystopian"
+)
 
 
 def added_at(path):
@@ -63,8 +61,7 @@ def caption_for(src):
     if os.path.exists(txt):
         with open(txt) as f:
             return f.read().strip()
-    rng = random.Random(os.path.basename(src))
-    return f"{rng.choice(HOOKS)}\n\n{TAGS}"
+    return CAPTION
 
 
 def to_feed_jpeg(src, dst):
