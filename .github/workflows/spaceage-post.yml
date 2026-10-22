@@ -23,17 +23,35 @@ jobs:
   check:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install requests
+      - run: pip install requests pillow numpy imageio-ffmpeg
       - name: Check Instagram access (posts nothing)
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
         run: python spaceage/post_instagram.py --check
+      - name: Test reel upload (processed by Instagram, not published)
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import sys; sys.path.insert(0, "spaceage")
+          from PIL import Image
+          import post_queue
+          Image.new("RGB", (1152, 2048), (20, 30, 70)).save("/tmp/test.png")
+          post_queue.to_reel("/tmp/test.png", "/tmp/test.mp4", seed=1)
+          PY
+          echo "test - not published" > /tmp/caption.txt
+          url=$(spaceage/host_reel.sh /tmp/test.mp4)
+          echo "hosted at $url"
+          python spaceage/post_instagram.py --video-url "$url" --caption-file /tmp/caption.txt --no-publish
 
   post:
     if: github.event_name != 'push'
@@ -52,7 +70,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - run: pip install pillow requests
+      - run: pip install pillow requests numpy imageio-ffmpeg
 
       - name: Dry run without Instagram access
         if: env.IG_USER_ID == '' || env.IG_ACCESS_TOKEN == ''
@@ -84,6 +102,7 @@ jobs:
       - name: Publish on Instagram
         if: steps.commit.outcome == 'success'
         env:
+          GH_TOKEN: ${{ github.token }}
           KIND: ${{ steps.next.outputs.kind }}
           MEDIA: ${{ steps.next.outputs.media }}
           CAPTION: ${{ steps.next.outputs.caption }}
@@ -93,7 +112,9 @@ jobs:
             url="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$SHA/$MEDIA"
             python spaceage/post_instagram.py --image-url "$url" --caption-file "$CAPTION"
           else
-            python spaceage/post_instagram.py --video "$MEDIA" --caption-file "$CAPTION"
+            # Instagram Login only accepts videos by public URL
+            url=$(spaceage/host_reel.sh "$MEDIA")
+            python spaceage/post_instagram.py --video-url "$url" --caption-file "$CAPTION"
           fi
 
       - name: Put the file back into the queue if posting failed

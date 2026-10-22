@@ -118,6 +118,8 @@ def main():
     ap.add_argument("--caption-file")
     ap.add_argument("--refresh-token", action="store_true")
     ap.add_argument("--check", action="store_true", help="verify access without posting")
+    ap.add_argument("--no-publish", action="store_true",
+                    help="upload and process the media but do not publish it (test)")
     args = ap.parse_args()
 
     token = os.environ.get("IG_ACCESS_TOKEN")
@@ -139,13 +141,19 @@ def main():
 
     if args.image_url:
         container = create_image_container(user_id, token, caption, args.image_url)
+    elif args.video and not args.video_url:
+        # Resumable upload; graph.instagram.com (Instagram Login) rejects it
+        # and wants video_url, so the workflow hosts reels via host_reel.sh.
+        container = create_container(user_id, token, caption)
+        upload_file(container, token, args.video)
+        print("upload complete", flush=True)
     else:
         container = create_container(user_id, token, caption, args.video_url)
     print(f"created container {container}", flush=True)
-    if args.video and not args.video_url and not args.image_url:
-        upload_file(container, token, args.video)
-        print("upload complete", flush=True)
     wait_until_ready(container, token)
+    if args.no_publish:
+        print("processed fine, not published (--no-publish)")
+        return
     media_id = publish(user_id, token, container)
     print(f"published, media id {media_id}")
 
