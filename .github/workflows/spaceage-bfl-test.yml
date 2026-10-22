@@ -8,6 +8,7 @@ on:
     paths:
       - "spaceage/bfl.py"
       - "spaceage/random_prompt.py"
+      - "spaceage/prompt_library.py"
       - ".github/workflows/spaceage-bfl-test.yml"
 
 permissions:
@@ -25,10 +26,10 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install requests
-      - name: Render 3 x FLUX Pro
-        run: python spaceage/bfl.py --out out --count 3 --model pro --prefix pro
-      - name: Render 3 x FLUX Ultra
-        run: python spaceage/bfl.py --out out --count 3 --model ultra --prefix ultra
+      - name: Render 6 library prompts with FLUX Ultra (raw)
+        run: >-
+          python spaceage/bfl.py --out out --count 6 --model ultra --raw --library
+          --include "Classic space scene" --prefix ultra_raw
       - name: Publish preview release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -36,7 +37,7 @@ jobs:
         run: |
           shopt -s nullglob
           {
-            echo "Zufällige Testbilder (nichts gepostet). pro_* = FLUX 1.1 Pro, ultra_* = FLUX Ultra."
+            echo "Testbilder aus der Prompt-Bibliothek, FLUX Ultra Raw (nichts gepostet). Bild 1 = alter DALL-E-Prompt aus dem Zap."
             for t in out/*.txt; do echo; echo "**$(basename "$t" .txt)**: $(cat "$t")"; done
           } > notes.md
           cat notes.md
