@@ -23,9 +23,9 @@ MODELS = {
     # 896x1120 is 4:5, both multiples of 32
     "pro": ("flux-pro-1.1", {"width": 896, "height": 1120}),
     "ultra": ("flux-pro-1.1-ultra", {"aspect_ratio": "4:5", "raw": False}),
-    # FLUX.2: 1440x1800 is 4:5 at ~2.6 MP, multiples of 16
-    "flux2pro": ("flux-2-pro", {"width": 1440, "height": 1800}),
-    "flux2max": ("flux-2-max", {"width": 1440, "height": 1800}),
+    # FLUX.2: 1152x2048 is 9:16 at ~2.4 MP, multiples of 16 (reels)
+    "flux2pro": ("flux-2-pro", {"width": 1152, "height": 2048}),
+    "flux2max": ("flux-2-max", {"width": 1152, "height": 2048}),
 }
 
 # Owner's own Midjourney images, used as style references for FLUX.2

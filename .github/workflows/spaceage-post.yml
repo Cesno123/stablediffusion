@@ -28,12 +28,28 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install requests
+      - run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install requests pillow numpy
       - name: Check Instagram access (posts nothing)
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
         run: python spaceage/post_instagram.py --check
+      - name: Test reel upload (processed by Instagram, not published)
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: |
+          python - <<'PY'
+          import sys; sys.path.insert(0, "spaceage")
+          from PIL import Image
+          import post_queue
+          Image.new("RGB", (1152, 2048), (20, 30, 70)).save("/tmp/test.png")
+          post_queue.to_reel("/tmp/test.png", "/tmp/test.mp4", seed=1)
+          PY
+          echo "test - not published" > /tmp/caption.txt
+          python spaceage/post_instagram.py --video /tmp/test.mp4 --caption-file /tmp/caption.txt --no-publish
 
   post:
     if: github.event_name != 'push'
@@ -52,7 +68,9 @@ jobs:
         with:
           python-version: "3.11"
 
-      - run: pip install pillow requests
+      - run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install pillow requests numpy
 
       - name: Dry run without Instagram access
         if: env.IG_USER_ID == '' || env.IG_ACCESS_TOKEN == ''
