@@ -60,6 +60,8 @@ def assemble(args):
              f"· Dauer: {result['report'].get('minutes')} min"]
     if result["report"].get("flux_error"):
         notes.append("\n⚠️ FLUX-Fehler (Ersatz SDXL benutzt):\n```\n" + result["report"]["flux_error"][-800:] + "\n```")
+    if result["report"].get("refine_error"):
+        notes.append("\n⚠️ Schärfe-Pass fehlgeschlagen (Rohbilder):\n```\n" + result["report"]["refine_error"][-800:] + "\n```")
     if result["report"].get("video_error"):
         notes.append("\n⚠️ Video-Fehler:\n```\n" + result["report"]["video_error"][-800:] + "\n```")
     for i, item in enumerate(result["items"], 1):
@@ -92,7 +94,7 @@ def main():
     b = sub.add_parser("build")
     b.add_argument("--dir", default="kernel")
     b.add_argument("--seed", type=int)
-    b.add_argument("--count", type=int, default=4)
+    b.add_argument("--count", type=int, default=8)
     b.add_argument("--videos", type=int, default=2)
     a = sub.add_parser("assemble")
     a.add_argument("--src", default="kaggle_out")

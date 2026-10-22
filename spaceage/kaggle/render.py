@@ -116,6 +116,33 @@ def make_images(items):
     return report
 
 
+def refine_images(items):
+    """Hi-res pass: upscale 1.5x, then let SDXL repaint fine detail at low strength."""
+    from diffusers import AutoencoderKL, StableDiffusionXLImg2ImgPipeline
+    from PIL import Image
+
+    vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+    pipe = StableDiffusionXLImg2ImgPipeline.from_pretrained(
+        "stabilityai/stable-diffusion-xl-base-1.0", vae=vae, torch_dtype=torch.float16,
+        variant="fp16", use_safetensors=True)
+    pipe.enable_model_cpu_offload()
+    pipe.enable_vae_tiling()
+    pipe.set_progress_bar_config(disable=True)
+    neg = "blurry, smeared, mushy details, deformed, asymmetrical, text, watermark, lowres"
+    for i, item in enumerate(items):
+        t = time.time()
+        path = f"{OUT}/{item['image']}"
+        big = Image.open(path).convert("RGB").resize((W * 3 // 2, H * 3 // 2), Image.LANCZOS)
+        out = pipe(
+            prompt=item["prompt"], negative_prompt=neg, image=big, strength=0.3,
+            num_inference_steps=30, guidance_scale=5.0,
+            generator=torch.Generator("cpu").manual_seed(item["seed"]),
+        ).images[0]
+        out.save(path)
+        log(f"refine {i + 1}/{len(items)} done in {time.time() - t:.0f}s")
+    free(pipe)
+
+
 def make_videos(items, negative):
     from diffusers import LTXImageToVideoPipeline
     from diffusers.utils import export_to_video
@@ -148,6 +175,11 @@ def main():
     report = {"gpu": torch.cuda.get_device_name(0)}
     t0 = time.time()
     report.update(make_images(items))
+    try:
+        refine_images(items)
+    except Exception:
+        traceback.print_exc()
+        report["refine_error"] = traceback.format_exc()[-1500:]
     try:
         make_videos(items, JOB["negative_video"])
     except Exception:

@@ -5,7 +5,7 @@ on:
     inputs:
       count:
         description: "Number of stills"
-        default: "4"
+        default: "8"
       videos:
         description: "How many of them also get a video"
         default: "2"
@@ -70,7 +70,7 @@ jobs:
         id: push
         env:
           SEED: ${{ inputs.seed }}
-          COUNT: ${{ inputs.count || '4' }}
+          COUNT: ${{ inputs.count || '8' }}
           VIDEOS: ${{ inputs.videos || '2' }}
         run: |
           args=(build --dir kernel --count "$COUNT" --videos "$VIDEOS")
