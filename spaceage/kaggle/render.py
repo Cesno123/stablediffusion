@@ -26,6 +26,9 @@ def log(msg):
 
 
 sh("nvidia-smi --query-gpu=name,memory.total --format=csv")
+# Kaggle's preinstalled torchao is older than what current diffusers imports;
+# we don't use it, so remove it instead of pinning versions.
+sh("pip uninstall -y -q torchao || true")
 sh("pip install -q -U diffusers transformers accelerate bitsandbytes sentencepiece "
    "protobuf imageio imageio-ffmpeg")
 
