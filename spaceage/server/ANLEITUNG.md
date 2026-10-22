@@ -25,7 +25,7 @@ neuen Schlüssel erstellen und kopieren. Den alten dort löschen.
    - Typ: der günstigste, der verfügbar ist (CX23 oder CAX11)
    - Netzwerk: **öffentliche IPv4** angehakt lassen
    - SSH-Schlüssel: überspringen
-   - **Cloud config**: den kompletten Inhalt der Datei `cloud-init.yaml`
+   - **Cloud config**: den kompletten Inhalt der Datei `cloud-init.txt`
      einfügen. Dann oben im Feld die zwei `HIER_EINTRAGEN` ersetzen:
      `IG_ACCESS_TOKEN=` dein Instagram-Schlüssel,
      `BFL_API_KEY=` dein FLUX-Schlüssel (ohne Leerzeichen, ohne Anführungszeichen).
