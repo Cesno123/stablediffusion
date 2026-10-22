@@ -24,11 +24,19 @@ def build(args):
     user = os.environ.get("KAGGLE_USER") or os.environ.get("KAGGLE_USERNAME")
     if not user:
         sys.exit("KAGGLE_USER is not set")
-    seed = args.seed if args.seed is not None else int(dt.date.today().strftime("%Y%m%d"))
+    if args.seed is not None:
+        seed = args.seed
+    else:  # date + run number, so reruns on the same day pick new scenes
+        seed = int(dt.date.today().strftime("%Y%m%d")) * 100 + int(os.environ.get("GITHUB_RUN_NUMBER", "0")) % 100
     job = make_job(seed, args.count, args.videos)
     os.makedirs(args.dir, exist_ok=True)
     with open(os.path.join(HERE, "kaggle", "render.py")) as f:
         script = f.read().replace("__JOB__", json.dumps(job))
+    token = os.environ.get("HF_TOKEN", "").strip()
+    if token:
+        if not token.isalnum() and not token.replace("_", "").isalnum():
+            sys.exit("HF_TOKEN has unexpected characters")
+        script = script.replace("__HF_TOKEN__", token)
     with open(os.path.join(args.dir, "render.py"), "w") as f:
         f.write(script)
     meta = {

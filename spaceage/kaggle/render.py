@@ -15,6 +15,11 @@ import traceback
 JOB = json.loads(r"""__JOB__""")
 OUT = "/kaggle/working"
 
+# FLUX.1-schnell is gated on Hugging Face; kaggle_job.py fills in a read token.
+HF_TOKEN = "__HF_TOKEN__"
+if HF_TOKEN and not HF_TOKEN.startswith("__"):
+    os.environ["HF_TOKEN"] = HF_TOKEN
+
 
 def sh(cmd):
     print("+", cmd, flush=True)
@@ -126,7 +131,7 @@ def refine_images(items):
         "stabilityai/stable-diffusion-xl-base-1.0", vae=vae, torch_dtype=torch.float16,
         variant="fp16", use_safetensors=True)
     pipe.enable_model_cpu_offload()
-    pipe.enable_vae_tiling()
+    pipe.vae.enable_tiling()
     pipe.set_progress_bar_config(disable=True)
     neg = "blurry, smeared, mushy details, deformed, asymmetrical, text, watermark, lowres"
     for i, item in enumerate(items):

@@ -70,6 +70,7 @@ jobs:
         id: push
         env:
           SEED: ${{ inputs.seed }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           COUNT: ${{ inputs.count || '8' }}
           VIDEOS: ${{ inputs.videos || '2' }}
         run: |
