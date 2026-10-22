@@ -1,8 +1,8 @@
 """Take the next file from spaceage/queue/ and prepare it for posting.
 
 Images (png/jpg/webp) become a 9:16 reel (other ratios shown whole on a
-blurred backdrop) with a slow 8-second zoom and a quiet synthesized space ambience. Videos (mp4/mov)
-are posted as reels unchanged. The oldest upload (by git history) goes first.
+blurred backdrop) with a slow 8-second zoom and a quiet synthesized space
+ambience. Videos (mp4/mov) are posted as reels unchanged. The oldest upload (by git history) goes first.
 
 Caption: queue/<name>.txt if it exists, otherwise the fixed CAPTION.
 The reel is built in a temp folder (not committed, to keep the repo small);
@@ -68,6 +68,15 @@ def caption_for(src):
 
 
 REEL_W, REEL_H, REEL_SECONDS, FPS = 1080, 1920, 8, 30
+
+
+def ffmpeg_exe():
+    """Bundled ffmpeg from imageio-ffmpeg (no apt needed), else the system one."""
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        return "ffmpeg"
 ZOOM = 0.08  # total zoom over the clip: slow and subtle
 
 
@@ -108,7 +117,7 @@ def to_reel(src, dst, seed):
             f"zoompan=z='1+{ZOOM}*on/{frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
             f":d={frames}:s={REEL_W}x{REEL_H}:fps={FPS},format=yuv420p")
     subprocess.run([
-        "ffmpeg", "-y", "-loglevel", "error", "-i", frame, "-i", wav, "-vf", zoom,
+        ffmpeg_exe(), "-y", "-loglevel", "error", "-i", frame, "-i", wav, "-vf", zoom,
         "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-maxrate", "12M", "-bufsize", "24M",
         "-profile:v", "high", "-level", "4.1", "-r", str(FPS),
         "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-t", str(REEL_SECONDS),

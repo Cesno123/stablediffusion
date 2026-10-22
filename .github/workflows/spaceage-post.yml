@@ -23,14 +23,13 @@ jobs:
   check:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          pip install requests pillow numpy
+      - run: pip install requests pillow numpy imageio-ffmpeg
       - name: Check Instagram access (posts nothing)
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
@@ -71,9 +70,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          pip install pillow requests numpy
+      - run: pip install pillow requests numpy imageio-ffmpeg
 
       - name: Dry run without Instagram access
         if: env.IG_USER_ID == '' || env.IG_ACCESS_TOKEN == ''
