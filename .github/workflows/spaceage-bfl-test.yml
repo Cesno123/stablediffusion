@@ -2,14 +2,9 @@ name: SpaceAge FLUX test
 
 # Renders a few random images with FLUX Pro and FLUX Ultra for a quality
 # comparison and publishes them on a preview release. Posts nothing.
+# Manual only: every run spends BFL credits.
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "spaceage/bfl.py"
-      - "spaceage/random_prompt.py"
-      - "spaceage/prompt_library.py"
-      - ".github/workflows/spaceage-bfl-test.yml"
 
 permissions:
   contents: write  # create the preview release
