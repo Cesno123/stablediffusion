@@ -19,6 +19,7 @@ Sie braucht dafür keine Spotify-Entwicklerfreischaltung.
 ## Extras
 
 - Meldet der Sender im Stream einen Liedtitel („Interpret - Titel“), schaltet die App schon nach 3 s um.
+- Unruhe-Erkennung: Wechselt Musik/Sprache in der letzten Minute ständig (typisch Werbung), wartet die App mindestens 20 s Musik ab.
 - Zur vollen (optional halben) Stunde startet kein neues Spotify-Lied; ein laufendes stoppt, sobald im Radio gesprochen wird.
 
 ## Bekannte Grenzen

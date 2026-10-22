@@ -26,7 +26,7 @@
     <string name="instant_back">Bei Moderation sofort zum Radio</string>
     <string name="instant_back_info">An: Spotify pausiert, sobald im Radio gesprochen wird, und spielt beim nächsten Radio-Lied an derselben Stelle weiter.\nAus: Das Spotify-Lied läuft immer zu Ende.</string>
     <string name="music_seconds">Spotify erst nach %1$d Sekunden Musik im Radio</string>
-    <string name="music_seconds_info">Springt es bei Werbung hin und her? Wert erhöhen. Hörst du zu viel vom Radio-Lied? Wert senken.\nMeldet der Sender einen Liedtitel, schaltet die App schon nach 3 Sekunden um.</string>
+    <string name="music_seconds_info">Springt es bei Werbung hin und her? Wert erhöhen. Hörst du zu viel vom Radio-Lied? Wert senken.\nMeldet der Sender einen Liedtitel, schaltet die App schon nach 3 Sekunden um.\nBei Unruhe wie in Werbeblöcken wartet die App mindestens 20 Sekunden.</string>
     <string name="news_hour">Nachrichten zur vollen Stunde hören</string>
     <string name="news_half">Nachrichten zur halben Stunde hören</string>
     <string name="news_info">Um diese Zeit startet kein neues Spotify-Lied. Ein laufendes stoppt erst, wenn im Radio wirklich gesprochen wird. Meldet der Sender selbst Nachrichten oder Werbung, ebenfalls.</string>
@@ -64,4 +64,5 @@
     <string name="results">%1$d Treffer</string>
     <string name="notif_spotify">Spielt gerade: deine Lieblingssongs</string>
     <string name="notif_radio">Spielt gerade: %1$s</string>
+    <string name="radio_restless">Unruhig im Radio (Werbung?) – wartet länger</string>
 </resources>

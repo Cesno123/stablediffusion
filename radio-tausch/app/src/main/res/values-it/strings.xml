@@ -26,7 +26,7 @@
     <string name="instant_back">Torna alla radio appena si parla</string>
     <string name="instant_back_info">Attivo: Spotify va in pausa appena la radio parla e riprende dallo stesso punto al brano successivo.\nDisattivo: il brano di Spotify suona sempre fino alla fine.</string>
     <string name="music_seconds">Spotify dopo %1$d secondi di musica in radio</string>
-    <string name="music_seconds_info">Salta avanti e indietro con la pubblicità? Aumenta. Senti troppo del brano radio? Diminuisci.\nSe la stazione indica un titolo, l\'app cambia dopo soli 3 secondi.</string>
+    <string name="music_seconds_info">Salta avanti e indietro con la pubblicità? Aumenta. Senti troppo del brano radio? Diminuisci.\nSe la stazione indica un titolo, l\'app cambia dopo soli 3 secondi.\nNei passaggi agitati come la pubblicità, l\'app aspetta almeno 20 secondi.</string>
     <string name="news_hour">Ascolta le notizie allo scoccare dell\'ora</string>
     <string name="news_half">Ascolta le notizie alla mezz\'ora</string>
     <string name="news_info">In quel momento non parte nessun nuovo brano Spotify. Un brano in corso si ferma appena la radio inizia davvero a parlare. Lo stesso se la stazione indica notizie o pubblicità.</string>
@@ -64,4 +64,5 @@
     <string name="results">%1$d risultati</string>
     <string name="notif_spotify">In riproduzione: i tuoi brani preferiti</string>
     <string name="notif_radio">In riproduzione: %1$s</string>
+    <string name="radio_restless">Agitato in radio (pubblicità?) – aspetta di più</string>
 </resources>

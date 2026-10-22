@@ -28,7 +28,7 @@
     <string name="instant_back">Back to radio as soon as they talk</string>
     <string name="instant_back_info">On: Spotify pauses as soon as the radio talks and resumes at the same spot on the next radio song.\nOff: the Spotify song always plays to the end.</string>
     <string name="music_seconds">Spotify after %1$d seconds of music on the radio</string>
-    <string name="music_seconds_info">Jumping back and forth during ads? Increase. Hearing too much of the radio song? Decrease.\nIf the station reports a song title, the app switches after just 3 seconds.</string>
+    <string name="music_seconds_info">Jumping back and forth during ads? Increase. Hearing too much of the radio song? Decrease.\nIf the station reports a song title, the app switches after just 3 seconds.\nDuring restless passages like ad breaks the app waits at least 20 seconds.</string>
     <string name="news_hour">Hear the news on the hour</string>
     <string name="news_half">Hear the news on the half hour</string>
     <string name="news_info">Around that time no new Spotify song starts. A song already playing stops as soon as the radio actually starts talking. Same if the station itself reports news or ads.</string>
@@ -66,4 +66,5 @@
     <string name="results">%1$d results</string>
     <string name="notif_spotify">Now playing: your favorite songs</string>
     <string name="notif_radio">Now playing: %1$s</string>
+    <string name="radio_restless">Restless on the radio (ads?) – waiting longer</string>
 </resources>

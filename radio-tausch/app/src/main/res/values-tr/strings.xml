@@ -26,7 +26,7 @@
     <string name="instant_back">Konuşma başlayınca hemen radyoya dön</string>
     <string name="instant_back_info">Açık: Radyoda konuşma başlayınca Spotify duraklar ve sonraki şarkıda aynı yerden devam eder.\nKapalı: Spotify şarkısı her zaman sonuna kadar çalar.</string>
     <string name="music_seconds">Radyoda %1$d saniye müzikten sonra Spotify</string>
-    <string name="music_seconds_info">Reklamlarda ileri geri mi atlıyor? Artır. Radyodaki şarkıdan çok mu duyuyorsun? Azalt.\nİstasyon şarkı adı bildirirse uygulama 3 saniyede geçer.</string>
+    <string name="music_seconds_info">Reklamlarda ileri geri mi atlıyor? Artır. Radyodaki şarkıdan çok mu duyuyorsun? Azalt.\nİstasyon şarkı adı bildirirse uygulama 3 saniyede geçer.\nReklam gibi hareketli bölümlerde uygulama en az 20 saniye bekler.</string>
     <string name="news_hour">Saat başı haberleri dinle</string>
     <string name="news_half">Buçuklarda haberleri dinle</string>
     <string name="news_info">Bu saatlerde yeni Spotify şarkısı başlamaz. Çalan şarkı, radyoda gerçekten konuşma başlayınca durur. İstasyon haber veya reklam bildirirse de öyle.</string>
@@ -64,4 +64,5 @@
     <string name="results">%1$d sonuç</string>
     <string name="notif_spotify">Şu an çalıyor: favori şarkıların</string>
     <string name="notif_radio">Şu an çalıyor: %1$s</string>
+    <string name="radio_restless">Radyoda hareketli (reklam?) – daha uzun bekliyor</string>
 </resources>

@@ -247,7 +247,13 @@ class MainActivity : AppCompatActivity() {
             s.nachrichten -> getString(R.string.now_news, s.sender)
             else -> getString(R.string.now_radio, s.sender)
         }
-        radioGerade.setText(if (s.radioMusik) R.string.radio_music else R.string.radio_talk)
+        radioGerade.setText(
+            when {
+                s.radioMusik -> R.string.radio_music
+                s.unruhig -> R.string.radio_restless
+                else -> R.string.radio_talk
+            }
+        )
         musikBalken.setProgressCompat((s.musik * 100).toInt(), true)
         sprachBalken.setProgressCompat((s.sprache * 100).toInt(), true)
         val senderZeile = s.senderTitel?.let { getString(R.string.station_reports, it) }

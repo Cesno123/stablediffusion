@@ -52,6 +52,7 @@ class RadioService : Service() {
         val spotifyTitel: String? = null,
         val senderTitel: String? = null,
         val nachrichten: Boolean = false,
+        val unruhig: Boolean = false,
         val spotifySperre: Int = 0,
         val verbindungVerloren: Boolean = false,
     )
@@ -67,6 +68,12 @@ class RadioService : Service() {
         private const val SEKUNDEN_BIS_SPRACHE = 3
         // Meldet der Sender gerade einen Liedtitel, reicht so viel Musik zur Bestätigung
         private const val SEKUNDEN_MIT_LIEDTITEL = 3
+        // Werbung wechselt ständig zwischen Sprache, Jingle und Musik, Lieder sind gleichmäßig.
+        // So viele Wechsel in der letzten Minute gelten als "unruhig" (vermutlich Werbung) ...
+        private const val UNRUHE_SEKUNDEN = 60
+        private const val UNRUHE_WECHSEL = 6
+        // ... dann muss Musik mindestens so lange am Stück laufen
+        private const val SEKUNDEN_WENN_UNRUHIG = 20
         private const val FRISCHER_TITEL_MS = 30_000L
         // Nachrichtenfenster um die volle/halbe Stunde. Großzügig nach hinten, weil der Stream
         // der echten Uhrzeit oft 10–60 s hinterherläuft.
@@ -103,6 +110,9 @@ class RadioService : Service() {
     private var radioSpieltMusik = false
     // Die letzten Sekunden: true = Musik. Eine einzelne Ausreißer-Sekunde wird toleriert.
     private val verlauf = ArrayDeque<Boolean>()
+    // Die letzte Minute, um Unruhe (Werbeblöcke) zu erkennen
+    private val unruheVerlauf = ArrayDeque<Boolean>()
+    private var unruhig = false
     private var sprachFolge = 0
     private var spotifyStill = 0
     private var spotifySperre = 0
@@ -137,6 +147,8 @@ class RadioService : Service() {
         radioSpieltMusik = false
         senderTitel = null
         verlauf.clear()
+        unruheVerlauf.clear()
+        unruhig = false
         sprachFolge = 0
         player?.apply {
             setMediaItem(MediaItem.fromUri(neu.url))
@@ -203,7 +215,15 @@ class RadioService : Service() {
         sprachWert = sprache
         val istMusik = musik >= MUSIK_MINDESTWERT && musik - sprache >= MUSIK_VORSPRUNG
         sprachFolge = if (istMusik) 0 else sprachFolge + 1
-        val fenster = if (titelIstLied()) SEKUNDEN_MIT_LIEDTITEL else Einstellungen.musikSekunden(this)
+        unruheVerlauf.addLast(istMusik)
+        while (unruheVerlauf.size > UNRUHE_SEKUNDEN) unruheVerlauf.removeFirst()
+        unruhig = unruheVerlauf.zipWithNext().count { (a, b) -> a != b } >= UNRUHE_WECHSEL
+        val eingestellt = Einstellungen.musikSekunden(this)
+        val fenster = when {
+            titelIstLied() -> SEKUNDEN_MIT_LIEDTITEL
+            unruhig -> maxOf(SEKUNDEN_WENN_UNRUHIG, eingestellt)
+            else -> eingestellt
+        }
         verlauf.addLast(istMusik)
         while (verlauf.size > fenster) verlauf.removeFirst()
         // Musik erst glauben, wenn das ganze Fenster voll ist und höchstens eine Sekunde abweicht
@@ -311,6 +331,7 @@ class RadioService : Service() {
             spotifyTitel = spotify?.aktuellerTitel(),
             senderTitel = senderTitel,
             nachrichten = nachrichtenZeit(),
+            unruhig = unruhig,
             spotifySperre = if (modus == Modus.RADIO) spotifySperre else 0,
             verbindungVerloren = verbindungVerloren,
         )
