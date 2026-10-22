@@ -46,4 +46,4 @@ sleep 20  # give Caddy time for the certificate
 sudo -u spaceage "$APP/spaceage/server/run.sh" --check >> /var/log/spaceage.log 2>&1 || true
 echo "FERTIG: https://$host/status.txt"
 # setup log page on port 8080 is no longer needed
-systemctl stop spaceage-setuplog || true
+systemctl stop spaceage-setup || true

@@ -25,17 +25,21 @@ neuen Schlüssel erstellen und kopieren. Den alten dort löschen.
    - Typ: der günstigste, der verfügbar ist (CX23 oder CAX11)
    - Netzwerk: **öffentliche IPv4** angehakt lassen
    - SSH-Schlüssel: überspringen
-   - **Cloud config**: den kompletten Inhalt der Datei `cloud-init.txt`
-     einfügen. Dann oben im Feld die zwei `HIER_EINTRAGEN` ersetzen:
-     `IG_ACCESS_TOKEN=` dein Instagram-Schlüssel,
-     `BFL_API_KEY=` dein FLUX-Schlüssel (ohne Leerzeichen, ohne Anführungszeichen).
+   - **Cloud config**: den Inhalt von `cloud-init.txt` einfügen (kurz, 13 Zeilen)
+     und oben die zwei `HIER_EINTRAGEN` durch deine Schlüssel ersetzen.
 3. **Erstellen & kaufen**. Notier dir die IP-Adresse (z. B. `5.75.123.45`).
 
-## Schritt 4: Prüfen (nach ca. 5 Minuten)
+## Schritt 4: Programm hochladen
+2–3 Minuten nach dem Erstellen `http://<IP>:8080` öffnen (http, ohne s),
+die Datei `spaceage-paket.tar.gz` auswählen und **Hochladen** tippen.
+Darunter erscheint der Fortschritt (dauert ca. 10–15 Minuten). Am Ende
+verschwindet die Seite – das heißt: fertig.
+
+## Schritt 5: Prüfen
 Im Browser öffnen – Punkte der IP durch Bindestriche ersetzen:
 
     https://5-75-123-45.sslip.io/status.txt
 
 Steht da **„Instagram-Zugang ok“** → fertig. Der erste Post kommt zur nächsten
-vollen Posting-Zeit. Dieselbe Adresse zeigt immer das Ergebnis des letzten Posts.
+Posting-Zeit. Dieselbe Adresse zeigt immer das Ergebnis des letzten Posts.
 Steht da „FEHLER …“ → Bildschirmfoto an Claude.
