@@ -26,10 +26,23 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install requests
-      - name: Render 6 library prompts with FLUX Ultra (raw)
+      # The same three library prompts, three ways. Each step may fail on its
+      # own (e.g. an endpoint name) without losing the other results.
+      - name: FLUX 1.1 Ultra raw (baseline)
+        continue-on-error: true
         run: >-
-          python spaceage/bfl.py --out out --count 6 --model ultra --raw --library
-          --include "Classic space scene" --prefix ultra_raw
+          python spaceage/bfl.py --out out --count 3 --model ultra --raw --library --prefix a_ultra
+          --include "Fortress freighter" --include "Moon rocket" --include "Black hole station"
+      - name: FLUX.2 max
+        continue-on-error: true
+        run: >-
+          python spaceage/bfl.py --out out --count 3 --model flux2max --library --prefix b_flux2max
+          --include "Fortress freighter" --include "Moon rocket" --include "Black hole station"
+      - name: FLUX.2 pro with the owner's Midjourney images as style references
+        continue-on-error: true
+        run: >-
+          python spaceage/bfl.py --out out --count 3 --model flux2pro --style-refs --library --prefix c_flux2pro_ref
+          --include "Fortress freighter" --include "Moon rocket" --include "Black hole station"
       - name: Publish preview release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -37,7 +50,7 @@ jobs:
         run: |
           shopt -s nullglob
           {
-            echo "Testbilder aus der Prompt-Bibliothek, FLUX Ultra Raw (nichts gepostet). Bild 1 = alter DALL-E-Prompt aus dem Zap."
+            echo "Vergleich (nichts gepostet): a_* = FLUX 1.1 Ultra raw, b_* = FLUX.2 max, c_* = FLUX.2 pro mit deinen Midjourney-Bildern als Stilvorlage. Gleiche drei Prompts."
             for t in out/*.txt; do echo; echo "**$(basename "$t" .txt)**: $(cat "$t")"; done
           } > notes.md
           cat notes.md
