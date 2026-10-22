@@ -141,17 +141,12 @@ def main():
 
     if args.image_url:
         container = create_image_container(user_id, token, caption, args.image_url)
-    elif args.video:
-        # Direct (resumable) upload; fall back to the public URL if that fails.
+    elif args.video and not args.video_url:
+        # Resumable upload; graph.instagram.com (Instagram Login) rejects it
+        # and wants video_url, so the workflow hosts reels via host_reel.sh.
         container = create_container(user_id, token, caption)
-        try:
-            upload_file(container, token, args.video)
-            print("upload complete", flush=True)
-        except SystemExit as e:
-            if not args.video_url:
-                raise
-            print(f"direct upload failed ({e}), retrying via video_url", flush=True)
-            container = create_container(user_id, token, caption, args.video_url)
+        upload_file(container, token, args.video)
+        print("upload complete", flush=True)
     else:
         container = create_container(user_id, token, caption, args.video_url)
     print(f"created container {container}", flush=True)
