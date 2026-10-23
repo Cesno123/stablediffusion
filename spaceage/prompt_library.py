@@ -276,10 +276,80 @@ _PROMPTS = {
 }
 
 _STYLES = {CLARKE: _CLARKE_STYLE, WELLS: _WELLS_STYLE, ASIMOV: _ASIMOV_STYLE, PULP: _PULP_STYLE}
+_ENDING = "Tall vertical composition, no text, no lettering."
 
-# (title, full prompt) pairs; titles are prefixed with the theme so they stay unique.
+# (title, full prompt) pairs with each theme's own cover style; used by the
+# FLUX test workflow and as one of the looks in STYLES below.
 PROMPTS = [
-    (f"{theme}: {title}", f"{text} {_STYLES[theme]}. Tall vertical composition, no text, no lettering.")
+    (f"{theme}: {title}", f"{text} {_STYLES[theme]}. {_ENDING}")
     for theme, entries in _PROMPTS.items()
     for title, text in entries
 ]
+
+# Scenes without a style, so autogen.py can combine any scene with any look.
+SCENES = [(f"{theme}: {title}", text) for theme, entries in _PROMPTS.items() for title, text in entries]
+
+# Very different visual styles, described in our own words (no artist names).
+STYLES = [
+    ("painted cover", _CLARKE_STYLE),
+    ("victorian romance", _WELLS_STYLE),
+    ("atomic age paperback", _ASIMOV_STYLE),
+    ("german pulp", _PULP_STYLE),
+    ("photoreal film still", "Photorealistic cinematic film still shot on 65mm IMAX, anamorphic lens flares, "
+     "volumetric light, shallow depth of field, rich film grain, epic blockbuster lighting"),
+    ("kodachrome", "Authentic 1960s Kodachrome slide photograph, warm saturated colors, slight vignette, "
+     "dust and scratches, as if taken by an astronaut with a medium format camera"),
+    ("soviet poster", "Soviet space-race propaganda poster, bold flat shapes, red, cream and black, "
+     "heroic upward perspective, screen-printed texture, constructivist geometry"),
+    ("ukiyo-e", "Japanese ukiyo-e woodblock print, flat areas of indigo, vermilion and ochre, "
+     "elegant outlines, stylized waves and clouds, visible washi paper grain"),
+    ("anime cel", "1980s hand-painted anime cel, crisp ink lines, airbrushed backgrounds, "
+     "dramatic speed lines and lens flares, nostalgic VHS color"),
+    ("ligne claire", "Franco-Belgian ligne claire comic panel, clean uniform ink outlines, flat bright colors, "
+     "meticulous detailed backgrounds, sunny adventure mood"),
+    ("art deco poster", "Art deco travel poster, streamlined geometric forms, gold, teal and black, "
+     "elegant gradients, luxurious 1930s glamour"),
+    ("blueprint", "Technical blueprint drawing, white precise lines on deep blue paper, cutaway views, "
+     "measurement annotations as abstract marks, engineering elegance"),
+    ("watercolor", "Loose expressive watercolor painting, soft bleeding washes, white paper showing through, "
+     "delicate granulation, dreamy atmosphere"),
+    ("linocut", "Bold black-and-white linocut print with one accent color, carved gouge marks, "
+     "strong contrast, handmade printmaking texture"),
+    ("synthwave", "Synthwave neon art, glowing magenta and cyan, chrome reflections, retro grid horizon, "
+     "huge setting sun with scanlines, 1980s arcade energy"),
+    ("cyberpunk night", "Rain-soaked cyberpunk night photography, neon signs reflected in puddles, "
+     "haze and steam, teal and orange color grade, gritty and dense"),
+    ("matte painting", "Classic hand-painted matte painting for a 1970s epic film, monumental scale, "
+     "painterly glass-shot look, subtle atmospheric perspective"),
+    ("risograph", "Risograph print in three spot colors (fluorescent pink, blue and yellow), slight misregistration, "
+     "grainy halftone texture, indie zine look"),
+    ("stained glass", "Gothic stained glass window, thick lead lines, glowing jewel-colored glass, "
+     "light streaming through, cathedral grandeur"),
+    ("oil impasto", "Thick expressive oil impasto painting, heavy palette-knife strokes, vibrant broken color, "
+     "visible canvas texture, emotional and bold"),
+    ("charcoal", "Dramatic charcoal and graphite drawing on toned paper, smudged shadows, white chalk highlights, "
+     "raw sketchbook energy"),
+    ("claymation", "Handmade claymation diorama, plasticine figures with fingerprints, miniature practical sets, "
+     "warm studio lighting, stop-motion charm"),
+    ("tilt-shift", "Tilt-shift miniature photograph, selective focus making everything look like a tiny model, "
+     "bright toy-like colors, overhead angle"),
+    ("infrared", "Surreal infrared photograph, pink and white foliage, deep dark skies, otherworldly glow, "
+     "fine-art photography print"),
+    ("double exposure", "Artistic double exposure photograph blending the scene with a vast starfield and nebula, "
+     "moody monochrome with one color accent"),
+    ("bauhaus", "Bauhaus-inspired geometric composition, circles, triangles and bars in primary colors, "
+     "minimal and rhythmic, modernist print"),
+    ("mosaic", "Ancient Byzantine mosaic of small glass and gold tesserae, shimmering gold background, "
+     "stylized figures, timeless sacred feel"),
+    ("polaroid", "Faded instant Polaroid photo, washed-out colors, soft focus, light leaks, "
+     "white frame edges cropped out, nostalgic snapshot"),
+    ("dieselpunk", "Dieselpunk lithograph, heavy riveted machinery, smoke and soot, muted olive and rust palette, "
+     "1940s industrial poster style"),
+    ("low poly", "Stylized low-poly 3D render, faceted geometry, soft global illumination, pastel gradient sky, "
+     "clean modern game art"),
+    ("ink wash", "Traditional East Asian ink wash painting, flowing brush strokes, misty empty space, "
+     "subtle grey tones with a single red seal-like accent shape"),
+    ("vaporwave", "Vaporwave collage aesthetic, marble statues, pastel pink and turquoise, glitch artifacts, "
+     "surreal retro-digital dreamscape"),
+]
+STYLE_ENDING = _ENDING

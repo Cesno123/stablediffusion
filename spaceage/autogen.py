@@ -1,8 +1,9 @@
 """Generate the next post image when the queue is empty.
 
-Picks a random prompt from prompt_library.py that has not been used yet
-(posted/used_prompts.txt; starts over once all are used), renders it with
-FLUX.2 [max] and saves it to queue/ for post_queue.py. Needs BFL_API_KEY.
+Combines a random scene from prompt_library.py that has not been used yet
+(posted/used_prompts.txt; starts over once all are used) with a random visual
+style that was not among the last few (posted/used_styles.txt), renders it
+with FLUX.2 [max] and saves it to queue/ for post_queue.py. Needs BFL_API_KEY.
 """
 
 import datetime as dt
@@ -15,9 +16,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from bfl import generate  # noqa: E402
 from post_queue import IMAGES, VIDEOS, QUEUE  # noqa: E402
-from prompt_library import PROMPTS  # noqa: E402
+from prompt_library import SCENES, STYLE_ENDING, STYLES  # noqa: E402
 
 USED = os.path.join(HERE, "posted", "used_prompts.txt")
+USED_STYLES = os.path.join(HERE, "posted", "used_styles.txt")
+RECENT_STYLES = 12  # a style comes back only after this many other posts
 MODEL = os.environ.get("SPACEAGE_MODEL", "flux2max")
 
 
@@ -36,25 +39,33 @@ def main():
     if os.path.exists(USED):
         with open(USED) as f:
             used = {line.strip() for line in f if line.strip()}
-    fresh = [p for p in PROMPTS if p[0] not in used]
+    fresh = [p for p in SCENES if p[0] not in used]
     if not fresh:  # every prompt used once: start a new round
-        used, fresh = set(), list(PROMPTS)
+        used, fresh = set(), list(SCENES)
         open(USED, "w").close()
+    recent = []
+    if os.path.exists(USED_STYLES):
+        with open(USED_STYLES) as f:
+            recent = [line.strip() for line in f if line.strip()][-RECENT_STYLES:]
     rng = random.Random()
-    for title, prompt in rng.sample(fresh, min(3, len(fresh))):  # retry with another prompt on failure
-        print(f"generating '{title}' with {MODEL}", flush=True)
+    for title, scene in rng.sample(fresh, min(3, len(fresh))):  # retry with another prompt on failure
+        style, look = rng.choice([s for s in STYLES if s[0] not in recent] or STYLES)
+        prompt = f"{scene} {look}. {STYLE_ENDING}"
+        print(f"generating '{title}' as '{style}' with {MODEL}", flush=True)
         try:
             data = generate(prompt, MODEL, key, rng.randrange(2**31))
         except RuntimeError as e:
             print(f"  failed: {e}", flush=True)
             continue
-        slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+        slug = re.sub(r"[^a-z0-9]+", "-", f"{title} {style}".lower()).strip("-")
         path = os.path.join(QUEUE, f"auto-{dt.datetime.utcnow():%Y%m%d-%H%M}-{slug}.jpg")
         with open(path, "wb") as f:
             f.write(data)
         os.makedirs(os.path.dirname(USED), exist_ok=True)
         with open(USED, "a") as f:
             f.write(title + "\n")
+        with open(USED_STYLES, "a") as f:
+            f.write(style + "\n")
         print(f"saved {os.path.relpath(path, HERE)}")
         return
     sys.exit("no image could be generated")
