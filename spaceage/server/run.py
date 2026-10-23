@@ -19,6 +19,7 @@ import os
 import sys
 import time
 import traceback
+import zlib
 
 import requests
 from PIL import Image
@@ -104,7 +105,7 @@ def post_next(dry_run=False):
     media = os.path.join(WWW, reel)
     log(f"building reel from {name}")
     if ext in pq.IMAGES:
-        pq.to_reel(src, media, seed=sum(map(ord, name)))
+        pq.to_reel(src, media, seed=zlib.crc32(name.encode()))
     else:
         with open(src, "rb") as fi, open(media, "wb") as fo:
             fo.write(fi.read())

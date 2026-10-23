@@ -13,10 +13,10 @@ Prints key=value lines for $GITHUB_OUTPUT.
 import argparse
 import datetime as dt
 import os
-import random
 import shutil
 import subprocess
 import sys
+import zlib
 
 from PIL import Image
 
@@ -108,14 +108,13 @@ def reel_frame(img):
 
 def to_reel(src, dst, seed):
     """Still image -> 9:16 MP4 with a slow centered zoom and ambient sound."""
-    from ambience import synth_audio  # numpy; only needed for images
+    from ambience import soundtrack  # numpy; only needed for images
 
     img = Image.open(src).convert("RGB")
     frame = dst + ".png"
     wav = dst + ".wav"
     reel_frame(img).save(frame)
-    rng = random.Random(seed)
-    synth_audio(wav, REEL_SECONDS, rng.choice([41.2, 49.0, 55.0, 61.7, 65.4, 73.4]), [], seed)
+    print(f"sound: {soundtrack(wav, REEL_SECONDS, seed)}", file=sys.stderr, flush=True)
     frames = REEL_SECONDS * FPS
     # zoompan on a 4x upscaled frame avoids the jitter of integer crop steps
     zoom = (f"scale={REEL_W * 4}:{REEL_H * 4}:flags=lanczos,"
@@ -155,7 +154,7 @@ def main():
     stem = f"{dt.date.today():%Y%m%d}-{os.path.splitext(name)[0]}"
     if ext in IMAGES:
         media = os.path.join(BUILD, stem + ".mp4")
-        to_reel(src, media, seed=sum(map(ord, name)))
+        to_reel(src, media, seed=zlib.crc32(name.encode()))
         thumb = Image.open(src).convert("RGB")
         thumb.thumbnail((360, 640))
         thumb.save(os.path.join(POSTED, stem + ".jpg"), "JPEG", quality=80)
