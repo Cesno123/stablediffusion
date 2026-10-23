@@ -73,6 +73,23 @@ public class MainActivity extends Activity {
         root.addView(panel.root);
         root.addView(use);
 
+        // keyboard setup
+        root.addView(panel.label("Feinschliff-Tastatur"));
+        Button enableKb = new Button(this);
+        enableKb.setText("1. Tastatur einschalten");
+        enableKb.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { startActivity(new Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS)); }
+        });
+        Button pickKb = new Button(this);
+        pickKb.setText("2. Als Tastatur auswählen");
+        pickKb.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                ((android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).showInputMethodPicker();
+            }
+        });
+        root.addView(enableKb);
+        root.addView(pickKb);
+
         // settings
         root.addView(panel.label("API-Schlüssel (von console.anthropic.com, bleibt nur auf diesem Handy)"));
         final EditText key = new EditText(this);
@@ -90,7 +107,7 @@ public class MainActivity extends Activity {
         });
         root.addView(saveKey);
         TextView model = new TextView(this);
-        model.setText("Modell: " + Claude.MODEL + " · Version 1.0");
+        model.setText("Modell: " + Claude.MODEL + " · Version 1.1");
         model.setAlpha(0.5f);
         root.addView(model);
 

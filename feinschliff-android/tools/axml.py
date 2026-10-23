@@ -15,7 +15,8 @@ ATTR_IDS = {
     "exported": 0x01010010, "taskAffinity": 0x01010012, "excludeFromRecents": 0x01010017,
     "mimeType": 0x01010026, "minSdkVersion": 0x0101020C, "versionCode": 0x0101021B,
     "versionName": 0x0101021C, "windowSoftInputMode": 0x0101022B, "targetSdkVersion": 0x01010270,
-    "allowBackup": 0x01010280,
+    "allowBackup": 0x01010280, "permission": 0x01010006, "resource": 0x01010025,
+    "settingsActivity": 0x01010225, "supportsSwitchingToNextInputMethod": 0x010103EB,
 }
 
 T_REFERENCE, T_STRING, T_INT_DEC, T_INT_HEX, T_BOOLEAN = 0x01, 0x03, 0x10, 0x11, 0x12
