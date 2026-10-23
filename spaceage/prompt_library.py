@@ -315,8 +315,7 @@ STYLES = [
      "delicate granulation, dreamy atmosphere"),
     ("linocut", "Bold black-and-white linocut print with one accent color, carved gouge marks, "
      "strong contrast, handmade printmaking texture"),
-    ("synthwave", "Synthwave neon art, glowing magenta and cyan, chrome reflections, retro grid horizon, "
-     "huge setting sun with scanlines, 1980s arcade energy"),
+    ("airbrush on board", "Hand airbrushed illustration on illustration board from the early 1980s, soft overspray, masking-film edges, tiny paint specks, slightly faded colors"),
     ("cyberpunk night", "Rain-soaked cyberpunk night photography, neon signs reflected in puddles, "
      "haze and steam, teal and orange color grade, gritty and dense"),
     ("matte painting", "Classic hand-painted matte painting for a 1970s epic film, monumental scale, "
@@ -345,11 +344,20 @@ STYLES = [
      "white frame edges cropped out, nostalgic snapshot"),
     ("dieselpunk", "Dieselpunk lithograph, heavy riveted machinery, smoke and soot, muted olive and rust palette, "
      "1940s industrial poster style"),
-    ("low poly", "Stylized low-poly 3D render, faceted geometry, soft global illumination, pastel gradient sky, "
-     "clean modern game art"),
+    ("gouache", "Opaque gouache painting on cold-press illustration board, flat matte color areas, visible brush marks and uneven edges, a few pencil construction lines showing through"),
+    ("pen and ink", "Pen and ink drawing with dense cross-hatching and stippling on bristol board, "
+     "slightly wobbly hand-drawn lines, occasional ink blots, white-out corrections"),
+    ("etching", "Intaglio etching printed from a copper plate, fine engraved lines, plate tone and "
+     "plate mark, warm black ink on heavy rag paper"),
+    ("colored pencil", "Colored pencil drawing on toned paper, layered strokes with visible direction, "
+     "paper grain showing through, smudges near the edges"),
     ("ink wash", "Traditional East Asian ink wash painting, flowing brush strokes, misty empty space, "
      "subtle grey tones with a single red seal-like accent shape"),
-    ("vaporwave", "Vaporwave collage aesthetic, marble statues, pastel pink and turquoise, glitch artifacts, "
-     "surreal retro-digital dreamscape"),
+    ("screen print", "Hand-pulled screen print in four flat inks on cream paper, slight misregistration, ink build-up at the edges, uneven ink coverage"),
 ]
-STYLE_ENDING = _ENDING
+# Appended to every generated prompt: push away from the glossy, too-perfect
+# digital look towards real materials and the small flaws of handmade work.
+STYLE_ENDING = ("Made with real physical materials and techniques, with the natural imperfections of handmade "
+                "work: uneven strokes, texture of paper, canvas or film grain, slight asymmetry, natural light, "
+                "restrained believable colors. Not a digital render, no CGI gloss, no plastic surfaces, "
+                "no over-sharpened details. " + _ENDING)
