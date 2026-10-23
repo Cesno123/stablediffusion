@@ -1,0 +1,182 @@
+"""A tiny random composer: a short sci-fi track with rhythm and melody.
+
+song() writes a stereo WAV that fits a whole number of bars into the clip,
+so the reel loops seamlessly. Every seed gives a different piece:
+  drums   one of several groove styles (kick, snare, hats, small fill)
+  bass    follows the chord progression with a style-specific pattern
+  chords  a progression held by a pad (string or brass ensemble)
+  melody  a motif in the scale, repeated, varied and resolved to the root,
+          played by a lead sound (polyphonic brass, theremin, bell, square, pluck)
+Sound sources come from ambience.py (analog-style oscillators and filter).
+"""
+
+import numpy as np
+
+from ambience import SR, echo, hz, resonant_lowpass, saw, write_wav
+
+SCALES = {"minor": [0, 2, 3, 5, 7, 8, 10], "dorian": [0, 2, 3, 5, 7, 9, 10],
+          "phrygian": [0, 1, 3, 5, 7, 8, 10], "major": [0, 2, 4, 5, 7, 9, 11],
+          "lydian": [0, 2, 4, 6, 7, 9, 11], "mixolydian": [0, 2, 4, 5, 7, 9, 10]}
+# chord roots as scale degrees, one chord per bar
+PROGRESSIONS = {"minor": [[0, 5, 2, 6], [0, 3, 4, 0], [0, 5, 3, 4], [0, 6, 5, 6], [0, 0, 5, 6]],
+                "major": [[0, 4, 5, 3], [0, 3, 4, 4], [0, 5, 3, 4], [0, 3, 0, 4]]}
+# 16 steps per bar: K kick, S snare, H closed hat, O open hat, . rest
+GROOVES = {
+    "motorik":   ("K...K...K...K...", "....S.......S...", "H.H.H.H.H.H.H.H."),
+    "electro":   ("K......K..K.....", "....S.......S...", "HHHHHHHHHHHHHHHH"),
+    "synthwave": ("K...K...K...K...", "....S.......S...", "..O...O...O...O."),
+    "breakbeat": ("K.K.......K.....", "....S..S.S..S..S", "H.H.H.H.H.H.H.H."),
+    "halftime":  ("K.........K.....", "........S.......", "H...H...H...H..."),
+    "march":     ("K...K...K...K...", "..S.S...S.S.S.S.", "................"),
+    "sparse":    ("K.........K.....", "............S...", "....H.......H..."),
+}
+BASS = {"pulse": [0, 2, 4, 6, 8, 10, 12, 14], "root": [0, 6, 8, 14], "octave": [0, 2, 4, 6, 8, 10, 12, 14],
+        "syncope": [0, 3, 6, 10, 12], "long": [0, 8]}
+MELODY_RHYTHMS = [[0, 4, 6, 8, 12], [0, 2, 4, 8, 10, 12], [0, 6, 8, 14], [0, 3, 6, 8, 11, 14],
+                  [0, 8, 10, 12], [0, 2, 4, 6, 8, 10, 12, 14]]
+
+
+# ------------------------------------------------------------------ sounds
+
+def envelope(n, attack, release):
+    t = np.arange(n) / SR
+    return np.minimum(1, t / max(attack, 1e-4)) * np.minimum(1, np.maximum(0, (n / SR - t) / max(release, 1e-4)))
+
+
+def kick(n):
+    t = np.arange(n) / SR
+    return np.sin(2 * np.pi * np.cumsum(45 + 110 * np.exp(-35 * t)) / SR) * np.exp(-7 * t)
+
+
+def snare(rng, n):
+    t = np.arange(n) / SR
+    noise = rng.normal(0, 1, n)
+    noise = noise - np.convolve(noise, np.ones(8) / 8, mode="same")  # crude high-pass
+    return (0.8 * noise * np.exp(-18 * t) + 0.5 * np.sin(2 * np.pi * 185 * t) * np.exp(-25 * t))
+
+
+def hat(rng, n, open_):
+    t = np.arange(n) / SR
+    noise = rng.normal(0, 1, n)
+    noise = noise - np.convolve(noise, np.ones(4) / 4, mode="same")
+    return noise * np.exp(-(12 if open_ else 70) * t) * 0.5
+
+
+def voice(kind, midi, n, rng):
+    """One note of a pitched instrument, n samples long."""
+    t = np.arange(n) / SR
+    f = hz(midi)
+    if kind == "bass":
+        x = saw(f, t, 2500)
+        return resonant_lowpass(x, 180 + 1400 * np.exp(-9 * t), 3.0) * envelope(n, 0.003, 0.03)
+    if kind == "brass":
+        vib = 1 + 0.006 * np.minimum(1, t / 0.4) * np.sin(2 * np.pi * 5.5 * t)
+        x = saw(f * vib * 0.997, t, 4000) + saw(f * vib * 1.003, t, 4000)
+        return resonant_lowpass(x, 500 + 2600 * (1 - np.exp(-t / 0.15)), 1.3) * envelope(n, 0.04, 0.08)
+    if kind == "theremin":
+        vib = 1 + 0.012 * np.sin(2 * np.pi * 6 * t)
+        return np.sin(2 * np.pi * np.cumsum(f * vib) / SR) * envelope(n, 0.06, 0.08)
+    if kind == "bell":  # FM bell
+        mod = 3.5 * np.exp(-4 * t) * np.sin(2 * np.pi * f * 3.5 * t)
+        return np.sin(2 * np.pi * f * t + mod) * np.exp(-3 * t) * envelope(n, 0.002, 0.05)
+    if kind == "square":
+        x = np.sign(np.sin(2 * np.pi * f * t)) * 0.6
+        return resonant_lowpass(x, 2200, 1.0) * envelope(n, 0.005, 0.05)
+    # pluck
+    return resonant_lowpass(saw(f, t, 5000), 300 + 4000 * np.exp(-12 * t), 2.0) * np.exp(-5 * t)
+
+
+def pad_chord(kind, midis, n, rng):
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    for m in midis:
+        for d in (0.995, 1.0, 1.005):
+            drift = 1 + 0.002 * np.sin(2 * np.pi * rng.uniform(0.3, 0.9) * t)
+            x += saw(hz(m) * d * drift, t, 2500)
+    cutoff = 1500 if kind == "strings" else 600 + 1500 * (1 - np.exp(-t / 0.5))
+    return resonant_lowpass(x, cutoff, 0.9) * envelope(n, 0.25, 0.25)
+
+
+# ------------------------------------------------------------------ composer
+
+def place(buf, start, sound):
+    s = int(start)
+    if s >= len(buf):
+        return
+    sound = sound[:len(buf) - s]
+    buf[s:s + len(sound)] += sound
+
+
+def song(path, seconds, seed):
+    """Write a random piece; returns a short description."""
+    rng = np.random.default_rng(seed)
+    bars = int(rng.choice([2, 3, 4]))
+    bar = seconds / bars          # 2 bars = 60 bpm feel, 3 = 90 bpm, 4 = 120 bpm
+    step = bar / 16
+    n = int(seconds * SR)
+    groove = str(rng.choice(list(GROOVES)))
+    mode = str(rng.choice(list(SCALES)))
+    family = "minor" if SCALES[mode][2] == 3 else "major"
+    prog = PROGRESSIONS[family][rng.integers(len(PROGRESSIONS[family]))]
+    root = int(rng.integers(45, 53))  # A2 .. E3
+    scale = SCALES[mode]
+
+    def note(degree, octave=0):
+        return root + 12 * (octave + degree // len(scale)) + scale[degree % len(scale)]
+
+    lead = str(rng.choice(["brass", "theremin", "bell", "square", "pluck"]))
+    pad_kind = str(rng.choice(["strings", "brass"]))
+    bass_style = str(rng.choice(list(BASS)))
+    drums, bass, chords, melody = (np.zeros(n) for _ in range(4))
+
+    # drums (with a small fill on the last bar)
+    k, s_, h = GROOVES[groove]
+    for b in range(bars):
+        for i in range(16):
+            at = (b * 16 + i) * step * SR
+            if k[i] == "K":
+                place(drums, at, kick(int(0.4 * SR)))
+            if s_[i] == "S" or (b == bars - 1 and i >= 12 and rng.random() < 0.5):
+                place(drums, at, snare(rng, int(0.25 * SR)) * (1 if s_[i] == "S" else 0.6))
+            if h[i] in "HO":
+                place(drums, at, hat(rng, int(0.3 * SR), h[i] == "O"))
+
+    # chords, bass and a motif-based melody, one chord per bar
+    rhythm_a = MELODY_RHYTHMS[rng.integers(len(MELODY_RHYTHMS))]
+    rhythm_b = MELODY_RHYTHMS[rng.integers(len(MELODY_RHYTHMS))]
+    motif = None
+    for b in range(bars):
+        deg = prog[b % len(prog)] if b < bars - 1 or bars < 4 else prog[-1]
+        triad = [note(deg), note(deg + 2), note(deg + 4)]
+        place(chords, b * bar * SR, pad_chord(pad_kind, [m + 12 for m in triad], int(bar * SR), rng))
+        for i in BASS[bass_style]:
+            octave = 12 if bass_style == "octave" and (i // 2) % 2 else 0
+            length = int(step * SR * (8 if bass_style == "long" else 1.8))
+            place(bass, (b * 16 + i) * step * SR, voice("bass", note(deg) - 12 + octave, length, rng))
+        # melody: bar A, A' (transposed to the chord), B, and a final bar ending on the root
+        rhythm = rhythm_a if b % 2 == 0 else rhythm_b
+        if motif is None or b % 2 == 1:
+            walk, pitches = deg + 7, []
+            for _ in rhythm:
+                pitches.append(walk)
+                walk += int(rng.choice([-2, -1, -1, 1, 1, 2, 0]))
+            if b % 2 == 0:
+                motif = pitches
+        else:
+            pitches = [p - prog[0] + deg for p in motif]
+        if b == bars - 1:
+            pitches[-1] = 7  # resolve to the root an octave up
+        for j, i in enumerate(rhythm):
+            end = rhythm[j + 1] if j + 1 < len(rhythm) else 16
+            length = int((end - i) * step * SR * 0.95)
+            place(melody, (b * 16 + i) * step * SR, voice(lead, note(pitches[j], 1), length, rng))
+
+    melody = echo(melody, step * 3, 0.3)
+    left = drums * 0.9 + bass * 0.55 + chords * 0.18 + melody * 0.35
+    right = drums * 0.9 + bass * 0.55 + chords * 0.22 + melody * 0.28
+    parts = [left / (np.abs(left).max() + 1e-9), right / (np.abs(right).max() + 1e-9)]
+    mix = np.tanh(1.6 * np.stack(parts, axis=1)) / np.tanh(1.6)  # gentle glue / saturation
+    t = np.arange(n) / SR
+    fade = np.minimum(1, np.minimum(t / 0.02, (seconds - t) / 0.15))  # short fades keep the loop tight
+    write_wav(path, mix * fade[:, None])
+    return f"{groove} {int(round(60 * 4 / bar))} bpm, {mode} on {root}, {lead} lead, {pad_kind} pad, {bass_style} bass"
