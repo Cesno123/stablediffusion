@@ -27,7 +27,10 @@ ip=$(curl -4 -fsS https://api.ipify.org)
 host="${ip//./-}.sslip.io"
 # Upload page for own images: https://$host/upload, user "spaceage" + password
 pwfile=/root/spaceage-upload-passwort.txt
-[ -s "$pwfile" ] || { tr -dc 'a-z2-9' < /dev/urandom | head -c 12 > "$pwfile"; chmod 600 "$pwfile"; }
+if [ ! -s "$pwfile" ]; then  # (tr | head would die of SIGPIPE under pipefail)
+	python3 -c "import secrets; print(''.join(secrets.choice('abcdefghjkmnpqrstuvwxyz23456789') for _ in range(12)), end='')" > "$pwfile"
+fi
+chmod 600 "$pwfile"
 pwhash=$(caddy hash-password --plaintext "$(cat "$pwfile")")
 cat > /etc/caddy/Caddyfile <<CADDY
 $host {
