@@ -4,7 +4,11 @@ synth_audio:    the original quiet drone + wind (used by make_reel.py).
 soundtrack:     a different mix for every seed - two to four layers out of
                 pad chords, arpeggios, theremin, radio pings, a heartbeat
                 pulse, drone and space wind, in a random key, scale, tempo
-                and stereo placement.
+                and stereo placement. Some layers imitate classic analog
+                synthesizers: a 1970s modular (resonant filter sequences,
+                sample & hold bleeps, ring modulation) and a 1970s/80s
+                polyphonic (detuned brass and string pads with swelling
+                vibrato and ribbon pitch bends).
 """
 
 import wave
@@ -147,8 +151,91 @@ def wind(rng, t, notes):
     return lowpass_noise(rng, len(t), rng.uniform(300, 1200)) * sweep
 
 
+# ------------------------------------------------- analog synthesizer layers
+
+def saw(f, t, top=6000):
+    """Band-limited sawtooth (additive), f may be an array (glides)."""
+    f0 = float(np.max(f))
+    phase = 2 * np.pi * np.cumsum(np.broadcast_to(f, t.shape)) / SR
+    return sum(np.sin(h * phase) / h for h in range(1, max(2, int(top / f0)) + 1))
+
+
+def resonant_lowpass(x, cutoff, q):
+    """State-variable filter; cutoff (Hz) may change per sample. q 0.5 (soft) .. 10 (screaming)."""
+    cutoff = np.broadcast_to(np.clip(cutoff, 20, SR / 6), x.shape)
+    fc = (2 * np.sin(np.pi * cutoff / SR)).tolist()
+    damp = 1 / q
+    low = band = 0.0
+    out = [0.0] * len(x)
+    for i, (v, f) in enumerate(zip(x.tolist(), fc)):
+        low += f * band
+        band += f * (v - low - damp * band)
+        out[i] = low
+    return np.array(out)
+
+
+def modular_sequence(rng, t, notes):
+    """1970s modular: sequenced saw/pulse through a sweeping resonant filter."""
+    step = 60 / rng.uniform(100, 160) / 2
+    pattern = rng.choice(notes[:8], size=rng.choice([4, 5, 8]))
+    pos = (t / step).astype(int)
+    f = hz(np.array(pattern)[pos % len(pattern)])
+    osc = saw(f, t) if rng.random() < 0.6 else np.sign(np.sin(2 * np.pi * np.cumsum(f) / SR))
+    gate = np.exp(-rng.uniform(4, 10) * (t % step))
+    sweep = 400 + 2600 * (0.5 + 0.5 * np.sin(2 * np.pi * rng.uniform(0.08, 0.25) * t))
+    return echo(resonant_lowpass(osc * gate, sweep * (0.4 + gate), rng.uniform(4, 9)), step * 3, 0.35)
+
+
+def sample_hold(rng, t, notes):
+    """Random-pitch bleeps from a sample & hold clock (classic computer noises)."""
+    step = 1 / rng.uniform(6, 14)
+    steps = int(t[-1] / step) + 1
+    pitches = rng.uniform(300, 2400, size=steps)
+    f = pitches[(t / step).astype(int)]
+    blip = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-25 * (t % step))
+    return resonant_lowpass(blip, f * 1.2, 6) * (rng.random(steps)[(t / step).astype(int)] < 0.7)
+
+
+def ring_mod(rng, t, notes):
+    """Ring modulation: two tones multiplied give metallic, bell-like clangs."""
+    a = np.sin(2 * np.pi * hz(rng.choice(notes) + 12) * t)
+    b = np.sin(2 * np.pi * rng.uniform(80, 700) * t * (1 + 0.02 * np.sin(2 * np.pi * 0.3 * t)))
+    hits = np.zeros_like(t)
+    for start in np.arange(rng.uniform(0, 1), t[-1], rng.uniform(1.2, 2.5)):
+        k = t >= start
+        hits[k] += np.exp(-2.5 * (t[k] - start))
+    return echo(a * b * hits, rng.uniform(0.3, 0.6), 0.4)
+
+
+def poly_brass(rng, t, notes):
+    """1970s/80s polyphonic brass: detuned saw pairs, slow filter opening, swelling vibrato, ribbon bend."""
+    chord = [notes[i] for i in sorted(rng.choice(len(notes), size=3, replace=False))]
+    vib = 1 + 0.006 * np.minimum(1, t / 3) * np.sin(2 * np.pi * 5.5 * t)
+    bend_at = rng.uniform(4, 6.5)
+    bend = 2 ** (np.clip((t - bend_at) / 1.2, 0, 1) * rng.choice([-2, -1, 2]) / 12)  # ribbon slide
+    sig = sum(saw(hz(n) * d * vib * bend, t, 4000) for n in chord for d in (0.996, 1.004))
+    cutoff = 300 + 2500 * (1 - np.exp(-t / rng.uniform(0.8, 2.0)))
+    return resonant_lowpass(sig, cutoff, 1.2)
+
+
+def poly_strings(rng, t, notes):
+    """Wide string ensemble: many slightly detuned, slowly drifting saws, soft attack."""
+    chord = [notes[i] for i in sorted(rng.choice(len(notes), size=4, replace=False))]
+    sig = np.zeros_like(t)
+    for n in chord:
+        for _ in range(3):
+            drift = 1 + 0.004 * np.sin(2 * np.pi * rng.uniform(0.2, 0.8) * t + rng.uniform(0, 6))
+            sig += saw(hz(n) * drift, t, 3000)
+    attack = 1 - np.exp(-t / rng.uniform(0.6, 1.5))
+    return resonant_lowpass(sig * attack, 1800, 0.8)
+
+
 LAYERS = {"pad": (pad, 0.5), "arpeggio": (arpeggio, 0.35), "theremin": (theremin, 0.3),
-          "pings": (pings, 0.35), "pulse": (pulse, 0.6), "drone": (drone, 0.45), "wind": (wind, 0.35)}
+          "pings": (pings, 0.35), "pulse": (pulse, 0.6), "drone": (drone, 0.45), "wind": (wind, 0.35),
+          "modular sequence": (modular_sequence, 0.4), "sample & hold": (sample_hold, 0.3),
+          "ring mod": (ring_mod, 0.3), "poly brass": (poly_brass, 0.45), "poly strings": (poly_strings, 0.45)}
+MELODIC = ["pad", "arpeggio", "theremin", "pings", "pulse",
+           "modular sequence", "sample & hold", "ring mod", "poly brass", "poly strings"]
 
 
 def soundtrack(path, seconds, seed):
@@ -158,8 +245,7 @@ def soundtrack(path, seconds, seed):
     scale = rng.choice(list(SCALES))
     root = int(rng.integers(45, 57))  # A2 .. G#3
     notes = [root + s for s in SCALES[scale]] + [root + 12 + s for s in SCALES[scale]]
-    names = list(rng.choice(["pad", "arpeggio", "theremin", "pings", "pulse"],
-                            size=int(rng.integers(1, 4)), replace=False))
+    names = list(rng.choice(MELODIC, size=int(rng.integers(1, 4)), replace=False))
     names += list(rng.choice(["drone", "wind"], size=int(rng.integers(1, 3)), replace=False))
     left = np.zeros_like(t)
     right = np.zeros_like(t)
