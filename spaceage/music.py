@@ -8,11 +8,19 @@ so the reel loops seamlessly. Every seed gives a different piece:
   melody  a motif in the scale, repeated, varied and resolved to the root,
           played by a lead sound (polyphonic brass, theremin, bell, square, pluck)
 Sound sources come from ambience.py (analog-style oscillators and filter).
+
+experimental() writes an unpredictable piece (odd meters, glitch stutters,
+reversed swells, glissandi, metallic clicks, sudden silences), and pick()
+chooses one of five sound worlds per reel - quiet drone, ambient layers,
+song with beat, song without beat, experimental - never the same kind twice
+in a row.
 """
+
+import os
 
 import numpy as np
 
-from ambience import SR, echo, hz, resonant_lowpass, saw, write_wav
+from ambience import SR, echo, hz, lowpass_noise, resonant_lowpass, saw, soundtrack, synth_audio, write_wav
 
 SCALES = {"minor": [0, 2, 3, 5, 7, 8, 10], "dorian": [0, 2, 3, 5, 7, 9, 10],
           "phrygian": [0, 1, 3, 5, 7, 8, 10], "major": [0, 2, 4, 5, 7, 9, 11],
@@ -107,7 +115,7 @@ def place(buf, start, sound):
     buf[s:s + len(sound)] += sound
 
 
-def song(path, seconds, seed):
+def song(path, seconds, seed, drums_on=True):
     """Write a random piece; returns a short description."""
     rng = np.random.default_rng(seed)
     bars = int(rng.choice([2, 3, 4]))
@@ -131,7 +139,7 @@ def song(path, seconds, seed):
 
     # drums (with a small fill on the last bar)
     k, s_, h = GROOVES[groove]
-    for b in range(bars):
+    for b in range(bars if drums_on else 0):
         for i in range(16):
             at = (b * 16 + i) * step * SR
             if k[i] == "K":
@@ -179,4 +187,116 @@ def song(path, seconds, seed):
     t = np.arange(n) / SR
     fade = np.minimum(1, np.minimum(t / 0.02, (seconds - t) / 0.15))  # short fades keep the loop tight
     write_wav(path, mix * fade[:, None])
-    return f"{groove} {int(round(60 * 4 / bar))} bpm, {mode} on {root}, {lead} lead, {pad_kind} pad, {bass_style} bass"
+    beat = f"{groove} " if drums_on else "no drums, "
+    return f"{beat}{int(round(60 * 4 / bar))} bpm, {mode} on {root}, {lead} lead, {pad_kind} pad, {bass_style} bass"
+
+
+# ------------------------------------------------------------ experimental
+
+def experimental(path, seconds, seed):
+    """Odd meters, glitches and unusual sounds; returns a short description."""
+    rng = np.random.default_rng(seed)
+    n = int(seconds * SR)
+    t = np.arange(n) / SR
+    out = np.zeros((n, 2))
+    used = []
+
+    def add(x, pan):
+        x = x / (np.abs(x).max() + 1e-9)
+        out[:, 0] += x * (1 - pan)
+        out[:, 1] += x * pan
+
+    # metallic clicks in an odd meter (5 or 7 pulses per cycle)
+    if rng.random() < 0.8:
+        pulses = int(rng.choice([5, 7, 9, 11]))
+        cycle = seconds / int(rng.choice([2, 4]))
+        accents = rng.random(pulses) < 0.5
+        accents[0] = True
+        click = np.zeros(n)
+        for c in range(int(seconds / cycle)):
+            for i in range(pulses):
+                if accents[i] or rng.random() < 0.3:
+                    start = int((c * cycle + i * cycle / pulses) * SR)
+                    m = int(0.12 * SR)
+                    tt = np.arange(m) / SR
+                    f = rng.uniform(800, 4000)
+                    hit = np.sin(2 * np.pi * f * tt + 4 * np.sin(2 * np.pi * f * 1.41 * tt)) * np.exp(-40 * tt)
+                    place(click, start, hit * (1 if accents[i] else 0.5))
+        add(click, rng.uniform(0.2, 0.8))
+        used.append(f"{pulses}-pulse clicks")
+    # glitch stutter: tiny chunks of a tone repeated like a broken record
+    if rng.random() < 0.7:
+        src = saw(hz(int(rng.integers(55, 80))), t, 4000) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.7 * t))
+        glitch = np.zeros(n)
+        pos = 0
+        while pos < n:
+            size = int(rng.uniform(0.02, 0.15) * SR)
+            chunk = src[pos:pos + size]
+            for r in range(int(rng.choice([1, 1, 2, 4, 8]))):
+                place(glitch, pos + r * len(chunk), chunk * (0.9 ** r))
+            pos += size * int(rng.integers(1, 5))
+        add(resonant_lowpass(glitch, rng.uniform(1500, 5000), 2), rng.uniform(0.2, 0.8))
+        used.append("glitch stutter")
+    # reversed swells: decaying bells played backwards
+    if rng.random() < 0.6:
+        swell = np.zeros(n)
+        for start in rng.uniform(0, seconds - 2, size=int(rng.integers(1, 4))):
+            m = int(rng.uniform(1, 2.5) * SR)
+            tt = np.arange(m) / SR
+            f = hz(int(rng.integers(55, 85)))
+            bell = np.sin(2 * np.pi * f * tt + 3 * np.exp(-3 * tt) * np.sin(2 * np.pi * f * 2.76 * tt)) * np.exp(-2 * tt)
+            place(swell, start * SR, bell[::-1])
+        add(swell, rng.uniform(0.2, 0.8))
+        used.append("reversed swells")
+    # glissandi: sliding sines like old science fiction scores
+    if rng.random() < 0.6:
+        f0, f1 = rng.uniform(80, 400), rng.uniform(300, 2000)
+        f = f0 * (f1 / f0) ** ((np.sin(2 * np.pi * rng.uniform(0.1, 0.4) * t) + 1) / 2)
+        loudness = rng.uniform(0.4, 1.0, size=int(seconds) + 1)[t.astype(int)]  # changes every second
+        add(np.sin(2 * np.pi * np.cumsum(f) / SR) * loudness, rng.uniform(0.2, 0.8))
+        used.append("glissandi")
+    # a low noisy bed so it never sounds empty
+    add(lowpass_noise(rng, n, rng.uniform(150, 600)) * 0.5, 0.5)
+    # sudden silences
+    for start in rng.uniform(1, seconds - 1, size=int(rng.integers(0, 3))):
+        a, b = int(start * SR), int((start + rng.uniform(0.15, 0.5)) * SR)
+        out[a:b] *= 0.05
+    if rng.random() < 0.5:
+        out[:, 0], out[:, 1] = echo(out[:, 0], 0.37, 0.4), echo(out[:, 1], 0.29, 0.4)
+    fade = np.minimum(1, np.minimum(t / 0.3, (seconds - t) / 0.5))
+    write_wav(path, out * fade[:, None])
+    return "experimental: " + ", ".join(used or ["noise bed"])
+
+
+# --------------------------------------------------------------- dispatcher
+
+KINDS = {
+    "drone": (1.0, lambda p, s, seed: synth_audio(p, s, [41.2, 49.0, 55.0, 61.7, 65.4, 73.4][seed % 6], [], seed)
+              or "quiet drone"),
+    "ambient": (1.5, lambda p, s, seed: "ambient: " + soundtrack(p, s, seed)),
+    "song": (2.0, lambda p, s, seed: song(p, s, seed)),
+    "melodic": (1.5, lambda p, s, seed: song(p, s, seed, drums_on=False)),
+    "experimental": (1.5, experimental),
+}
+
+
+def pick(path, seconds, seed, history=None):
+    """Write one soundtrack of a random kind (not the previous one) and return its description.
+
+    history: optional text file remembering the kinds used so far.
+    """
+    rng = np.random.default_rng(seed)
+    last = ""
+    if history and os.path.exists(history):
+        with open(history) as f:
+            lines = f.read().split()
+            last = lines[-1] if lines else ""
+    kinds = [k for k in KINDS if k != last]
+    weights = np.array([KINDS[k][0] for k in kinds])
+    kind = str(rng.choice(kinds, p=weights / weights.sum()))
+    desc = KINDS[kind][1](path, seconds, seed)
+    if history:
+        os.makedirs(os.path.dirname(history), exist_ok=True)
+        with open(history, "a") as f:
+            f.write(kind + "\n")
+    return desc

@@ -108,13 +108,13 @@ def reel_frame(img):
 
 def to_reel(src, dst, seed):
     """Still image -> 9:16 MP4 with a slow centered zoom and ambient sound."""
-    from music import song  # numpy; only needed for images
+    from music import pick  # numpy; only needed for images
 
     img = Image.open(src).convert("RGB")
     frame = dst + ".png"
     wav = dst + ".wav"
     reel_frame(img).save(frame)
-    print(f"music: {song(wav, REEL_SECONDS, seed)}", file=sys.stderr, flush=True)
+    print(f"music: {pick(wav, REEL_SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'))}", file=sys.stderr, flush=True)
     frames = REEL_SECONDS * FPS
     # zoompan on a 4x upscaled frame avoids the jitter of integer crop steps
     zoom = (f"scale={REEL_W * 4}:{REEL_H * 4}:flags=lanczos,"
