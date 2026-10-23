@@ -31,7 +31,7 @@ def check(resp):
     return resp.json()
 
 
-def create_container(user_id, token, caption, video_url=None):
+def create_container(user_id, token, caption, video_url=None, ai_label=True):
     data = {
         "media_type": "REELS",
         "caption": caption,
@@ -39,11 +39,18 @@ def create_container(user_id, token, caption, video_url=None):
         "thumb_offset": "4000",
         "access_token": token,
     }
+    if ai_label:  # Instagram's "AI info" label; only settable when the post is created
+        data["is_ai_generated"] = "true"
     if video_url:
         data["video_url"] = video_url
     else:
         data["upload_type"] = "resumable"
-    return check(requests.post(f"{GRAPH}/{user_id}/media", data=data, timeout=60))["id"]
+    resp = requests.post(f"{GRAPH}/{user_id}/media", data=data, timeout=60)
+    if ai_label and resp.status_code == 400 and "is_ai_generated" in resp.text:
+        # API version without the label parameter: post anyway, unlabeled
+        print(f"AI label not accepted, posting without it: {resp.text}", file=sys.stderr, flush=True)
+        return create_container(user_id, token, caption, video_url, ai_label=False)
+    return check(resp)["id"]
 
 
 def create_image_container(user_id, token, caption, image_url):
