@@ -45,6 +45,9 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     private boolean typing;                      // a word is being typed with the keys
     private boolean noCorrect;                   // field asks for no autocorrect (URL, e-mail, password ...)
     private String acFrom, acTo, acSep;          // last autocorrect, undone by an immediate backspace
+    private String swiped;                       // word just entered by swiping ...
+    private boolean swipeSpace;                  // ... with a space put in front of it
+    private final List<String> swipeAlts = new ArrayList<>();
 
     @Override
     public void onCreate() {
@@ -171,6 +174,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
                 || !prefs().getBoolean("autocorrect", true);
         typing = false;
         acFrom = null;
+        swiped = null;
         undoText = null;
         undoBtn.setVisibility(View.GONE);
         status.setVisibility(View.GONE);
@@ -237,6 +241,11 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
             return;
         }
         List<String> words = new ArrayList<>();
+        if (swiped != null && swiped.equals(w)) {
+            words.addAll(swipeAlts);              // the other words the path could have meant
+            showWords(words, w);
+            return;
+        }
         String fix = noCorrect ? null : dict.autocorrect(w);
         String primary = fix != null ? matchCase(w, fix) : w;
         words.add(primary);
@@ -245,6 +254,10 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
             String x = matchCase(w, s.word);
             if (!words.contains(x)) words.add(x);
         }
+        showWords(words, w);
+    }
+
+    private void showWords(List<String> words, String w) {
         // middle: what space will produce; left and right: the alternatives
         String[] order = {words.size() > 1 ? words.get(1) : null, words.get(0), words.size() > 2 ? words.get(2) : null};
         for (int i = 0; i < 3; i++) {
@@ -270,9 +283,44 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         ic.endBatchEdit();
         typing = false;
         acFrom = null;
+        swiped = null;
         autoCaps();
         refresh();
     }
+
+    // --- swipe
+
+    @Override
+    public void onSwipe(float[] xs, float[] ys, boolean shift, boolean caps) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null || dict == null || keys == null) return;
+        float[][] c = keys.letterCenters();
+        List<Dictionary.Suggestion> found = dict.swipe(xs, ys, c[0], c[1], keys.keyWidth(), 4);
+        if (found.isEmpty()) return;
+        swipeAlts.clear();
+        for (Dictionary.Suggestion s : found) {
+            String x = caps ? s.word.toUpperCase(Locale.GERMAN)
+                    : shift ? s.word.substring(0, 1).toUpperCase(Locale.GERMAN) + s.word.substring(1) : s.word;
+            if (!swipeAlts.contains(x)) swipeAlts.add(x);
+        }
+        String word = swipeAlts.get(0);
+        CharSequence before = ic.getTextBeforeCursor(1, 0);
+        swipeSpace = before != null && before.length() == 1 && !Character.isWhitespace(before.charAt(0))
+                && "([{„\"'/@#-".indexOf(before.charAt(0)) < 0;       // words get a space between them automatically
+        ic.beginBatchEdit();
+        CharSequence sel = ic.getSelectedText(0);
+        if (sel != null && sel.length() > 0) { ic.commitText("", 1); swipeSpace = false; }
+        ic.commitText(swipeSpace ? " " + word : word, 1);
+        ic.endBatchEdit();
+        swiped = word;
+        typing = true;
+        acFrom = null;
+        autoCaps();
+        refresh();
+    }
+
+    /** True if the cursor stands right after the word just swiped. */
+    private boolean afterSwipe() { return swiped != null && swiped.equals(currentWord()); }
 
     /** Called before a space or punctuation mark: learns the finished word and maybe corrects it. */
     private void finishWord(InputConnection ic, String sep) {
@@ -324,6 +372,14 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
         boolean letter = text.length() > 0 && Character.isLetter(text.codePointAt(0));
+        if (letter && afterSwipe()) {             // typing after a swiped word starts a new word
+            ic.beginBatchEdit();
+            finishWord(ic, " ");
+            acFrom = null;
+            ic.commitText(" ", 1);
+            ic.endBatchEdit();
+        }
+        swiped = null;
         if (!letter && text.length() == 1 && " .,!?;:)\"".indexOf(text.charAt(0)) >= 0) {
             ic.beginBatchEdit();
             finishWord(ic, text);
@@ -355,6 +411,17 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         if (ic == null) return;
         if (code != KeyboardView.DELETE && code != KeyboardView.SHIFT && code != KeyboardView.SYMBOLS
                 && code != KeyboardView.LETTERS && code != KeyboardView.MORE) acFrom = null;
+        if (code == KeyboardView.DELETE && afterSwipe()) {   // backspace takes back the whole swiped word
+            CharSequence before = ic.getTextBeforeCursor(swiped.length() + 1, 0);
+            boolean space = swipeSpace && before != null && before.length() == swiped.length() + 1 && before.charAt(0) == ' ';
+            ic.deleteSurroundingText(swiped.length() + (space ? 1 : 0), 0);
+            swiped = null;
+            typing = false;
+            autoCaps();
+            refresh();
+            return;
+        }
+        if (code != KeyboardView.SHIFT) swiped = null;
         if (code == KeyboardView.DELETE) {
             if (revertAutocorrect(ic)) { typing = false; autoCaps(); return; }
             typing = true;
@@ -441,6 +508,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
                     public void run() {
                         if (er != null) { say(er); return; }
                         typing = false;
+                        swiped = null;
                         replace(r, o);
                         undoText = r.text;
                         undoStart = r.start;

@@ -3,6 +3,7 @@ package de.spaceage.feinschliff;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.Handler;
@@ -12,9 +13,10 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-/** Draws the keys and turns touches into key presses (tap, long-press alternates, repeating delete). */
+/** Draws the keys and turns touches into key presses (tap, long-press alternates, repeating delete, swipe). */
 final class KeyboardView extends View {
     static final int SHIFT = -1, DELETE = -2, SYMBOLS = -3, LETTERS = -4, MORE = -5, ENTER = -6, SPACE = -7, SWITCH = -8;
 
@@ -22,6 +24,8 @@ final class KeyboardView extends View {
         void onText(String text);
         void onCode(int code);
         void onSwitchLongPress();
+        /** A finger path across the letter keys; shift/caps as they were when it started. */
+        void onSwipe(float[] xs, float[] ys, boolean shift, boolean caps);
     }
 
     static final class Key {
@@ -126,12 +130,21 @@ final class KeyboardView extends View {
     private int altIndex = -1;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable longPress, repeat;
+    private float[] trailX = new float[512], trailY = new float[512];
+    private int trailN = -1;           // -1: no letter press that could become a swipe
+    private boolean swiping;
+    private final Path trail = new Path();
+    private final Paint trailPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     KeyboardView(Context c, Listener listener) {
         super(c);
         this.listener = listener;
         density = c.getResources().getDisplayMetrics().density;
         textPaint.setTextAlign(Paint.Align.CENTER);
+        trailPaint.setStyle(Paint.Style.STROKE);
+        trailPaint.setStrokeWidth(5 * density);
+        trailPaint.setStrokeCap(Paint.Cap.ROUND);
+        trailPaint.setStrokeJoin(Paint.Join.ROUND);
         setTheme(false);
         rows = letters(enterLabel);
     }
@@ -158,6 +171,23 @@ final class KeyboardView extends View {
     }
 
     boolean isShift() { return shift || capsLock; }
+
+    /** Key centres of the letter keys, indexed by char (NaN: no key), for decoding swipes. */
+    float[][] letterCenters() {
+        float[] x = new float[0x100], y = new float[0x100];
+        Arrays.fill(x, Float.NaN);
+        Arrays.fill(y, Float.NaN);
+        if (mode != LETTERS) return new float[][]{x, y};
+        for (List<Key> row : rows)
+            for (Key k : row)
+                if (k.code == 0 && k.label.length() == 1 && Character.isLetter(k.label.charAt(0)) && k.label.charAt(0) < 0x100) {
+                    x[k.label.charAt(0)] = k.rect.centerX();
+                    y[k.label.charAt(0)] = k.rect.centerY();
+                }
+        return new float[][]{x, y};
+    }
+
+    float keyWidth() { return rows.get(0).get(0).rect.width() + 4 * density; }
 
     void showLetters() {
         mode = LETTERS;
@@ -227,6 +257,14 @@ final class KeyboardView extends View {
                 }
             }
         }
+        if (swiping && trailN > 1) {
+            trailPaint.setColor(accent);
+            trailPaint.setAlpha(170);
+            trail.reset();
+            trail.moveTo(trailX[0], trailY[0]);
+            for (int i = 1; i < trailN; i++) trail.lineTo(trailX[i], trailY[i]);
+            c.drawPath(trail, trailPaint);
+        }
         if (altKey != null) {
             for (int i = 0; i < altRects.size(); i++) {
                 keyPaint.setColor(i == altIndex ? accent : keyBg);
@@ -260,16 +298,33 @@ final class KeyboardView extends View {
     public boolean onTouchEvent(MotionEvent e) {
         float x = e.getX(), y = e.getY();
         switch (e.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN:
-                down(keyAt(x, y));
+            case MotionEvent.ACTION_DOWN: {
+                Key k = keyAt(x, y);
+                swiping = false;
+                trailN = mode == LETTERS && k != null && k.code == 0 && Character.isLetter(k.label.charAt(0)) ? 0 : -1;
+                addTrail(x, y);
+                down(k);
                 return true;
+            }
             case MotionEvent.ACTION_POINTER_DOWN: {   // fast two-thumb typing: finish the first key, start the next
+                if (swiping) { swiping = false; trailN = -1; pressed = null; invalidate(); return true; }
+                trailN = -1;
                 if (pressed != null && altKey == null) up();
                 int i = e.getActionIndex();
                 down(keyAt(e.getX(i), e.getY(i)));
                 return true;
             }
             case MotionEvent.ACTION_MOVE:
+                if (trailN >= 0 && altKey == null && e.getPointerCount() == 1) {
+                    for (int h = 0; h < e.getHistorySize(); h++) addTrail(e.getHistoricalX(h), e.getHistoricalY(h));
+                    addTrail(x, y);
+                    if (!swiping && Math.hypot(x - trailX[0], y - trailY[0]) > keyWidth() * 0.75f) {
+                        swiping = true;                 // the finger left its key: this is a swipe, not a tap
+                        cancelTimers();
+                        pressed = null;
+                    }
+                    if (swiping) invalidate();
+                }
                 if (altKey != null) {
                     int idx = -1;
                     for (int i = 0; i < altRects.size(); i++) {
@@ -281,9 +336,22 @@ final class KeyboardView extends View {
                 return true;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
+                if (swiping) {
+                    boolean sh = isShift(), caps = capsLock;
+                    swiping = false;
+                    float[] xs = Arrays.copyOf(trailX, trailN), ys = Arrays.copyOf(trailY, trailN);
+                    trailN = -1;
+                    if (shift && !capsLock) shift = false;
+                    invalidate();
+                    listener.onSwipe(xs, ys, sh, caps);
+                    return true;
+                }
+                trailN = -1;
                 up();
                 return true;
             case MotionEvent.ACTION_CANCEL:
+                swiping = false;
+                trailN = -1;
                 cancelTimers();
                 pressed = null;
                 altKey = null;
@@ -363,6 +431,17 @@ final class KeyboardView extends View {
         if (isShift() && mode == LETTERS) s = s.toUpperCase();
         listener.onText(s);
         if (shift && !capsLock) { shift = false; invalidate(); }
+    }
+
+    private void addTrail(float x, float y) {
+        if (trailN < 0) return;
+        if (trailN == trailX.length) {
+            trailX = Arrays.copyOf(trailX, trailN * 2);
+            trailY = Arrays.copyOf(trailY, trailN * 2);
+        }
+        trailX[trailN] = x;
+        trailY[trailN] = y;
+        trailN++;
     }
 
     private void cancelTimers() {

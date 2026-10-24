@@ -285,4 +285,122 @@ final class Dictionary {
         if (second != null && best.score - second.score < 50) return null;   // two plausible fixes: don't guess
         return best.word;
     }
+
+    // --- swipe typing
+
+    private static final int N = 32;           // points both shapes are resampled to
+    private static final int SHAPE_WEIGHT = 1000, LEN_WEIGHT = 300;   // tuned on simulated noisy swipes
+
+    /** Evenly spaced points along a polyline, so a drawn path and a word's ideal path can be compared. */
+    private static float[] resample(float[] xs, float[] ys, int m) {
+        float[] out = new float[2 * N];
+        float total = 0;
+        for (int i = 1; i < m; i++) total += (float) Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]);
+        if (m == 1 || total == 0) {
+            for (int i = 0; i < N; i++) { out[2 * i] = xs[0]; out[2 * i + 1] = ys[0]; }
+            return out;
+        }
+        float step = total / (N - 1), walked = 0;
+        int seg = 1;
+        for (int i = 0; i < N; i++) {
+            float target = i * step;
+            while (seg < m - 1 && walked + (float) Math.hypot(xs[seg] - xs[seg - 1], ys[seg] - ys[seg - 1]) < target) {
+                walked += (float) Math.hypot(xs[seg] - xs[seg - 1], ys[seg] - ys[seg - 1]);
+                seg++;
+            }
+            float len = (float) Math.hypot(xs[seg] - xs[seg - 1], ys[seg] - ys[seg - 1]);
+            float t = len == 0 ? 0 : Math.max(0, Math.min(1, (target - walked) / len));
+            out[2 * i] = xs[seg - 1] + t * (xs[seg] - xs[seg - 1]);
+            out[2 * i + 1] = ys[seg - 1] + t * (ys[seg] - ys[seg - 1]);
+        }
+        return out;
+    }
+
+    /**
+     * Words for a finger path drawn across the letter keys. cx/cy hold each letter's key centre
+     * (indexed by char, NaN where there is no key); keyW is a key's width.
+     * A word qualifies when it starts and ends near the path's ends and the path passes near all its
+     * letters in order; the survivors are ranked by how closely the path follows the word's shape,
+     * then by how common the word is.
+     */
+    List<Suggestion> swipe(float[] rawX, float[] rawY, float[] cx, float[] cy, float keyW, int max) {
+        int m = 0;                              // thin the path: points at least a fifth of a key apart
+        float[] px = new float[rawX.length], py = new float[rawY.length];
+        for (int i = 0; i < rawX.length; i++) {
+            if (m > 0 && i < rawX.length - 1 && Math.hypot(rawX[i] - px[m - 1], rawY[i] - py[m - 1]) < keyW * 0.2f) continue;
+            px[m] = rawX[i]; py[m] = rawY[i]; m++;
+        }
+        float[] drawn = resample(px, py, m);
+        float drawnLen = 0;
+        for (int i = 1; i < m; i++) drawnLen += (float) Math.hypot(px[i] - px[i - 1], py[i] - py[i - 1]);
+        float near = keyW * 1.1f, pass = keyW * 0.95f;
+        StringBuilder starts = new StringBuilder(), ends = new StringBuilder();
+        char nearestStart = 0, nearestEnd = 0;
+        float bs = Float.MAX_VALUE, be = Float.MAX_VALUE;
+        for (char c = 'a'; c < 0x100; c++) {
+            if (Float.isNaN(cx[c]) || !Character.isLetter(c)) continue;
+            float ds = (float) Math.hypot(cx[c] - px[0], cy[c] - py[0]), de = (float) Math.hypot(cx[c] - px[m - 1], cy[c] - py[m - 1]);
+            if (ds < near) starts.append(c);
+            if (de < near) ends.append(c);
+            if (ds < bs) { bs = ds; nearestStart = c; }
+            if (de < be) { be = de; nearestEnd = c; }
+        }
+        if (starts.length() == 0) starts.append(nearestStart);
+        if (ends.length() == 0) ends.append(nearestEnd);
+
+        Map<String, Suggestion> out = new HashMap<>();
+        float[] wx = new float[48], wy = new float[48];
+        for (int s = 0; s < starts.length(); s++) {
+            for (int i : prefixRange(String.valueOf(starts.charAt(s)))) {
+                int sc = swipeScore(keys[i], px, py, m, drawn, drawnLen, cx, cy, keyW, pass, ends, wx, wy);
+                if (sc != Integer.MIN_VALUE) {
+                    sc += score(i);
+                    out.put(keys[i], new Suggestion(keys[i], shown[i] != null ? shown[i] : keys[i], sc, false));
+                }
+            }
+        }
+        for (Map.Entry<String, int[]> e : user.entrySet()) {
+            String k = e.getKey();
+            if (e.getValue()[0] < KNOWN || find(k) >= 0 || starts.indexOf(k.substring(0, 1)) < 0) continue;
+            int sc = swipeScore(k, px, py, m, drawn, drawnLen, cx, cy, keyW, pass, ends, wx, wy);
+            if (sc != Integer.MIN_VALUE) out.put(k, new Suggestion(k, userShown.get(k), sc + 350 + boost(k), false));
+        }
+        List<Suggestion> list = new ArrayList<>(out.values());
+        java.util.Collections.sort(list, new java.util.Comparator<Suggestion>() {
+            public int compare(Suggestion a, Suggestion b) { return b.score - a.score; }
+        });
+        return list.size() > max ? new ArrayList<>(list.subList(0, max)) : list;
+    }
+
+    /** Shape part of a word's swipe score (higher is better), or MIN_VALUE if the path can't be this word. */
+    private static int swipeScore(String w, float[] px, float[] py, int m, float[] drawn, float drawnLen, float[] cx, float[] cy,
+                                  float keyW, float pass, CharSequence ends, float[] wx, float[] wy) {
+        int n = w.length();
+        if (n < 2 || n > 40) return Integer.MIN_VALUE;
+        char last = w.charAt(n - 1) == 'ß' ? 's' : w.charAt(n - 1);
+        if (last >= 0x100 || ((StringBuilder) ends).indexOf(String.valueOf(last)) < 0) return Integer.MIN_VALUE;
+        int k = 0;
+        char prev = 0;
+        for (int i = 0; i < n; i++) {
+            char c = w.charAt(i);
+            if (c == 'ß') c = 's';
+            if (c >= 0x100 || Float.isNaN(cx[c])) return Integer.MIN_VALUE;      // apostrophe, é ...: not swipeable
+            if (c == prev) continue;                                              // double letters are one key
+            prev = c;
+            wx[k] = cx[c]; wy[k] = cy[c]; k++;
+        }
+        if (k < 2) return Integer.MIN_VALUE;
+        int j = 0;                              // the path must pass near every key, in order
+        for (int i = 1; i < k - 1; i++) {
+            while (j < m && Math.hypot(px[j] - wx[i], py[j] - wy[i]) > pass) j++;
+            if (j == m) return Integer.MIN_VALUE;
+        }
+        float[] ideal = resample(wx, wy, k);
+        float d = 0;
+        for (int i = 0; i < N; i++) d += (float) Math.hypot(ideal[2 * i] - drawn[2 * i], ideal[2 * i + 1] - drawn[2 * i + 1]);
+        float idealLen = 0;                     // a detour the word doesn't take (war vs wasser) costs extra
+        for (int i = 1; i < k; i++) idealLen += (float) Math.hypot(wx[i] - wx[i - 1], wy[i] - wy[i - 1]);
+        float ratio = (drawnLen + keyW) / (idealLen + keyW);
+        return Math.round(-SHAPE_WEIGHT * d / N / keyW - LEN_WEIGHT * Math.abs((float) Math.log(ratio)));
+    }
 }
