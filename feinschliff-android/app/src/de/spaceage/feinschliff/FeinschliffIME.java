@@ -1,8 +1,10 @@
 package de.spaceage.feinschliff;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.inputmethodservice.InputMethodService;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
@@ -19,6 +21,7 @@ import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -53,9 +56,28 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     private boolean swipeSpace;                  // ... with a space put in front of it
     private final List<String> swipeAlts = new ArrayList<>();
 
+    private static FeinschliffIME instance;
+    private static File pendingImage;            // picked in PickActivity, inserted when the app is back
+    private Button mapsChip;                     // "📍 Maps-Link: Hauptstraße 5", shown when the text has an address
+    private int[] addressAt;
+    private LinearLayout placeBar;
+
+    /** Called by PickActivity with the picture to insert. */
+    static void imagePicked(File f) {
+        pendingImage = f;
+        if (instance != null) instance.main.postDelayed(new Runnable() { public void run() { instance.insertPending(); } }, 600);
+    }
+
+    @Override
+    public void onDestroy() {
+        if (instance == this) instance = null;
+        super.onDestroy();
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
+        instance = this;
         new Thread(new Runnable() {
             public void run() {
                 try {
@@ -79,6 +101,20 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
 
         aiBar = new LinearLayout(this);
         aiBar.setGravity(Gravity.CENTER_VERTICAL);
+        mapsChip = chip("");
+        mapsChip.setTextColor(dark ? 0xFF8EA2FF : 0xFF2B45D4);
+        mapsChip.setVisibility(View.GONE);
+        mapsChip.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { linkAddress(); } });
+        aiBar.addView(mapsChip);
+        Button place = chip("📍 Ort ▾");
+        place.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { showRow(placeBar); } });
+        aiBar.addView(place);
+        Button gallery = chip("🖼 Bild");
+        gallery.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickImage(PickActivity.GALLERY); } });
+        aiBar.addView(gallery);
+        Button camera = chip("📷 Foto");
+        camera.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pickImage(PickActivity.CAMERA); } });
+        aiBar.addView(camera);
         addAi("Korrigieren", 0);
         addAi("Umformulieren", 1);
         addAi("Übersetzen", 2);
@@ -102,6 +138,20 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         updateChips();
         styleBar = choiceRow(Tasks.STYLE_LABELS, "style", 1);     // tap a style: rewrite right away
         langBar = choiceRow(Tasks.LANGS, "lang", 2);              // tap a language: translate right away
+        placeBar = new LinearLayout(this);
+        placeBar.setGravity(Gravity.CENTER_VERTICAL);
+        Button placeBack = chip("✕");
+        placeBack.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { showRow(aiBar); } });
+        placeBar.addView(placeBack);
+        Button here = chip("📌 Mein Standort");
+        here.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { myLocation(); } });
+        placeBar.addView(here);
+        Button aiPlaces = chip("🔎 Orte im Text verlinken");
+        aiPlaces.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { linkPlacesWithAi(); } });
+        placeBar.addView(aiPlaces);
+        Button placeUndo = chip("↶");
+        placeUndo.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { undo(); } });
+        placeBar.addView(placeUndo);
         aiScroll = new HorizontalScrollView(this);
         aiScroll.setHorizontalScrollBarEnabled(false);
         aiScroll.addView(aiBar);
@@ -211,6 +261,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     @Override
     public void onStartInputView(EditorInfo info, boolean restarting) {
         super.onStartInputView(info, restarting);
+        if (pendingImage != null) main.postDelayed(new Runnable() { public void run() { insertPending(); } }, 400);
         if (keys == null || info == null) return;
         int cls = info.inputType & InputType.TYPE_MASK_CLASS, var = info.inputType & InputType.TYPE_MASK_VARIATION;
         secret = (cls == InputType.TYPE_CLASS_TEXT && (var == InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -306,6 +357,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         if (w.isEmpty()) {
             strip.setVisibility(View.GONE);
             aiScroll.setVisibility(View.VISIBLE);
+            updateMapsChip();
             return;
         }
         List<String> words = new ArrayList<>();
@@ -638,5 +690,199 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         lastOut = null;
         say("Rückgängig: Text vor „" + step[1] + "“");
         updateUndo();
+    }
+
+    // --- places
+
+    /** Shows "📍 Maps-Link: …" when the text holds an address that has no link yet. */
+    private void updateMapsChip() {
+        if (mapsChip == null) return;
+        String text = secret ? null : fieldText();
+        addressAt = text == null || text.length() > 5000 ? null : Places.lastAddress(text);
+        if (addressAt == null) { mapsChip.setVisibility(View.GONE); return; }
+        String a = text.substring(addressAt[0], addressAt[1]);
+        mapsChip.setText("📍 Maps-Link: " + (a.length() > 28 ? a.substring(0, 27) + "…" : a));
+        mapsChip.setVisibility(View.VISIBLE);
+    }
+
+    /** Puts text right after position {@code at} of the field, as one undo step. */
+    private void insertAt(int at, String insert, String action) {
+        String before = fieldText();
+        if (before == null) return;
+        history.push(new String[]{before, action});
+        Range r = new Range();
+        r.start = r.end = at;
+        replace(r, insert);
+        updateUndo();
+    }
+
+    private void linkAddress() {
+        String text = fieldText();
+        if (text == null || addressAt == null || addressAt[1] > text.length()) return;
+        String a = text.substring(addressAt[0], addressAt[1]);
+        insertAt(addressAt[1], " " + Places.link(a), "Maps-Link");
+        addressAt = null;
+        mapsChip.setVisibility(View.GONE);
+    }
+
+    /** Inserts a maps link to where the phone is now (needs the location permission from the app). */
+    private void myLocation() {
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            say("Erlaube zuerst den Standort: Feinschliff-App öffnen → „Standort erlauben“.");
+            return;
+        }
+        final android.location.LocationManager lm = (android.location.LocationManager) getSystemService(LOCATION_SERVICE);
+        android.location.Location best = null;
+        try {
+            for (String prov : lm.getProviders(true)) {
+                android.location.Location l = lm.getLastKnownLocation(prov);
+                if (l != null && (best == null || l.getTime() > best.getTime())) best = l;
+            }
+        } catch (SecurityException e) { say("Standort nicht erlaubt."); return; }
+        if (best != null && System.currentTimeMillis() - best.getTime() < 2 * 60 * 1000) { putLocation(best); return; }
+        String prov = lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ? android.location.LocationManager.GPS_PROVIDER
+                : lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER) ? android.location.LocationManager.NETWORK_PROVIDER : null;
+        if (prov == null) {
+            if (best != null) putLocation(best); else say("Standort ist am Handy ausgeschaltet.");
+            return;
+        }
+        say("Suche Standort …");
+        final android.location.Location fallback = best;
+        final boolean[] done = {false};
+        final Runnable timeout = new Runnable() {
+            public void run() {
+                if (done[0]) return;
+                done[0] = true;
+                if (fallback != null) putLocation(fallback); else say("Kein Standort gefunden. Draußen klappt es besser.");
+            }
+        };
+        main.postDelayed(timeout, 15000);
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                lm.getCurrentLocation(prov, null, getMainExecutor(), new java.util.function.Consumer<android.location.Location>() {
+                    public void accept(android.location.Location l) {
+                        if (done[0]) return;
+                        done[0] = true;
+                        main.removeCallbacks(timeout);
+                        if (l != null) putLocation(l); else timeout.run();
+                    }
+                });
+            } else {
+                lm.requestSingleUpdate(prov, new android.location.LocationListener() {
+                    public void onLocationChanged(android.location.Location l) {
+                        if (done[0]) return;
+                        done[0] = true;
+                        main.removeCallbacks(timeout);
+                        putLocation(l);
+                    }
+                    public void onStatusChanged(String p, int s, android.os.Bundle b) { }
+                    public void onProviderEnabled(String p) { }
+                    public void onProviderDisabled(String p) { }
+                }, Looper.getMainLooper());
+            }
+        } catch (SecurityException e) { say("Standort nicht erlaubt."); }
+    }
+
+    private void putLocation(android.location.Location l) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return;
+        CharSequence before = ic.getTextBeforeCursor(1, 0);
+        String link = Places.link(l.getLatitude(), l.getLongitude());
+        String sep = before == null || before.length() == 0 || Character.isWhitespace(before.charAt(0)) ? "" : " ";
+        String text = fieldText();
+        if (text != null) { history.push(new String[]{text, "Standort"}); updateUndo(); }
+        ic.commitText(sep + "📍 " + link + " ", 1);
+        say(null);
+        showRow(aiBar);
+    }
+
+    /** Asks Claude which places the text mentions and puts a maps link after each. */
+    private void linkPlacesWithAi() {
+        if (busy || secret) return;
+        final String key = prefs().getString("key", "");
+        if (key.trim().isEmpty()) { say("Trage zuerst deinen API-Schlüssel in der Feinschliff-App ein."); return; }
+        final String text = fieldText();
+        if (text == null || text.trim().isEmpty()) { say("Kein Text im Feld."); return; }
+        say("Sucht Orte …");
+        busy = true;
+        new Thread(new Runnable() {
+            public void run() {
+                String out = null, err = null;
+                try { out = Claude.ask(key, Places.AI_PROMPT + text + "\n>>>", null); }
+                catch (Exception e) { err = e.getMessage() != null ? e.getMessage() : "Keine Verbindung."; }
+                final String o = out, er = err;
+                main.post(new Runnable() {
+                    public void run() {
+                        busy = false;
+                        if (er != null) { say(er); return; }
+                        String now = fieldText();
+                        if (now == null || !now.equals(text)) { say("Der Text hat sich inzwischen geändert – bitte nochmal."); return; }
+                        StringBuilder sb = new StringBuilder(now);
+                        int found = 0, from = now.length();
+                        String[] lines = o.trim().split("\n");
+                        java.util.List<int[]> spots = new ArrayList<>();
+                        java.util.List<String> links = new ArrayList<>();
+                        for (String line : lines) {
+                            int bar = line.lastIndexOf('|');
+                            if (bar <= 0) continue;
+                            String piece = line.substring(0, bar).trim(), query = line.substring(bar + 1).trim();
+                            int at = now.indexOf(piece);
+                            if (at < 0 || query.isEmpty()) continue;
+                            spots.add(new int[]{at + piece.length()});
+                            links.add(" " + Places.link(query));
+                        }
+                        for (int i = 0; i < spots.size(); i++)          // from the back, so positions stay right
+                            for (int j = i + 1; j < spots.size(); j++)
+                                if (spots.get(j)[0] > spots.get(i)[0]) {
+                                    int[] t = spots.get(i); spots.set(i, spots.get(j)); spots.set(j, t);
+                                    String u = links.get(i); links.set(i, links.get(j)); links.set(j, u);
+                                }
+                        for (int i = 0; i < spots.size(); i++) { sb.insert(spots.get(i)[0], links.get(i)); found++; }
+                        if (found == 0) { say("Keinen Ort im Text gefunden."); return; }
+                        history.push(new String[]{now, "Orte verlinken"});
+                        Range r = new Range();
+                        r.start = 0;
+                        r.end = now.length();
+                        replace(r, sb.toString());
+                        updateUndo();
+                        say(found == 1 ? "1 Ort verlinkt." : found + " Orte verlinkt.");
+                        showRow(aiBar);
+                    }
+                });
+            }
+        }).start();
+    }
+
+    // --- pictures
+
+    private void pickImage(String mode) {
+        Intent i = new Intent(this, PickActivity.class).putExtra(PickActivity.MODE, mode)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+        startActivity(i);
+    }
+
+    /** Sends the picked picture into the app being typed in, or offers to share it if that app can't take one. */
+    private void insertPending() {
+        final File f = pendingImage;
+        InputConnection ic = getCurrentInputConnection();
+        EditorInfo info = getCurrentInputEditorInfo();
+        if (f == null || ic == null || info == null) return;
+        pendingImage = null;
+        Uri uri = ImageProvider.uriFor(f);
+        String mime = ImageProvider.mimeOf(f.getName());
+        boolean accepts = false;
+        String[] types = info.contentMimeTypes;
+        if (types != null) for (String t : types) if (android.content.ClipDescription.compareMimeTypes(mime, t)) accepts = true;
+        if (accepts) {
+            android.view.inputmethod.InputContentInfo content =
+                    new android.view.inputmethod.InputContentInfo(uri, new android.content.ClipDescription("Bild", new String[]{mime}));
+            if (ic.commitContent(content, InputConnection.INPUT_CONTENT_GRANT_READ_URI_PERMISSION, null)) { say(null); return; }
+        }
+        Intent send = new Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uri)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        send.setClipData(android.content.ClipData.newRawUri("", uri));
+        startActivity(Intent.createChooser(send, "Bild senden mit …").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION));
+        say("Dieses Textfeld nimmt keine Bilder von Tastaturen an – ich habe „Teilen“ geöffnet.");
     }
 }

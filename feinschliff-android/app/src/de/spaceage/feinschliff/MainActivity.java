@@ -98,6 +98,15 @@ public class MainActivity extends Activity {
             }
         });
         root.addView(autocorrect);
+        Button location = new Button(this);
+        location.setText("Standort erlauben (für „📌 Mein Standort“)");
+        location.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                requestPermissions(new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION,
+                        android.Manifest.permission.ACCESS_COARSE_LOCATION}, 7);
+            }
+        });
+        root.addView(location);
 
         // settings
         root.addView(panel.label("API-Schlüssel (von console.anthropic.com, bleibt nur auf diesem Handy)"));
@@ -119,7 +128,7 @@ public class MainActivity extends Activity {
         });
         root.addView(saveKey);
         TextView model = new TextView(this);
-        model.setText("Modell: " + Claude.MODEL + " · Version 1.7");
+        model.setText("Modell: " + Claude.MODEL + " · Version 1.8");
         model.setAlpha(0.5f);
         root.addView(model);
 
@@ -187,5 +196,12 @@ public class MainActivity extends Activity {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         bmp.compress(Bitmap.CompressFormat.JPEG, 85, out);
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        boolean ok = false;
+        for (int r : results) ok |= r == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        android.widget.Toast.makeText(this, ok ? "Standort erlaubt ✓" : "Standort nicht erlaubt.", android.widget.Toast.LENGTH_LONG).show();
     }
 }
