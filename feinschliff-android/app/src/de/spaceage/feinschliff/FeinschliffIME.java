@@ -616,14 +616,17 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
 
     /**
      * What the enter key does in this field: the app's action (Senden, Suchen, Weiter), or -1 for a new line.
-     * In multi-line fields only a plain "send" counts, and only if switched on in the app; anything else
-     * there types a new line (custom actions made some apps add line after line).
+     * In multi-line fields only plain "send" (chats, if switched on in the app) and "search"/"go" (the Google
+     * search box wraps its text, so it is multi-line too) count; anything else there types a new line
+     * (custom actions made some apps add line after line).
      */
     private int enterAction(EditorInfo info) {
         if (info == null || (info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0) return -1;
         int action = info.imeOptions & EditorInfo.IME_MASK_ACTION;
-        if ((info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0)
+        if ((info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0) {
+            if (action == EditorInfo.IME_ACTION_SEARCH || action == EditorInfo.IME_ACTION_GO) return action;
             return action == EditorInfo.IME_ACTION_SEND && prefs().getBoolean("enterSends", true) ? action : -1;
+        }
         if (info.actionLabel != null && info.actionLabel.length() > 0 && info.actionId != 0) return info.actionId;
         return action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED ? -1 : action;
     }
