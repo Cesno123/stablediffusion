@@ -16,7 +16,7 @@ import sys
 
 import wordfreq
 
-DE_WORDS, EN_WORDS = 90000, 20000
+DE_WORDS, EN_WORDS = 250000, 20000
 EN_PENALTY = 1.2          # English words rank below German ones of the same frequency
 WORD = re.compile(r"^[a-zäöüßàâçéèêëîïôûùüÿñæœ'-]+$")
 SUFFIXES = ["nen", "ern", "en", "er", "es", "n", "s", "e"]
@@ -104,6 +104,22 @@ def is_typo(w, z, entries):
     return any(c in entries and entries[c][1] >= z + TYPO_GAP for c in cands)
 
 
+def compound_noun(w, capitalized, any_lower):
+    """Compounds the dictionary lacks but whose last part is a noun: fehlgriffe -> Fehlgriffe."""
+    if also_lowercase(w) or wordfreq.zipf_frequency(w, "en", wordlist="large") >= 3.0:
+        return False                  # schlanke, erobert, against
+    if re.search(r"(ung|heit|keit|schaft|tät|nis)(en|se|sen)?$", w) and len(w) >= 6:
+        return True                   # Entscheidung, Freiheit, Mannschaft
+    for i in range(4, len(w) - 4):    # first part at least 4 letters: no ent|stand, be|gannen
+        tail = w[i:]
+        for suf in [""] + SUFFIXES:
+            stem = tail[: len(tail) - len(suf)] if suf else tail
+            if (tail.endswith(suf) and len(stem) >= 5 and stem in capitalized and stem not in any_lower
+                    and not also_lowercase(stem)):
+                return True
+    return False
+
+
 def display_form(w, standalone_lower, capitalized, any_lower):
     if w in standalone_lower:
         return w
@@ -113,6 +129,8 @@ def display_form(w, standalone_lower, capitalized, any_lower):
         return capitalized[w]
     if w in any_lower:
         return w
+    if compound_noun(w, capitalized, any_lower):
+        return w[0].upper() + w[1:]
     for suf in SUFFIXES:              # inflected nouns: Häusern -> Häuser, Autos -> Auto
         stem = w[: -len(suf)]
         if len(stem) >= 4 and w.endswith(suf) and stem in capitalized and stem not in any_lower:

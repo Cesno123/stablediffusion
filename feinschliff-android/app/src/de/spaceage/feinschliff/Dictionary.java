@@ -376,8 +376,10 @@ final class Dictionary {
 
     private static final int N = 32;           // points both shapes are resampled to
     // weights of the swipe score, tuned on simulated sloppy swipes (corner cutting, misses by a third of a key)
-    static int ALIGN_W = 600, SHAPE_W = 600, LEN_W = 200, ODD_PENALTY = 150;
+    static int ALIGN_W = 600, SHAPE_W = 800, NSHAPE_W = 0, LEN_W = 200, ODD_PENALTY = 150;
     static float LM_SCALE = 1.4f;               // how much frequency and context count against the shape
+    static float END_R = 1.6f, DEAD = 0.3f, THIN = 0.25f;
+    static float PULL = 0.25f, PULL_END = 0.15f, PULL_MAX = 0.7f;  // how far fingers cut corners and stop short, in keys     // how far start/end may miss their key; misses this small cost nothing
 
     /** Evenly spaced points along a polyline, so a drawn path and a word's ideal path can be compared. */
     private static float[] resample(float[] xs, float[] ys, int m) {
@@ -404,13 +406,40 @@ final class Dictionary {
         return out;
     }
 
+    /** The points moved to their centre and scaled to size 1, to compare shapes whatever their size. */
+    private static float[] normalized(float[] pts) {
+        float cx = 0, cy = 0, minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+        for (int i = 0; i < N; i++) {
+            cx += pts[2 * i]; cy += pts[2 * i + 1];
+            minX = Math.min(minX, pts[2 * i]); maxX = Math.max(maxX, pts[2 * i]);
+            minY = Math.min(minY, pts[2 * i + 1]); maxY = Math.max(maxY, pts[2 * i + 1]);
+        }
+        cx /= N; cy /= N;
+        float size = Math.max(1f, Math.max(maxX - minX, maxY - minY));
+        float[] out = new float[2 * N];
+        for (int i = 0; i < N; i++) { out[2 * i] = (pts[2 * i] - cx) / size; out[2 * i + 1] = (pts[2 * i + 1] - cy) / size; }
+        return out;
+    }
+
     /** A swipe in key units: x in key widths, y in key heights (keys are taller than wide). */
     private static final class Path {
-        float[] x, y, drawn;
+        float[] x, y, drawn, drawnN;
         int m;
         float len;
         float[] kx = new float[0x100], ky = new float[0x100];   // key centres, same units
         String starts, ends;
+        boolean loose;
+        char[] chars;
+        final float[][] missTab = new float[0x100][];         // per key: miss() to every path point, built when needed
+
+        float[] misses(char c) {
+            float[] t = missTab[c];
+            if (t == null) {
+                t = missTab[c] = new float[m];
+                for (int j = 0; j < m; j++) t[j] = miss(kx[c] - x[j], ky[c] - y[j]);
+            }
+            return t;
+        }
     }
 
     /**
@@ -420,16 +449,22 @@ final class Dictionary {
      * path follows its shape, and how likely it is after the previous word (setContext).
      */
     List<Suggestion> swipe(float[] rawX, float[] rawY, float[] cx, float[] cy, float keyW, float keyH, int max) {
+        List<Suggestion> r = swipe(rawX, rawY, cx, cy, keyW, keyH, max, false);
+        return r.isEmpty() ? swipe(rawX, rawY, cx, cy, keyW, keyH, max, true) : r;   // nothing fits: try anything nearby
+    }
+
+    private List<Suggestion> swipe(float[] rawX, float[] rawY, float[] cx, float[] cy, float keyW, float keyH, int max, boolean loose) {
         Path p = new Path();
         p.x = new float[rawX.length];
         p.y = new float[rawY.length];
         for (int i = 0; i < rawX.length; i++) {          // thin the path: points at least a quarter key apart
             float x = rawX[i] / keyW, y = rawY[i] / keyH;
-            if (p.m > 0 && i < rawX.length - 1 && Math.hypot(x - p.x[p.m - 1], y - p.y[p.m - 1]) < 0.25f) continue;
+            if (p.m > 0 && i < rawX.length - 1 && Math.hypot(x - p.x[p.m - 1], y - p.y[p.m - 1]) < THIN) continue;
             p.x[p.m] = x; p.y[p.m] = y; p.m++;
         }
         for (int i = 1; i < p.m; i++) p.len += (float) Math.hypot(p.x[i] - p.x[i - 1], p.y[i] - p.y[i - 1]);
         p.drawn = resample(p.x, p.y, p.m);
+        p.drawnN = normalized(p.drawn);
         StringBuilder starts = new StringBuilder(), ends = new StringBuilder();
         float bs = Float.MAX_VALUE, be = Float.MAX_VALUE;
         for (char c = 'a'; c < 0x100; c++) {
@@ -441,14 +476,17 @@ final class Dictionary {
         }
         for (char c = 'a'; c < 0x100; c++) {             // keys near the start and the end (and the nearest ones)
             if (Float.isNaN(cx[c]) || !Character.isLetter(c)) continue;
-            if (Math.hypot(p.kx[c] - p.x[0], p.ky[c] - p.y[0]) < Math.max(1.0f, bs + 0.45f)) starts.append(c);
-            if (Math.hypot(p.kx[c] - p.x[p.m - 1], p.ky[c] - p.y[p.m - 1]) < Math.max(1.0f, be + 0.45f)) ends.append(c);
+            float r = loose ? 2.5f : END_R;
+            if (Math.hypot(p.kx[c] - p.x[0], p.ky[c] - p.y[0]) < Math.max(r, bs + 0.45f)) starts.append(c);
+            if (Math.hypot(p.kx[c] - p.x[p.m - 1], p.ky[c] - p.y[p.m - 1]) < Math.max(r, be + 0.45f)) ends.append(c);
         }
         p.starts = starts.toString();
         p.ends = ends.toString();
+        p.loose = loose;
 
         Map<String, Suggestion> out = new HashMap<>();
         float[] wx = new float[48], wy = new float[48], dp = new float[p.m];
+        p.chars = new char[48];
         for (int s = 0; s < p.starts.length(); s++) {
             for (int i : prefixRange(String.valueOf(p.starts.charAt(s)))) {
                 int sc = swipeShape(keys[i], p, wx, wy, dp);
@@ -478,13 +516,14 @@ final class Dictionary {
         if (p.ends.indexOf(last) < 0) return Integer.MIN_VALUE;
         int k = 0;
         char prev = 0;
+        char[] wc = p.chars;
         for (int i = 0; i < n; i++) {
             char c = w.charAt(i);
             if (c == 'ß') c = 's';
             if (c >= 0x100 || Float.isNaN(p.kx[c])) return Integer.MIN_VALUE;   // apostrophe, é ...: not swipeable
             if (c == prev) continue;                                            // double letters are one key
             prev = c;
-            wx[k] = p.kx[c]; wy[k] = p.ky[c]; k++;
+            wc[k] = c; wx[k] = p.kx[c]; wy[k] = p.ky[c]; k++;
         }
         if (k < 2) return Integer.MIN_VALUE;
         float idealLen = 0;
@@ -493,19 +532,43 @@ final class Dictionary {
         if (ratio > 2.2f || ratio < 0.45f) return Integer.MIN_VALUE;
         // line the letters up with the path in order: each letter takes the closest point after the previous one
         int m = p.m;
-        for (int j = 0; j < m; j++) dp[j] = j == 0 ? (float) Math.hypot(wx[0] - p.x[0], wy[0] - p.y[0]) : Float.MAX_VALUE;
+        // a corner the finger cuts short or an end it stops before by less than DEAD keys costs nothing
+        float limit = (p.loose ? 3f : 1.0f) * k;
+        for (int j = 0; j < m; j++) dp[j] = j == 0 ? p.misses(wc[0])[0] : Float.MAX_VALUE;
         for (int i = 1; i < k; i++) {
-            float best = Float.MAX_VALUE;
+            float best = Float.MAX_VALUE, rowMin = Float.MAX_VALUE;
+            float[] t = p.misses(wc[i]);
             for (int j = 0; j < m; j++) {
-                best = Math.min(best, dp[j]);
-                dp[j] = best == Float.MAX_VALUE ? Float.MAX_VALUE : best + (float) Math.hypot(wx[i] - p.x[j], wy[i] - p.y[j]);
+                if (dp[j] < best) best = dp[j];
+                dp[j] = best == Float.MAX_VALUE ? Float.MAX_VALUE : best + t[j];
+                if (dp[j] < rowMin) rowMin = dp[j];
             }
+            if (rowMin > limit) return Integer.MIN_VALUE;   // already too far off: stop early
         }
         float align = dp[m - 1] / k;
-        if (align > 1.0f) return Integer.MIN_VALUE;
-        float[] ideal = resample(wx, wy, k);
-        float d = 0;
-        for (int i = 0; i < N; i++) d += (float) Math.hypot(ideal[2 * i] - p.drawn[2 * i], ideal[2 * i + 1] - p.drawn[2 * i + 1]);
-        return Math.round(-ALIGN_W * align - SHAPE_W * d / N - LEN_W * Math.abs((float) Math.log(ratio)));
+        if (align * k > limit) return Integer.MIN_VALUE;
+        // compare with the path a finger really draws: corners cut, the end reached a little early
+        float[] hx = new float[k], hy = new float[k];
+        for (int i = 0; i < k; i++) {
+            float tx, ty, f;
+            if (i == 0) { hx[i] = wx[i]; hy[i] = wy[i]; continue; }
+            if (i == k - 1) { tx = wx[i - 1]; ty = wy[i - 1]; f = PULL_END; }
+            else { tx = (wx[i - 1] + wx[i + 1]) / 2; ty = (wy[i - 1] + wy[i + 1]) / 2; f = PULL; }
+            float dx = tx - wx[i], dy = ty - wy[i], dist = (float) Math.hypot(dx, dy);
+            float move = Math.min(f * dist, PULL_MAX);
+            hx[i] = dist == 0 ? wx[i] : wx[i] + dx / dist * move;
+            hy[i] = dist == 0 ? wy[i] : wy[i] + dy / dist * move;
+        }
+        float[] ideal = resample(hx, hy, k), idealN = normalized(ideal);
+        float d = 0, dn = 0;
+        for (int i = 0; i < N; i++) {
+            d += (float) Math.hypot(ideal[2 * i] - p.drawn[2 * i], ideal[2 * i + 1] - p.drawn[2 * i + 1]);
+            dn += (float) Math.hypot(idealN[2 * i] - p.drawnN[2 * i], idealN[2 * i + 1] - p.drawnN[2 * i + 1]);
+        }
+        return Math.round(-ALIGN_W * align - SHAPE_W * d / N - NSHAPE_W * dn / N - LEN_W * Math.abs((float) Math.log(ratio)));
+    }
+
+    private static float miss(float dx, float dy) {
+        return Math.max(0f, (float) Math.hypot(dx, dy) - DEAD);
     }
 }

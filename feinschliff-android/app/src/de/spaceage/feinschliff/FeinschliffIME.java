@@ -362,12 +362,14 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     @Override
     public void onSwipe(float[] xs, float[] ys, boolean shift, boolean caps) {
         InputConnection ic = getCurrentInputConnection();
-        if (ic == null || dict == null || keys == null) return;
+        if (ic == null || keys == null) return;
+        if (dict == null) { say("Wörterbuch lädt noch, gleich nochmal wischen …"); return; }
         float[][] c = keys.letterCenters();
         if (afterSwipe()) dict.used(swiped, previousWord(true));   // the previous swiped word is finished now
         dict.setContext(previousWord(false));
         List<Dictionary.Suggestion> found = dict.swipe(xs, ys, c[0], c[1], keys.keyWidth(), keys.keyHeight(), 4);
-        if (found.isEmpty()) return;
+        if (found.isEmpty()) { say("Kein passendes Wort erkannt."); return; }
+        say(null);
         swipeAlts.clear();
         for (Dictionary.Suggestion s : found) {
             String x = caps ? s.word.toUpperCase(Locale.GERMAN)
