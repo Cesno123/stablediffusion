@@ -119,7 +119,7 @@ public class MainActivity extends Activity {
         });
         root.addView(saveKey);
         TextView model = new TextView(this);
-        model.setText("Modell: " + Claude.MODEL + " · Version 1.4");
+        model.setText("Modell: " + Claude.MODEL + " · Version 1.5");
         model.setAlpha(0.5f);
         root.addView(model);
 
