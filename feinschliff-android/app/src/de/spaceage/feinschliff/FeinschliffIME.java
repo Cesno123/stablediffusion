@@ -287,15 +287,15 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         showEmoji(false);
         keys.setTheme(dark());
         keys.showLetters();
-        int action = info.imeOptions & EditorInfo.IME_MASK_ACTION;
-        boolean multiLine = (info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0;
+        int action = enterAction(info);
         String label = "↵";
-        if (!multiLine && (info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) == 0) {
-            if (action == EditorInfo.IME_ACTION_SEND) label = "Senden";
-            else if (action == EditorInfo.IME_ACTION_SEARCH || action == EditorInfo.IME_ACTION_GO) label = "Los";
-            else if (action == EditorInfo.IME_ACTION_NEXT) label = "Weiter";
-            else if (action == EditorInfo.IME_ACTION_DONE) label = "Fertig";
-        }
+        if (info.actionLabel != null && action == info.actionId) label = info.actionLabel.toString();
+        else if (action == EditorInfo.IME_ACTION_SEND) label = "Senden";
+        else if (action == EditorInfo.IME_ACTION_SEARCH || action == EditorInfo.IME_ACTION_GO) label = "Los";
+        else if (action == EditorInfo.IME_ACTION_NEXT) label = "Weiter";
+        else if (action == EditorInfo.IME_ACTION_DONE) label = "Fertig";
+        else if (action == EditorInfo.IME_ACTION_PREVIOUS) label = "Zurück";
+        if (label.length() > 8) label = label.substring(0, 7) + "…";
         keys.setEnterLabel(label);
         autoCaps();
         refresh();
@@ -592,21 +592,27 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
             finishWord(ic, "\n");
             acFrom = null;                 // no revert across a line break or a sent message
             ic.endBatchEdit();
-            EditorInfo info = getCurrentInputEditorInfo();
-            int action = info == null ? EditorInfo.IME_ACTION_NONE : info.imeOptions & EditorInfo.IME_MASK_ACTION;
-            boolean multiLine = info != null && (info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0;
-            if (!multiLine && info != null && (info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) == 0
-                    && action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED) {
-                ic.performEditorAction(action);
-            } else {
-                ic.commitText("\n", 1);
-            }
+            int action = enterAction(getCurrentInputEditorInfo());
+            if (action >= 0) ic.performEditorAction(action);      // send, search, next ... (hold the key for a new line)
+            else ic.commitText("\n", 1);
             autoCaps();
         } else if (code == KeyboardView.EMOJI) {
             showEmoji(true);
         } else if (code == KeyboardView.SWITCH) {
             if (android.os.Build.VERSION.SDK_INT < 28 || !switchToNextInputMethod(false)) onSwitchLongPress();
         }
+    }
+
+    /**
+     * What the enter key does in this field: the app's action (Senden in Snapchat or WhatsApp, Suchen, Weiter),
+     * or -1 for a new line. Like the standard keyboards, a multi-line chat field still gets its send action
+     * unless the app asks for plain enter.
+     */
+    private static int enterAction(EditorInfo info) {
+        if (info == null || (info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0) return -1;
+        if (info.actionLabel != null && info.actionId != 0) return info.actionId;
+        int action = info.imeOptions & EditorInfo.IME_MASK_ACTION;
+        return action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED ? -1 : action;
     }
 
     @Override
