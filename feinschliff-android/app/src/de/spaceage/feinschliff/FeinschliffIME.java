@@ -14,11 +14,19 @@ import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** The Feinschliff keyboard: typing plus an AI bar that rewrites the text of the current field. */
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * The Feinschliff keyboard: typing with word suggestions and careful autocorrect, plus an AI bar
+ * that rewrites the text of the current field. The bar shows while no word is being typed.
+ */
 public class FeinschliffIME extends InputMethodService implements KeyboardView.Listener {
     private KeyboardView keys;
     private LinearLayout aiBar;
@@ -29,6 +37,27 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     private String undoText;           // text before the last AI change ...
     private int undoStart, undoLen;    // ... and where the AI's text now stands
     private long lastSpace;
+
+    private HorizontalScrollView aiScroll;
+    private LinearLayout strip;                  // word suggestions, in place of the AI bar
+    private final TextView[] slots = new TextView[3];
+    private volatile Dictionary dict;
+    private boolean typing;                      // a word is being typed with the keys
+    private boolean noCorrect;                   // field asks for no autocorrect (URL, e-mail, password ...)
+    private String acFrom, acTo, acSep;          // last autocorrect, undone by an immediate backspace
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        new Thread(new Runnable() {
+            public void run() {
+                try {
+                    final Dictionary d = new Dictionary(FeinschliffIME.this);
+                    main.post(new Runnable() { public void run() { dict = d; refresh(); } });
+                } catch (Exception ignored) { }
+            }
+        }).start();
+    }
 
     private boolean dark() {
         return (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
@@ -64,10 +93,27 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         aiBar.addView(langBtn);
         aiBar.addView(undoBtn);
         updateChips();
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setHorizontalScrollBarEnabled(false);
-        scroll.addView(aiBar);
-        root.addView(scroll);
+        aiScroll = new HorizontalScrollView(this);
+        aiScroll.setHorizontalScrollBarEnabled(false);
+        aiScroll.addView(aiBar);
+        strip = new LinearLayout(this);
+        strip.setVisibility(View.GONE);
+        for (int i = 0; i < 3; i++) {
+            final TextView t = new TextView(this);
+            t.setGravity(Gravity.CENTER);
+            t.setTextSize(17);
+            t.setSingleLine(true);
+            t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            t.setTextColor(dark ? 0xFFE8EAF0 : 0xFF1C1F26);
+            if (i == 1) t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            t.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { pick((String) t.getTag()); } });
+            strip.addView(t, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+            slots[i] = t;
+        }
+        FrameLayout bars = new FrameLayout(this);       // same height for both, so the keys never jump
+        bars.addView(aiScroll);
+        bars.addView(strip, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        root.addView(bars);
 
         status = new TextView(this);
         status.setTextColor(dark ? 0xFF9BA2B3 : 0xFF5A6070);
@@ -119,6 +165,12 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
                 || var == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD || var == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD))
                 || (cls == InputType.TYPE_CLASS_NUMBER && var == InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         aiBar.setVisibility(secret ? View.GONE : View.VISIBLE);
+        noCorrect = secret || (cls == InputType.TYPE_CLASS_TEXT && (var == InputType.TYPE_TEXT_VARIATION_URI
+                || var == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS || var == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS
+                || (info.inputType & InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) != 0)) || cls != InputType.TYPE_CLASS_TEXT
+                || !prefs().getBoolean("autocorrect", true);
+        typing = false;
+        acFrom = null;
         undoText = null;
         undoBtn.setVisibility(View.GONE);
         status.setVisibility(View.GONE);
@@ -135,6 +187,127 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         }
         keys.setEnterLabel(label);
         autoCaps();
+        refresh();
+    }
+
+    @Override
+    public void onFinishInputView(boolean finishing) {
+        super.onFinishInputView(finishing);
+        if (dict != null) dict.save();
+    }
+
+    @Override
+    public void onUpdateSelection(int oldSelStart, int oldSelEnd, int newSelStart, int newSelEnd, int candStart, int candEnd) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candStart, candEnd);
+        if (newSelStart != newSelEnd) typing = false;
+        refresh();
+    }
+
+    // --- suggestions
+
+    /** The letters right before the cursor, or "" (also when the cursor sits inside a word). */
+    private String currentWord() {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return "";
+        CharSequence before = ic.getTextBeforeCursor(48, 0), after = ic.getTextAfterCursor(1, 0);
+        if (before == null) return "";
+        if (after != null && after.length() > 0 && Character.isLetter(after.charAt(0))) return "";
+        int i = before.length();
+        while (i > 0 && (Character.isLetter(before.charAt(i - 1)) || (before.charAt(i - 1) == '\'' && i > 1
+                && i < before.length() && Character.isLetter(before.charAt(i - 2))))) i--;
+        return before.subSequence(i, before.length()).toString();
+    }
+
+    /** Gives a suggestion the case of what was typed: "Haus" at a sentence start, "HAUS" when shouting. */
+    private static String matchCase(String typed, String word) {
+        if (typed.isEmpty() || word.isEmpty()) return word;
+        if (typed.length() > 1 && typed.equals(typed.toUpperCase(Locale.GERMAN)) && !typed.equals(typed.toLowerCase(Locale.GERMAN)))
+            return word.toUpperCase(Locale.GERMAN);
+        if (Character.isUpperCase(typed.charAt(0))) return word.substring(0, 1).toUpperCase(Locale.GERMAN) + word.substring(1);
+        return word;
+    }
+
+    /** Shows suggestions while a word is typed, the AI bar otherwise. */
+    private void refresh() {
+        if (strip == null) return;
+        String w = typing && !secret && dict != null ? currentWord() : "";
+        if (w.isEmpty()) {
+            strip.setVisibility(View.GONE);
+            aiScroll.setVisibility(View.VISIBLE);
+            return;
+        }
+        List<String> words = new ArrayList<>();
+        String fix = noCorrect ? null : dict.autocorrect(w);
+        String primary = fix != null ? matchCase(w, fix) : w;
+        words.add(primary);
+        if (!primary.equals(w)) words.add(w);
+        for (Dictionary.Suggestion s : dict.suggest(w, 6)) {
+            String x = matchCase(w, s.word);
+            if (!words.contains(x)) words.add(x);
+        }
+        // middle: what space will produce; left and right: the alternatives
+        String[] order = {words.size() > 1 ? words.get(1) : null, words.get(0), words.size() > 2 ? words.get(2) : null};
+        for (int i = 0; i < 3; i++) {
+            String x = order[i];
+            boolean unknown = x != null && x.equals(w) && !dict.isKnown(w);
+            slots[i].setText(x == null ? "" : unknown ? "„" + x + "“" : x);
+            slots[i].setTag(x);
+        }
+        aiScroll.setVisibility(View.INVISIBLE);
+        strip.setVisibility(View.VISIBLE);
+    }
+
+    /** A tapped suggestion replaces the word being typed. */
+    private void pick(String word) {
+        InputConnection ic = getCurrentInputConnection();
+        if (word == null || ic == null || dict == null) return;
+        String w = currentWord();
+        if (word.equals(w) && !dict.isKnown(w)) dict.learn(w);      // tapped "„word“": keep this spelling
+        dict.used(word);
+        ic.beginBatchEdit();
+        ic.deleteSurroundingText(w.length(), 0);
+        ic.commitText(word + " ", 1);
+        ic.endBatchEdit();
+        typing = false;
+        acFrom = null;
+        autoCaps();
+        refresh();
+    }
+
+    /** Called before a space or punctuation mark: learns the finished word and maybe corrects it. */
+    private void finishWord(InputConnection ic, String sep) {
+        String w = currentWord();
+        typing = false;
+        acFrom = null;
+        if (w.isEmpty() || dict == null || secret) return;
+        String fix = noCorrect ? null : dict.autocorrect(w);
+        if (fix != null) {
+            fix = matchCase(w, fix);
+            ic.deleteSurroundingText(w.length(), 0);
+            ic.commitText(fix, 1);
+            acFrom = w;
+            acTo = fix;
+            acSep = sep;
+            dict.used(fix);
+        } else {
+            dict.used(w);
+        }
+    }
+
+    /** Backspace right after an autocorrect brings back what was typed, and remembers it. */
+    private boolean revertAutocorrect(InputConnection ic) {
+        if (acFrom == null) return false;
+        String done = acTo + acSep;
+        CharSequence before = ic.getTextBeforeCursor(done.length(), 0);
+        String from = acFrom;
+        acFrom = null;
+        if (before == null || !before.toString().equals(done)) return false;
+        ic.beginBatchEdit();
+        ic.deleteSurroundingText(done.length(), 0);
+        ic.commitText(from + acSep, 1);
+        ic.endBatchEdit();
+        dict.learn(from);
+        return true;
     }
 
     private void autoCaps() {
@@ -150,6 +323,15 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     public void onText(String text) {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
+        boolean letter = text.length() > 0 && Character.isLetter(text.codePointAt(0));
+        if (!letter && text.length() == 1 && " .,!?;:)\"".indexOf(text.charAt(0)) >= 0) {
+            ic.beginBatchEdit();
+            finishWord(ic, text);
+            ic.endBatchEdit();
+        } else {
+            acFrom = null;
+            typing = letter || (typing && "'".equals(text));
+        }
         if (" ".equals(text)) {
             long now = System.currentTimeMillis();
             CharSequence before = ic.getTextBeforeCursor(2, 0);
@@ -171,7 +353,11 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     public void onCode(int code) {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
+        if (code != KeyboardView.DELETE && code != KeyboardView.SHIFT && code != KeyboardView.SYMBOLS
+                && code != KeyboardView.LETTERS && code != KeyboardView.MORE) acFrom = null;
         if (code == KeyboardView.DELETE) {
+            if (revertAutocorrect(ic)) { typing = false; autoCaps(); return; }
+            typing = true;
             CharSequence sel = ic.getSelectedText(0);
             if (sel != null && sel.length() > 0) ic.commitText("", 1);
             else {
@@ -181,6 +367,10 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
             }
             autoCaps();
         } else if (code == KeyboardView.ENTER) {
+            ic.beginBatchEdit();
+            finishWord(ic, "\n");
+            acFrom = null;                 // no revert across a line break or a sent message
+            ic.endBatchEdit();
             EditorInfo info = getCurrentInputEditorInfo();
             int action = info == null ? EditorInfo.IME_ACTION_NONE : info.imeOptions & EditorInfo.IME_MASK_ACTION;
             boolean multiLine = info != null && (info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0;
@@ -250,6 +440,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
                 main.post(new Runnable() {
                     public void run() {
                         if (er != null) { say(er); return; }
+                        typing = false;
                         replace(r, o);
                         undoText = r.text;
                         undoStart = r.start;

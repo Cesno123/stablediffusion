@@ -89,6 +89,15 @@ public class MainActivity extends Activity {
         });
         root.addView(enableKb);
         root.addView(pickKb);
+        final android.widget.CheckBox autocorrect = new android.widget.CheckBox(this);
+        autocorrect.setText("Autokorrektur (Rücktaste direkt danach macht sie rückgängig)");
+        autocorrect.setChecked(Panel.prefs(this).getBoolean("autocorrect", true));
+        autocorrect.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(android.widget.CompoundButton b, boolean on) {
+                Panel.prefs(MainActivity.this).edit().putBoolean("autocorrect", on).apply();
+            }
+        });
+        root.addView(autocorrect);
 
         // settings
         root.addView(panel.label("API-Schlüssel (von console.anthropic.com, bleibt nur auf diesem Handy)"));
@@ -107,7 +116,7 @@ public class MainActivity extends Activity {
         });
         root.addView(saveKey);
         TextView model = new TextView(this);
-        model.setText("Modell: " + Claude.MODEL + " · Version 1.1");
+        model.setText("Modell: " + Claude.MODEL + " · Version 1.2");
         model.setAlpha(0.5f);
         root.addView(model);
 

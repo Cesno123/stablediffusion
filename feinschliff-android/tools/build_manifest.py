@@ -9,7 +9,7 @@ TEXT = {"android:mimeType": "text/plain"}
 def action(n): return E("action", {"android:name": n})
 def category(n): return E("category", {"android:name": n})
 
-manifest = E("manifest", {"android:versionCode": 2, "android:versionName": "1.1", "package": PKG},
+manifest = E("manifest", {"android:versionCode": 3, "android:versionName": "1.2", "package": PKG},
     E("uses-sdk", {"android:minSdkVersion": 26, "android:targetSdkVersion": 34}),
     E("uses-permission", {"android:name": "android.permission.INTERNET"}),
     E("application", {"android:label": "Feinschliff", "android:icon": ICON, "android:theme": THEME_DAYNIGHT,
