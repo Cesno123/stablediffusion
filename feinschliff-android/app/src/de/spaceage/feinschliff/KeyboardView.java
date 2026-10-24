@@ -18,7 +18,7 @@ import java.util.List;
 
 /** Draws the keys and turns touches into key presses (tap, long-press alternates, repeating delete, swipe). */
 final class KeyboardView extends View {
-    static final int SHIFT = -1, DELETE = -2, SYMBOLS = -3, LETTERS = -4, MORE = -5, ENTER = -6, SPACE = -7, SWITCH = -8;
+    static final int SHIFT = -1, DELETE = -2, SYMBOLS = -3, LETTERS = -4, MORE = -5, ENTER = -6, SPACE = -7, SWITCH = -8, EMOJI = -9;
 
     interface Listener {
         void onText(String text);
@@ -107,8 +107,9 @@ final class KeyboardView extends View {
         List<Key> r = new ArrayList<Key>();
         r.add(new Key(modeLabel, modeCode, 1.5f));
         r.add(new Key("🌐", SWITCH, 1f));
+        r.add(new Key("😊", EMOJI, 1f));
         r.add(new Key(",", 0, 1f));
-        r.add(new Key("Leertaste", SPACE, 4.5f));
+        r.add(new Key("Leertaste", SPACE, 3.5f));
         r.add(new Key(".", 0, 1f, "?", "!", "…"));
         r.add(new Key(enterLabel, ENTER, 1.5f));
         return r;

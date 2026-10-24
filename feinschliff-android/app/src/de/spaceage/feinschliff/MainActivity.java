@@ -128,7 +128,7 @@ public class MainActivity extends Activity {
         });
         root.addView(saveKey);
         TextView model = new TextView(this);
-        model.setText("Modell: " + Claude.MODEL + " · Version 1.8");
+        model.setText("Modell: " + Claude.MODEL + " · Version 1.9");
         model.setAlpha(0.5f);
         root.addView(model);
 

@@ -30,7 +30,7 @@ import java.util.Locale;
  * The Feinschliff keyboard: typing with word suggestions and careful autocorrect, plus an AI bar
  * that rewrites the text of the current field. The bar shows while no word is being typed.
  */
-public class FeinschliffIME extends InputMethodService implements KeyboardView.Listener {
+public class FeinschliffIME extends InputMethodService implements KeyboardView.Listener, EmojiView.Listener {
     private KeyboardView keys;
     private LinearLayout aiBar;
     private TextView status;
@@ -55,6 +55,9 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     private String swiped;                       // word just entered by swiping ...
     private boolean swipeSpace;                  // ... with a space put in front of it
     private final List<String> swipeAlts = new ArrayList<>();
+
+    private LinearLayout keyRoot;
+    private EmojiView emoji;
 
     private static FeinschliffIME instance;
     private static File pendingImage;            // picked in PickActivity, inserted when the app is back
@@ -185,6 +188,8 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         keys = new KeyboardView(this, this);
         keys.setTheme(dark);
         root.addView(keys);
+        keyRoot = root;
+        emoji = null;                        // built on first use, at the keyboard's height
         return root;
     }
 
@@ -279,6 +284,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         undoBtn.setVisibility(history.isEmpty() ? View.GONE : View.VISIBLE);
         status.setVisibility(View.GONE);
         showRow(aiBar);
+        showEmoji(false);
         keys.setTheme(dark());
         keys.showLetters();
         int action = info.imeOptions & EditorInfo.IME_MASK_ACTION;
@@ -379,12 +385,15 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     }
 
     private void showWords(List<String> words, String w) {
-        // middle: what space will produce; left and right: the alternatives
+        // middle: what space will produce; left and right: the alternatives (right: an emoji for the word, if any)
         String[] order = {words.size() > 1 ? words.get(1) : null, words.get(0), words.size() > 2 ? words.get(2) : null};
+        String em = emojiFor(w);
+        if (em == null && words.size() > 0) em = emojiFor(words.get(0));
+        if (em != null) order[2] = EMOJI_TAG + em;
         for (int i = 0; i < 3; i++) {
             String x = order[i];
             boolean unknown = x != null && x.equals(w) && !dict.isKnown(w);
-            slots[i].setText(x == null ? "" : unknown ? "„" + x + "“" : x);
+            slots[i].setText(x == null ? "" : x.startsWith(EMOJI_TAG) ? x.substring(1) : unknown ? "„" + x + "“" : x);
             slots[i].setTag(x);
         }
         aiScroll.setVisibility(View.INVISIBLE);
@@ -392,9 +401,22 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     }
 
     /** A tapped suggestion replaces the word being typed. */
+    private static final String EMOJI_TAG = "\u0001";
+
     private void pick(String word) {
         InputConnection ic = getCurrentInputConnection();
         if (word == null || ic == null || dict == null) return;
+        if (word.startsWith(EMOJI_TAG)) {                         // keep the word, put the emoji after it
+            ic.beginBatchEdit();
+            finishWord(ic, " ");
+            ic.commitText(" " + word.substring(1) + " ", 1);
+            ic.endBatchEdit();
+            typing = false;
+            swiped = null;
+            acFrom = null;
+            refresh();
+            return;
+        }
         String w = currentWord();
         if (word.equals(w) && !dict.isKnown(w)) dict.learn(w);      // tapped "„word“": keep this spelling
         dict.used(word, previousWord(true));
@@ -553,9 +575,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
             CharSequence sel = ic.getSelectedText(0);
             if (sel != null && sel.length() > 0) ic.commitText("", 1);
             else {
-                CharSequence before = ic.getTextBeforeCursor(2, 0);
-                int n = before != null && before.length() == 2 && Character.isSurrogatePair(before.charAt(0), before.charAt(1)) ? 2 : 1;
-                ic.deleteSurroundingText(n, 0);
+                ic.deleteSurroundingText(lastCharLength(ic.getTextBeforeCursor(32, 0)), 0);
             }
             autoCaps();
         } else if (code == KeyboardView.ENTER) {
@@ -573,6 +593,8 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
                 ic.commitText("\n", 1);
             }
             autoCaps();
+        } else if (code == KeyboardView.EMOJI) {
+            showEmoji(true);
         } else if (code == KeyboardView.SWITCH) {
             if (android.os.Build.VERSION.SDK_INT < 28 || !switchToNextInputMethod(false)) onSwitchLongPress();
         }
@@ -885,4 +907,78 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         startActivity(Intent.createChooser(send, "Bild senden mit …").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION));
         say("Dieses Textfeld nimmt keine Bilder von Tastaturen an – ich habe „Teilen“ geöffnet.");
     }
+
+    // --- emoji
+
+    /** Length of the last visible character, so one backspace removes a whole emoji like 👍🏽 or 🏳️‍🌈. */
+    private static int lastCharLength(CharSequence before) {
+        if (before == null || before.length() == 0) return 1;
+        android.icu.text.BreakIterator it = android.icu.text.BreakIterator.getCharacterInstance();
+        it.setText(before.toString());
+        int end = before.length(), start = it.preceding(end);
+        return start == android.icu.text.BreakIterator.DONE ? 1 : end - start;
+    }
+
+    private void showEmoji(boolean on) {
+        if (keyRoot == null || keys == null) return;
+        if (on && emoji == null) {
+            emoji = new EmojiView(this, this, prefs(), dark(), keys.getHeight() > 0 ? keys.getHeight() : keys.getMeasuredHeight());
+            emoji.setVisibility(View.GONE);
+            keyRoot.addView(emoji);
+        }
+        if (on) {
+            ensureFinished();
+            emoji.reset();
+        }
+        if (emoji != null) emoji.setVisibility(on ? View.VISIBLE : View.GONE);
+        keys.setVisibility(on ? View.GONE : View.VISIBLE);
+    }
+
+    /** A word being typed is finished (learned, maybe corrected) before an emoji goes in. */
+    private void ensureFinished() {
+        typing = false;
+        swiped = null;
+        acFrom = null;
+        refresh();
+    }
+
+    @Override
+    public void onEmoji(String e) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return;
+        ic.commitText(e, 1);
+        typing = false;
+        swiped = null;
+        acFrom = null;
+    }
+
+    @Override public void onEmojiDelete() { onCode(KeyboardView.DELETE); }
+
+    @Override public void onEmojiSpace() { onText(" "); }
+
+    @Override public void onEmojiClose() { showEmoji(false); }
+
+    /** Emoji suggested next to a typed word. */
+    static String emojiFor(String word) {
+        String w = word.toLowerCase(Locale.GERMAN);
+        for (int i = 0; i < EMOJI_WORDS.length; i += 2)
+            for (String k : EMOJI_WORDS[i].split(" ")) if (k.equals(w)) return EMOJI_WORDS[i + 1];
+        return null;
+    }
+
+    private static final String[] EMOJI_WORDS = {
+            "liebe lieb love herz liebling schatz", "❤️", "haha hahaha hahahaha lol lachen witzig lustig", "😂",
+            "danke dankeschön bitte gott beten", "🙏", "ok okay okey passt", "👌", "super toll top gut ja yes daumen", "👍",
+            "nein no schlecht", "👎", "traurig schade", "😢", "weinen heulen", "😭", "sauer wütend ärger", "😠",
+            "kuss küsse küsschen kiss bussi", "😘", "geburtstag torte", "🎂", "party feiern glückwunsch glückwünsche", "🎉",
+            "bier", "🍺", "wein", "🍷", "kaffee", "☕", "pizza", "🍕", "essen", "🍽️", "hunger lecker", "😋",
+            "müde schlafen gähn", "😴", "nacht", "🌙", "sonne sonnig", "☀️", "regen", "🌧️", "kalt", "🥶", "heiß warm", "🥵",
+            "auto", "🚗", "zug bahn", "🚆", "urlaub strand", "🏖️", "arbeit job", "💼", "geld", "💰", "hund", "🐶",
+            "katze", "🐱", "feuer geil heftig", "🔥", "cool", "😎", "krass wahnsinn", "🤯", "scheiße scheiß kacke", "💩",
+            "kotzen", "🤮", "krank", "🤒", "sport stark training", "💪", "musik", "🎵", "fußball", "⚽", "handy", "📱",
+            "foto", "📷", "blumen blume", "💐", "stern", "⭐", "weihnachten", "🎄", "ostern", "🐣", "baby", "👶",
+            "sorry oops", "😅", "hallo hi hey tschüss ciao", "👋", "idee", "💡", "zeit uhr", "⏰", "haus zuhause", "🏠",
+            "glück", "🍀", "augen gucken schau", "👀", "denken hmm überlegen", "🤔", "wow", "😮", "ups peinlich", "😬",
+            "frieden", "☮️", "teufel", "😈", "affe", "🙈", "kalt", "🥶", "sex", "🍆", "mittelfinger", "🖕",
+    };
 }
