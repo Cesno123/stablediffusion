@@ -18,7 +18,7 @@ import java.util.List;
 
 /** Draws the keys and turns touches into key presses (tap, long-press alternates, repeating delete, swipe). */
 final class KeyboardView extends View {
-    static final int SHIFT = -1, DELETE = -2, SYMBOLS = -3, LETTERS = -4, MORE = -5, ENTER = -6, SPACE = -7, SWITCH = -8, EMOJI = -9;
+    static final int SHIFT = -1, DELETE = -2, SYMBOLS = -3, LETTERS = -4, MORE = -5, ENTER = -6, SPACE = -7, SWITCH = -8, EMOJI = -9, ENTER_INFO = -10;
 
     interface Listener {
         void onText(String text);
@@ -376,6 +376,11 @@ final class KeyboardView extends View {
                 public void run() { listener.onCode(DELETE); handler.postDelayed(this, 50); }
             };
             handler.postDelayed(repeat, 400);
+            return;
+        }
+        if (k.code == ENTER) {                       // hold enter: show what the app says about the field
+            longPress = new Runnable() { public void run() { pressed = null; invalidate(); listener.onCode(ENTER_INFO); } };
+            handler.postDelayed(longPress, 700);
             return;
         }
         if (k.code == SPACE) {

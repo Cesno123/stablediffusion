@@ -290,13 +290,15 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         keys.showLetters();
         int action = enterAction(info);
         String label = "↵";
-        if (info.actionLabel != null && action == info.actionId) label = info.actionLabel.toString();
+        if (action < 0) label = "↵";
+        else if (info.actionLabel != null && info.actionLabel.length() > 0 && action == info.actionId) label = info.actionLabel.toString();
         else if (action == EditorInfo.IME_ACTION_SEND) label = "Senden";
         else if (action == EditorInfo.IME_ACTION_SEARCH || action == EditorInfo.IME_ACTION_GO) label = "Los";
         else if (action == EditorInfo.IME_ACTION_NEXT) label = "Weiter";
         else if (action == EditorInfo.IME_ACTION_DONE) label = "Fertig";
         else if (action == EditorInfo.IME_ACTION_PREVIOUS) label = "Zurück";
         if (label.length() > 8) label = label.substring(0, 7) + "…";
+        if (label.trim().isEmpty()) label = "↵";                 // never a blank key
         keys.setEnterLabel(label);
         autoCaps();
         refresh();
@@ -603,6 +605,8 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
                 ic.commitText("\n", 1);
             }
             autoCaps();
+        } else if (code == KeyboardView.ENTER_INFO) {
+            fieldInfo();
         } else if (code == KeyboardView.EMOJI) {
             showEmoji(true);
         } else if (code == KeyboardView.SWITCH) {
@@ -611,17 +615,28 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     }
 
     /**
-     * What the enter key does in this field: the app's action (Senden in Snapchat or WhatsApp, Suchen, Weiter),
-     * or -1 for a new line. Like the standard keyboards, a multi-line chat field still gets its send action
-     * unless the app asks for plain enter.
+     * What the enter key does in this field: the app's action (Senden, Suchen, Weiter), or -1 for a new line.
+     * In multi-line fields only a plain "send" counts, and only if switched on in the app; anything else
+     * there types a new line (custom actions made some apps add line after line).
      */
     private int enterAction(EditorInfo info) {
         if (info == null || (info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0) return -1;
-        boolean multiLine = (info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0;
-        if (multiLine && !prefs().getBoolean("enterSends", true)) return -1;   // switched off in the app: new line
-        if (info.actionLabel != null && info.actionId != 0) return info.actionId;
         int action = info.imeOptions & EditorInfo.IME_MASK_ACTION;
+        if ((info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0)
+            return action == EditorInfo.IME_ACTION_SEND && prefs().getBoolean("enterSends", true) ? action : -1;
+        if (info.actionLabel != null && info.actionLabel.length() > 0 && info.actionId != 0) return info.actionId;
         return action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED ? -1 : action;
+    }
+
+    /** Hold the enter key: shows what the app told the keyboard about this field, for finding problems. */
+    private void fieldInfo() {
+        EditorInfo info = getCurrentInputEditorInfo();
+        if (info == null) { say("Kein Feld."); return; }
+        say("Feld: " + info.packageName + " · Aktion " + (info.imeOptions & EditorInfo.IME_MASK_ACTION)
+                + ((info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0 ? " (kein Enter)" : "")
+                + ((info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ? " · mehrzeilig" : "")
+                + (info.actionLabel != null ? " · Label „" + info.actionLabel + "“ id " + info.actionId : "")
+                + " · Enter → " + (enterAction(info) >= 0 ? "Aktion" : "neue Zeile"));
     }
 
     @Override
