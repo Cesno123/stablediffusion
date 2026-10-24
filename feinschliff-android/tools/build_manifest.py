@@ -10,7 +10,7 @@ TEXT = {"android:mimeType": "text/plain"}
 def action(n): return E("action", {"android:name": n})
 def category(n): return E("category", {"android:name": n})
 
-manifest = E("manifest", {"android:versionCode": 10, "android:versionName": "1.9", "package": PKG},
+manifest = E("manifest", {"android:versionCode": 11, "android:versionName": "2.0", "package": PKG},
     E("uses-sdk", {"android:minSdkVersion": 26, "android:targetSdkVersion": 34}),
     E("uses-permission", {"android:name": "android.permission.INTERNET"}),
     E("uses-permission", {"android:name": "android.permission.ACCESS_FINE_LOCATION"}),     # "Mein Standort" as a maps link

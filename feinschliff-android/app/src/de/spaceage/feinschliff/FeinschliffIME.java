@@ -347,6 +347,13 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         return end > i ? t.subSequence(i, end).toString() : null;
     }
 
+    /** Up to 150 characters before the cursor, without the last {@code skip} (the word being typed). */
+    private CharSequence textBefore(int skip) {
+        InputConnection ic = getCurrentInputConnection();
+        CharSequence t = ic == null ? null : ic.getTextBeforeCursor(150, 0);
+        return t == null || t.length() < skip ? t : t.subSequence(0, t.length() - skip);
+    }
+
     /** Gives a suggestion the case of what was typed: "Haus" at a sentence start, "HAUS" when shouting. */
     private static String matchCase(String typed, String word) {
         if (typed.isEmpty() || word.isEmpty()) return word;
@@ -367,6 +374,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
             return;
         }
         List<String> words = new ArrayList<>();
+        dict.setLanguage(textBefore(w.length()));
         dict.setContext(previousWord(true));
         if (swiped != null && swiped.equals(w)) {
             words.addAll(swipeAlts);              // the other words the path could have meant
@@ -440,6 +448,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         if (dict == null) { say("Wörterbuch lädt noch, gleich nochmal wischen …"); return; }
         float[][] c = keys.letterCenters();
         if (afterSwipe()) dict.used(swiped, previousWord(true));   // the previous swiped word is finished now
+        dict.setLanguage(textBefore(0));
         dict.setContext(previousWord(false));
         List<Dictionary.Suggestion> found = dict.swipe(xs, ys, c[0], c[1], keys.keyWidth(), keys.keyHeight(), 4);
         if (found.isEmpty()) { say("Kein passendes Wort erkannt."); return; }

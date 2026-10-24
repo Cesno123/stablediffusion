@@ -31,6 +31,10 @@ final class Dictionary {
     private final String[] keys, shown;         // shown[i] == null: display form equals the key
     private final short[] freq;
     private final java.util.BitSet doubtful;    // swipe typing ranks these down
+    private final java.util.BitSet english;     // English only
+    private final short[] enFreq;               // English frequency of words used in both languages, else 0
+    private boolean englishCtx;                 // the words just typed are English
+    static int EN_PEN = 50, DE_PEN = 80;        // other language than the one being written (tuned on simulated swipes)
     private final Map<String, int[]> user = new HashMap<>();     // key -> {count}
     private final Map<String, String> userShown = new HashMap<>();
     private final File userFile, pairFile;
@@ -53,7 +57,8 @@ final class Dictionary {
     Dictionary(Context ctx) throws Exception {
         ArrayList<String> k = new ArrayList<>(100000), s = new ArrayList<>(100000);
         ArrayList<Short> f = new ArrayList<>(100000);
-        ArrayList<Integer> odd = new ArrayList<>();
+        ArrayList<Integer> odd = new ArrayList<>(), eng = new ArrayList<>();
+        HashMap<Integer, Short> engFreq = new HashMap<>();
         try (BufferedReader r = new BufferedReader(new InputStreamReader(ctx.getAssets().open("dict.tsv"), "UTF-8"), 1 << 16)) {
             String line;
             while ((line = r.readLine()) != null) {
@@ -61,7 +66,12 @@ final class Dictionary {
                 if (a <= 0 || b <= a) continue;
                 int c = line.indexOf('\t', b + 1);
                 String key = line.substring(0, a), disp = line.substring(a + 1, b);
-                if (c > 0) odd.add(k.size());           // "x": English or an odd short token
+                if (c > 0) {
+                    char flag = line.charAt(c + 1);
+                    if (flag == 'x') odd.add(k.size());                      // odd short token
+                    else if (flag == 'e') eng.add(k.size());                 // English only
+                    else if (flag == 'b') engFreq.put(k.size(), (short) Integer.parseInt(line.substring(c + 2)));
+                }
                 k.add(key);
                 s.add(disp.equals(key) ? null : disp);
                 f.add((short) Integer.parseInt(c > 0 ? line.substring(b + 1, c) : line.substring(b + 1)));
@@ -73,6 +83,10 @@ final class Dictionary {
         for (int i = 0; i < freq.length; i++) freq[i] = f.get(i);
         doubtful = new java.util.BitSet(keys.length);
         for (int i : odd) doubtful.set(i);
+        english = new java.util.BitSet(keys.length);
+        for (int i : eng) english.set(i);
+        enFreq = new short[keys.length];
+        for (Map.Entry<Integer, Short> e : engFreq.entrySet()) enFreq[e.getKey()] = e.getValue();
 
         try (BufferedReader r = new BufferedReader(new InputStreamReader(ctx.getAssets().open("bigrams.tsv"), "UTF-8"), 1 << 16)) {
             String line;
@@ -117,6 +131,44 @@ final class Dictionary {
 
     private int find(String key) { return Arrays.binarySearch(keys, key); }
 
+    /** How a word is written: "Haus"; in English text "see" rather than the German noun "See". */
+    private String disp(int i) {
+        String d = shown[i];
+        if (d == null) return keys[i];
+        if (englishCtx && enFreq[i] > freq[i] && !d.equals("I") && !d.startsWith("I'")) return keys[i];
+        return d;
+    }
+
+    /**
+     * Guesses the language from the last words before the cursor: English if more of them are
+     * English-only words than German-only ones. One English word in a German sentence ("echt nice")
+     * doesn't switch; a few in a row do.
+     */
+    void setLanguage(CharSequence before) {
+        float en = 0, de = 0;
+        int seen = 0;
+        String[] words = before == null ? new String[0] : before.toString().toLowerCase(Locale.GERMAN).split("[^a-zäöüß']+");
+        for (int w = words.length - 1; w >= 0 && seen < 8; w--) {
+            if (words[w].isEmpty()) continue;
+            int i = find(words[w]);
+            if (i < 0) continue;
+            seen++;
+            if (english.get(i)) en += 1;
+            else if (enFreq[i] > 0) { if (enFreq[i] - freq[i] >= 150) en += 0.5f; }
+            else if (!doubtful.get(i)) de += 1;
+        }
+        englishCtx = en > de;
+    }
+
+    boolean isEnglish() { return englishCtx; }
+
+    /** Frequency adjusted to the language being written. */
+    private int langFreq(int i) {
+        if (english.get(i)) return englishCtx ? freq[i] : freq[i] - EN_PEN;
+        if (enFreq[i] > 0) return Math.max(freq[i], englishCtx ? enFreq[i] : enFreq[i] - EN_PEN);   // "nice" in German too
+        return englishCtx ? freq[i] - DE_PEN : freq[i];
+    }
+
     private int userCount(String key) { int[] c = user.get(key); return c == null ? 0 : c[0]; }
 
     /** In the word list, or typed often enough on this phone. */
@@ -129,7 +181,7 @@ final class Dictionary {
     String displayOf(String word) {
         String k = key(word);
         int i = find(k);
-        if (i >= 0) return shown[i] != null ? shown[i] : k;
+        if (i >= 0) return disp(i);
         return userCount(k) >= KNOWN ? userShown.get(k) : null;
     }
 
@@ -155,10 +207,10 @@ final class Dictionary {
 
     /** Frequency mixed with how likely the word is after the previous one, in the same zipf*100 units. */
     private int lm(int i) {
-        if (ctxNext == null) return freq[i];
+        if (ctxNext == null || englishCtx) return langFreq(i);
         int cost = -1;
         for (int e : ctxNext) if (e >>> 10 == i) { cost = e & 1023; break; }
-        double uni = Math.pow(10, freq[i] / 100.0 - 9), bi = cost < 0 ? 0 : Math.pow(10, -cost / 100.0);
+        double uni = Math.pow(10, langFreq(i) / 100.0 - 9), bi = cost < 0 ? 0 : Math.pow(10, -cost / 100.0);
         return (int) Math.round(100 * (Math.log10(0.75 * bi + 0.25 * uni) + 9));
     }
 
@@ -252,7 +304,7 @@ final class Dictionary {
         int i = find(k);
         int s;
         String disp;
-        if (i >= 0) { s = score(i) + extra; disp = shown[i] != null ? shown[i] : k; }
+        if (i >= 0) { s = score(i) + extra; disp = disp(i); }
         else if (userCount(k) >= KNOWN) { s = 350 + boost(k) + extra; disp = userShown.get(k); }
         else return;
         Suggestion old = out.get(k);
@@ -286,14 +338,14 @@ final class Dictionary {
                 int i = e >>> 10;
                 if (keys[i].startsWith(w) && !out.containsKey(keys[i])) {
                     int s = score(i) - (keys[i].length() - w.length()) * 8 + (keys[i].equals(w) ? 120 : 0);
-                    out.put(keys[i], new Suggestion(keys[i], shown[i] != null ? shown[i] : keys[i], s, false));
+                    out.put(keys[i], new Suggestion(keys[i], disp(i), s, false));
                 }
             }
         for (int i : w.length() == 1 ? firstLetter(w) : prefixRange(w)) {
             int s = score(i) - (keys[i].length() - w.length()) * 8;
             if (keys[i].equals(w)) s += 120;
             Suggestion old = out.get(keys[i]);
-            if (old == null || old.score < s) out.put(keys[i], new Suggestion(keys[i], shown[i] != null ? shown[i] : keys[i], s, false));
+            if (old == null || old.score < s) out.put(keys[i], new Suggestion(keys[i], disp(i), s, false));
         }
         for (Map.Entry<String, int[]> e : user.entrySet())
             if (e.getValue()[0] >= KNOWN && e.getKey().startsWith(w) && find(e.getKey()) < 0) {
@@ -316,17 +368,18 @@ final class Dictionary {
 
     /** One letter matches thousands of words; the 60 most common are plenty and computed once. */
     private int[] firstLetter(String w) {
-        int[] top = firstLetterCache.get(w);
+        final String cacheKey = w + (englishCtx ? "/en" : "/de");
+        int[] top = firstLetterCache.get(cacheKey);
         if (top != null) return top;
         final int[] all = prefixRange(w);
         Integer[] idx = new Integer[all.length];
         for (int i = 0; i < all.length; i++) idx[i] = all[i];
         Arrays.sort(idx, new java.util.Comparator<Integer>() {
-            public int compare(Integer a, Integer b) { return freq[b] - freq[a]; }
+            public int compare(Integer a, Integer b) { return langFreq(b) - langFreq(a); }
         });
         top = new int[Math.min(60, idx.length)];
         for (int i = 0; i < top.length; i++) top[i] = idx[i];
-        firstLetterCache.put(w, top);
+        firstLetterCache.put(cacheKey, top);
         return top;
     }
 
@@ -491,7 +544,7 @@ final class Dictionary {
             for (int i : prefixRange(String.valueOf(p.starts.charAt(s)))) {
                 int sc = swipeShape(keys[i], p, wx, wy, dp);
                 if (sc != Integer.MIN_VALUE)
-                    out.put(keys[i], new Suggestion(keys[i], shown[i] != null ? shown[i] : keys[i],
+                    out.put(keys[i], new Suggestion(keys[i], disp(i),
                             sc + Math.round(LM_SCALE * score(i)) - (doubtful.get(i) ? ODD_PENALTY : 0), false));
             }
         }
