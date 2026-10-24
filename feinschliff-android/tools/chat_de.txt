@@ -1,0 +1,677 @@
+Hallo, wie geht es dir?
+Hi, wie geht's?
+Mir geht es gut, danke. Und dir?
+Danke, mir geht's gut.
+Alles klar bei dir?
+Bei mir ist alles gut.
+Was machst du gerade?
+Ich bin gerade auf der Arbeit.
+Ich bin gerade zu Hause.
+Ich bin gleich da.
+Ich bin in zehn Minuten da.
+Ich komme etwas später.
+Ich komme gleich.
+Ich komme heute nicht.
+Kommst du heute Abend mit?
+Kommst du morgen auch?
+Hast du heute Zeit?
+Hast du morgen Zeit?
+Hast du am Wochenende Zeit?
+Ich habe heute keine Zeit.
+Ich habe morgen leider keine Zeit.
+Ich hab keine Zeit.
+Ich hab keinen Bock.
+Ich hab keinen Bock mehr.
+Ich hab echt keinen Bock darauf.
+Ich hab dich lieb.
+Ich liebe dich.
+Ich liebe dich auch.
+Ich vermisse dich.
+Ich habe dich vermisst.
+Ich denke an dich.
+Ich freue mich auf dich.
+Ich freu mich schon.
+Ich freue mich auf morgen.
+Ich freue mich auf das Wochenende.
+Schlaf gut.
+Gute Nacht und schlaf gut.
+Gute Nacht, bis morgen.
+Guten Morgen, hast du gut geschlafen?
+Guten Morgen, wie hast du geschlafen?
+Bis später.
+Bis morgen.
+Bis gleich.
+Bis bald.
+Bis dann.
+Wir sehen uns morgen.
+Wir sehen uns am Wochenende.
+Wir sehen uns später.
+Wir sehen uns heute Abend.
+Wo bist du?
+Wo bist du denn?
+Wo bist du gerade?
+Wann kommst du?
+Wann kommst du nach Hause?
+Wann bist du da?
+Wann treffen wir uns?
+Wie spät ist es?
+Wie war dein Tag?
+Wie war es?
+Wie war die Arbeit?
+Wie war der Film?
+Was gibt es Neues?
+Was ist los?
+Was ist denn los?
+Was hast du heute gemacht?
+Was hast du vor?
+Was machen wir heute?
+Was machen wir am Wochenende?
+Was willst du essen?
+Was wollen wir essen?
+Lass uns essen gehen.
+Lass uns was trinken gehen.
+Lass uns ins Kino gehen.
+Lass uns morgen telefonieren.
+Lass mich in Ruhe.
+Lass das.
+Sag mir Bescheid.
+Sag mir Bescheid, wenn du da bist.
+Sag Bescheid, wenn du fertig bist.
+Gib mir Bescheid.
+Ich sag dir Bescheid.
+Ich melde mich später.
+Ich melde mich morgen bei dir.
+Ich ruf dich später an.
+Ich rufe dich gleich an.
+Kannst du mich anrufen?
+Kannst du mich zurückrufen?
+Ruf mich an, wenn du Zeit hast.
+Kannst du mir helfen?
+Kannst du mir mal helfen?
+Kannst du das machen?
+Kannst du mir das schicken?
+Kannst du mich abholen?
+Kannst du Brot mitbringen?
+Kannst du noch Milch kaufen?
+Kannst du einkaufen gehen?
+Hast du das Wasser gekauft?
+Hast du schon gegessen?
+Hast du meine Nachricht gelesen?
+Hast du das gesehen?
+Hast du Lust?
+Hast du Lust, mitzukommen?
+Hast du Hunger?
+Ich habe Hunger.
+Ich hab voll Hunger.
+Ich bin müde.
+Ich bin so müde.
+Ich bin total müde.
+Ich bin krank.
+Ich bin echt fertig.
+Ich bin unterwegs.
+Ich bin schon unterwegs.
+Ich bin auf dem Weg.
+Ich bin fast da.
+Ich stehe im Stau.
+Ich warte auf dich.
+Ich warte vor dem Haus.
+Das Auto steht vor dem Haus.
+Ich muss noch arbeiten.
+Ich muss heute lange arbeiten.
+Ich muss noch einkaufen.
+Ich muss jetzt los.
+Ich muss mal kurz weg.
+Ich muss dir was sagen.
+Ich muss dir was erzählen.
+Ich weiß nicht.
+Ich weiß es nicht.
+Ich weiß nicht, was ich sagen soll.
+Ich weiß nicht, ob ich komme.
+Ich glaube schon.
+Ich glaube nicht.
+Ich glaube, das stimmt nicht.
+Ich glaube, das ist eine gute Idee.
+Ich denke schon.
+Ich finde das gut.
+Ich finde das super.
+Ich finde das scheiße.
+Das ist doch scheiße.
+Das ist echt scheiße.
+So ein Scheiß.
+Was für ein Scheiß.
+Das ist mir scheißegal.
+Das ist mir egal.
+Das geht mir auf den Sack.
+Das geht mir auf die Nerven.
+Das nervt.
+Das nervt total.
+Du nervst.
+Halt die Klappe.
+Verpiss dich.
+Leck mich.
+Fick dich.
+Was für ein Arschloch.
+Der ist so ein Idiot.
+Bist du bescheuert?
+Spinnst du?
+Bist du verrückt?
+Das ist doch Quatsch.
+Das ist Blödsinn.
+Kein Problem.
+Kein Ding.
+Alles gut.
+Passt schon.
+Geht klar.
+Okay, mach ich.
+Ok, passt.
+Ja, gerne.
+Ja, klar.
+Ja, genau.
+Ja, das stimmt.
+Nein, danke.
+Nein, das geht nicht.
+Nee, lass mal.
+Vielleicht.
+Vielleicht später.
+Vielleicht morgen.
+Vielleicht komme ich später.
+Mal sehen.
+Mal schauen.
+Schauen wir mal.
+Keine Ahnung.
+Ich hab keine Ahnung.
+Danke dir.
+Vielen Dank.
+Vielen Dank für alles.
+Danke für deine Hilfe.
+Danke, das ist lieb von dir.
+Gern geschehen.
+Bitte schön.
+Entschuldigung.
+Sorry, ich habe es vergessen.
+Sorry, das war nicht so gemeint.
+Tut mir leid.
+Es tut mir leid.
+Es tut mir wirklich leid.
+Herzlichen Glückwunsch zum Geburtstag.
+Alles Gute zum Geburtstag.
+Frohe Weihnachten.
+Ein frohes neues Jahr.
+Schönes Wochenende.
+Schönen Feierabend.
+Schönen Tag noch.
+Viel Spaß.
+Viel Spaß heute Abend.
+Viel Erfolg.
+Viel Glück.
+Gute Besserung.
+Pass auf dich auf.
+Komm gut nach Hause.
+Bist du gut angekommen?
+Ich bin gut angekommen.
+Ich bin wieder zu Hause.
+Ich bin jetzt zu Hause.
+Ich gehe jetzt schlafen.
+Ich geh jetzt ins Bett.
+Ich gehe gleich duschen.
+Ich gehe einkaufen.
+Ich gehe heute Abend aus.
+Ich gehe zum Arzt.
+Ich habe einen Termin beim Arzt.
+Der Termin ist am Montag.
+Der Termin ist morgen um zehn.
+Können wir den Termin verschieben?
+Wir können uns gerne treffen.
+Wollen wir uns treffen?
+Wollen wir heute was machen?
+Wollen wir telefonieren?
+Wollen wir zusammen kochen?
+Ich koche heute Abend.
+Was gibt es heute zu essen?
+Das Essen ist fertig.
+Das war echt lecker.
+Das war ein guter Film.
+Das war echt ein guter Film.
+Der Film war richtig gut.
+Das war echt schön.
+Das war ein schöner Tag.
+Das hat Spaß gemacht.
+Das macht nichts.
+Das ist nicht schlimm.
+Das ist schon okay.
+Das ist mir zu teuer.
+Das ist zu viel.
+Das ist nicht mein Problem.
+Das ist dein Problem.
+Das ist eine gute Idee.
+Das klingt gut.
+Das klingt super.
+Das hört sich gut an.
+Das freut mich.
+Das freut mich für dich.
+Das wusste ich nicht.
+Das habe ich nicht gewusst.
+Das habe ich vergessen.
+Das hab ich nicht gesagt.
+Das stimmt nicht.
+Das stimmt.
+Das kann doch nicht wahr sein.
+Das gibt es doch nicht.
+Echt jetzt?
+Im Ernst?
+Wirklich?
+Krass.
+Wie geil.
+Voll geil.
+Mega.
+Mega gut.
+Richtig geil.
+Ich bin dabei.
+Ich bin raus.
+Ich bin mir nicht sicher.
+Ich bin mir sicher.
+Ich hoffe, es geht dir gut.
+Ich hoffe, du hast einen schönen Tag.
+Ich hoffe, wir sehen uns bald.
+Ich wünsche dir einen schönen Tag.
+Ich wünsche dir viel Spaß.
+Ich will nicht.
+Ich will das nicht.
+Ich will nach Hause.
+Ich will dich sehen.
+Ich möchte dich sehen.
+Ich möchte gerne kommen.
+Ich würde gerne kommen.
+Ich würde mich freuen.
+Ich kann nicht.
+Ich kann heute nicht.
+Ich kann leider nicht kommen.
+Ich kann nicht mehr.
+Ich kann das nicht.
+Ich kann es kaum erwarten.
+Ich schaffe es nicht.
+Ich schaff das heute nicht mehr.
+Ich habe es geschafft.
+Ich hab's geschafft.
+Ich habe keine Lust.
+Ich hab keine Lust.
+Ich habe Lust auf Pizza.
+Ich habe Angst.
+Ich habe Kopfschmerzen.
+Ich habe Urlaub.
+Ich habe frei.
+Ich habe heute frei.
+Ich habe eine Frage.
+Ich habe eine Idee.
+Ich habe eine Nachricht bekommen.
+Ich habe dir eine Nachricht geschrieben.
+Ich habe dir eine Mail geschickt.
+Schreib mir einfach eine Nachricht.
+Schreib mir, wenn du da bist.
+Schreib mir später.
+Schick mir die Adresse.
+Schick mir ein Foto.
+Schick mir mal ein Bild.
+Kannst du mir die Nummer geben?
+Wie ist deine Nummer?
+Wie ist die Adresse?
+Wo wohnst du?
+Wo treffen wir uns?
+Wir treffen uns am Bahnhof.
+Wir treffen uns um acht.
+Wir müssen reden.
+Wir müssen los.
+Wir können morgen weitermachen.
+Wir haben noch Zeit.
+Wir haben keine Zeit mehr.
+Wir sind gleich da.
+Wir sind schon da.
+Wir fahren morgen in den Urlaub.
+Wir fahren mit dem Auto.
+Ich fahre mit dem Zug.
+Ich nehme den Bus.
+Der Zug hat Verspätung.
+Der Bus ist weg.
+Mein Handy ist leer.
+Mein Akku ist leer.
+Ich habe kein Netz.
+Das Internet geht nicht.
+Das funktioniert nicht.
+Das klappt nicht.
+Das hat geklappt.
+Es hat geklappt.
+Es geht mir gut.
+Es geht mir nicht so gut.
+Es geht schon.
+Es ist spät.
+Es ist schon spät.
+Es ist kalt.
+Es ist so heiß heute.
+Es regnet.
+Es regnet schon wieder.
+Das Wetter ist schön.
+Das Wetter ist scheiße.
+Heute ist schönes Wetter.
+Morgen haben wir keine Zeit.
+Morgen habe ich frei.
+Morgen früh muss ich arbeiten.
+Heute Abend habe ich Zeit.
+Heute ist ein guter Tag.
+Heute war ein langer Tag.
+Gestern war es echt schön.
+Gestern Abend war es lustig.
+Am Wochenende habe ich Zeit.
+Am Montag geht es wieder los.
+Nächste Woche bin ich im Urlaub.
+Nächste Woche habe ich Zeit.
+Letzte Woche war ich krank.
+Wie viel kostet das?
+Wie viel Uhr?
+Um wie viel Uhr?
+Um acht Uhr.
+In einer Stunde.
+In fünf Minuten.
+Noch fünf Minuten.
+Warte mal kurz.
+Moment mal.
+Einen Moment bitte.
+Mach dir keine Sorgen.
+Mach dir keinen Stress.
+Mach was du willst.
+Mach das.
+Mach ich.
+Mach ich gleich.
+Mach ich morgen.
+Machst du das?
+Machst du mit?
+Machst du Witze?
+Hör auf.
+Hör mal.
+Hör mir zu.
+Hörst du mich?
+Siehst du das?
+Weißt du was?
+Weißt du schon, wann du kommst?
+Weißt du, wo das ist?
+Verstehst du?
+Ich verstehe das nicht.
+Ich verstehe dich.
+Ich versteh's nicht.
+Kein Plan.
+Egal.
+Ist mir egal.
+Ist doch egal.
+Ist das dein Ernst?
+Ist alles okay?
+Ist alles in Ordnung?
+Ist das okay für dich?
+Ist das so?
+Ist er schon da?
+Ist sie schon da?
+Er ist noch nicht da.
+Sie ist schon weg.
+Er hat angerufen.
+Sie hat geschrieben.
+Er hat keine Zeit.
+Sie hat keine Lust.
+Meine Mutter hat angerufen.
+Mein Vater ist krank.
+Meine Freundin kommt auch.
+Mein Freund kommt später.
+Die Kinder schlafen schon.
+Die Kinder sind in der Schule.
+Ich hole die Kinder ab.
+Wer kommt alles?
+Wer ist das?
+Wer hat das gesagt?
+Warum nicht?
+Warum denn?
+Warum fragst du?
+Wieso?
+Weshalb?
+Weil ich keine Zeit habe.
+Weil ich müde bin.
+Wenn du willst.
+Wenn du Zeit hast.
+Wenn du magst.
+Wenn es geht.
+Wenn nicht, ist auch okay.
+Falls du Lust hast.
+Ob du Lust hast?
+Dass du da bist, freut mich.
+Ich finde es schön, dass du da bist.
+Ich bin froh, dass es dir gut geht.
+Ich glaube, dass er recht hat.
+Ich denke, dass es klappt.
+Ich hoffe, dass es klappt.
+Ich wusste, dass du kommst.
+Ich hab dir doch gesagt, dass das nicht geht.
+Du bist der Beste.
+Du bist die Beste.
+Du bist so süß.
+Du bist toll.
+Du bist echt lieb.
+Du hast recht.
+Du hast völlig recht.
+Du hast mir gefehlt.
+Du fehlst mir.
+Du kannst mich mal.
+Du kannst gerne kommen.
+Du musst nicht kommen.
+Du musst das nicht machen.
+Du sollst das nicht machen.
+Du darfst das.
+Du schaffst das.
+Ich drück dir die Daumen.
+Ich bin stolz auf dich.
+Ich glaub an dich.
+Mega Sache.
+Läuft bei dir.
+Na und?
+Na klar.
+Na gut.
+Na ja.
+Naja, mal sehen.
+Also gut.
+Also dann bis morgen.
+Also ich weiß nicht.
+Also ich finde das nicht gut.
+Aber ich habe keine Zeit.
+Aber das ist doch egal.
+Aber nur kurz.
+Und jetzt?
+Und dann?
+Und du?
+Und wie war's?
+Oder?
+Oder nicht?
+Doch.
+Doch, das stimmt.
+Schon gut.
+Schon okay.
+Schon klar.
+Genau so.
+Genau das.
+Eben.
+Stimmt.
+Richtig.
+Super.
+Super, danke.
+Perfekt.
+Perfekt, danke dir.
+Cool.
+Cool, danke.
+Toll.
+Schön.
+Wie schön.
+Wie schade.
+Schade.
+Oh nein.
+Oh Mann.
+Mann, ist das kalt.
+Mist.
+So ein Mist.
+Verdammt.
+Verdammte Scheiße.
+Scheiße, ich habe den Bus verpasst.
+Scheiße, das habe ich vergessen.
+Ich hab den Schlüssel vergessen.
+Ich habe meine Tasche vergessen.
+Hast du meinen Schlüssel gesehen?
+Ich finde mein Handy nicht.
+Ich suche dich.
+Ich suche einen Parkplatz.
+Ich warte draußen.
+Komm rein.
+Komm her.
+Komm schon.
+Komm doch mit.
+Komm vorbei.
+Komm einfach vorbei.
+Kommst du vorbei?
+Willst du vorbeikommen?
+Willst du mitkommen?
+Willst du was trinken?
+Willst du Kaffee?
+Möchtest du einen Kaffee?
+Ich trinke einen Kaffee.
+Ich brauche einen Kaffee.
+Ich brauche Hilfe.
+Ich brauche deine Hilfe.
+Ich brauche mehr Zeit.
+Ich brauche eine Pause.
+Ich mache eine Pause.
+Ich mache Feierabend.
+Ich mache das morgen.
+Ich mache das schon.
+Ich mache mir Sorgen.
+Ich mache mir Sorgen um dich.
+Ich kümmere mich darum.
+Ich kümmere mich drum.
+Ich erledige das.
+Das erledige ich morgen.
+Das schaffe ich.
+Das passt mir gut.
+Das passt mir nicht.
+Passt dir das?
+Passt es dir morgen?
+Geht das bei dir?
+Geht es dir besser?
+Geht's dir gut?
+Geht klar, bis dann.
+Gehst du mit?
+Gehen wir?
+Gehen wir heute ins Kino?
+Ich gehe mit dem Hund raus.
+Der Hund muss raus.
+Ich war beim Sport.
+Ich gehe zum Sport.
+Ich gehe joggen.
+Ich gehe ins Fitnessstudio.
+Ich habe Feierabend.
+Endlich Feierabend.
+Endlich Wochenende.
+Endlich zu Hause.
+Ich bin so froh.
+Ich bin so glücklich.
+Ich bin traurig.
+Ich bin sauer.
+Ich bin sauer auf dich.
+Bist du sauer?
+Bist du noch wach?
+Bist du schon wach?
+Bist du zu Hause?
+Bist du da?
+Bist du fertig?
+Ich bin fertig.
+Ich bin gleich fertig.
+Bin gleich da.
+Bin unterwegs.
+Bin zu Hause.
+Hab dich lieb.
+Hab ich vergessen.
+Hab ich gesehen.
+Hab ich doch gesagt.
+Hab keine Zeit.
+Hast du Zeit?
+Hast du kurz Zeit?
+Hast du mal kurz Zeit?
+Hast du schon gehört?
+Weißt du schon das Neueste?
+Rate mal, wer angerufen hat.
+Stell dir vor, was passiert ist.
+Es ist was passiert.
+Was ist passiert?
+Ist was passiert?
+Nichts passiert.
+Alles okay, nichts passiert.
+Ich erzähle es dir später.
+Ich erzähl dir das morgen.
+Erzähl mal.
+Erzähl mir alles.
+Ich habe ihn gefragt.
+Ich habe sie gefragt.
+Frag ihn mal.
+Frag sie doch.
+Frag mich nicht.
+Ich frage mal nach.
+Ich schaue mal nach.
+Ich schau mal.
+Ich gucke mal.
+Guck mal.
+Schau mal.
+Schau mal hier.
+Guck dir das an.
+Schau dir das an.
+Hast du das Video gesehen?
+Das Video ist lustig.
+Ich habe ein Foto gemacht.
+Ich schicke dir die Bilder.
+Die Bilder sind schön geworden.
+Ich habe neue Schuhe.
+Ich habe ein neues Handy.
+Mein Handy ist kaputt.
+Mein Auto ist kaputt.
+Das Auto springt nicht an.
+Ich muss das Auto in die Werkstatt bringen.
+Ich habe einen Platten.
+Ich habe Geld abgehoben.
+Ich habe kein Geld.
+Ich habe kein Geld mehr.
+Kannst du mir Geld leihen?
+Ich bezahle.
+Ich lade dich ein.
+Ich gebe einen aus.
+Prost.
+Zum Wohl.
+Guten Appetit.
+Lass es dir schmecken.
+Bis nachher.
+Bis Montag.
+Bis nächste Woche.
+Mach's gut.
+Tschüss.
+Ciao.
+Liebe Grüße.
+Viele Grüße.
+Grüße an alle.
+Grüß deine Mutter von mir.
+Sag ihr schöne Grüße.
+Mit freundlichen Grüßen.
+Sehr geehrte Damen und Herren,
+vielen Dank für Ihre Nachricht.
+Ich melde mich so schnell wie möglich.
+Ich bitte um Rückmeldung.
+Ich freue mich auf Ihre Antwort.
+Anbei sende ich Ihnen die Unterlagen.
+Können Sie mir bitte helfen?
+Ich hätte eine Frage zu meiner Bestellung.
+Leider ist das Paket nicht angekommen.
+Bitte entschuldigen Sie die Verspätung.
+Wir sehen uns beim nächsten Mal.
+Das nächste Mal komme ich auch.
+Ich bin heute nicht da.
+Ich bin morgen nicht da.
+Ich bin die ganze Woche nicht da.
+Ich bin bis Freitag im Urlaub.
+Ich bin ab Montag wieder da.

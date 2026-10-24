@@ -5,7 +5,9 @@ common English words, weighted lower); wordfreq lowercases everything, so the
 German spelling of nouns (Haus, Häuser) is taken from the igerman98 hunspell
 dictionary. Nothing is filtered out: slang and swear words stay in.
 
-Output, sorted by the lowercase key: key <TAB> display form <TAB> zipf*100
+Output, sorted by the lowercase key: key <TAB> display form <TAB> zipf*100 [<TAB> x]
+"x" marks doubtful entries (English words, short tokens unknown to the German dictionary such as
+"ds" or "ao"): they stay suggestible when typed, but swipe typing ranks them down.
 """
 
 import os
@@ -23,6 +25,9 @@ SZ_AFTER = ("eiss", "iess", "euss", "äuss")   # ß after ei/ie/eu/äu (heiß, l
 VERB_ENDINGS = ["e", "st", "t", "te", "ten", "test", "tet", "et", "est", "end", "ete", "eten"]
 ADJ_ENDINGS = ["e", "en", "er", "es", "em", "ere", "eren", "erer", "eres", "erem", "ste", "sten", "ster", "stes", "stem"]
 FORCE_LOWER = {"hab", "halt", "schau", "sag", "mach", "komm", "geh", "guck", "lass", "hör", "bleib", "wart", "ruf"}
+SLANG = {"ok", "okay", "lol", "jz", "mfg", "lg", "vllt", "bzw", "usw", "gg", "xd", "omg", "wtf", "nö", "jo", "ne", "na",
+         "hab", "hast", "isn", "gibts", "nen", "nem", "nix", "jep", "jap", "yo", "ey", "äh", "hä", "oh", "ah", "ach", "tja",
+         "ins", "ans", "ums", "aufs", "fürs", "vom", "beim", "zum", "zur", "nee", "hey", "wow", "hm", "ner", "mio", "app", "min"}
 TYPO_GAP = 1.5            # a rare unknown word with two letters swapped from one 30x more common is a typo (nciht)
 
 
@@ -123,21 +128,24 @@ def main(dic_path, out_path):
             w = restore_sz(w)
             if w in entries:
                 continue
-            entries[w] = (display_form(w, standalone_lower, capitalized, any_lower), wordfreq.zipf_frequency(w, "de", wordlist="large"))
-    typos = [w for w, (_, z) in entries.items() if is_typo(w, z, entries)]
+            z = wordfreq.zipf_frequency(w, "de", wordlist="large")
+            doubtful = (len(w) <= 3 and z < 5.0 and w not in ALL_LOWER and w not in capitalized
+                        and w not in SLANG and not also_lowercase(w))
+            entries[w] = (display_form(w, standalone_lower, capitalized, any_lower), z, doubtful)
+    typos = [w for w, (_, z, _) in entries.items() if is_typo(w, z, entries)]
     print(f"dropped {len(typos)} likely typos, e.g. {typos[:150]}")
     for w in typos:
         del entries[w]
     for w in wordfreq.top_n_list("en", EN_WORDS, wordlist="large"):
         if WORD.match(w) and w not in entries:
-            entries[w] = ("I" if w == "i" else w, max(0.0, wordfreq.zipf_frequency(w, "en", wordlist="large") - EN_PENALTY))
+            entries[w] = ("I" if w == "i" else w, max(0.0, wordfreq.zipf_frequency(w, "en", wordlist="large") - EN_PENALTY), True)
     for k in [k for k in entries if "ß" in k and k.replace("ß", "ss") in entries and k not in ALL_LOWER]:
         del entries[k]                # aussie -> "außie": the guess was wrong, the ss word exists
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         for key in sorted(entries):
-            disp, z = entries[key]
-            f.write(f"{key}\t{disp}\t{int(round(z * 100))}\n")
+            disp, z, doubtful = entries[key]
+            f.write(f"{key}\t{disp}\t{int(round(z * 100))}" + ("\tx" if doubtful else "") + "\n")
     print(f"{out_path}: {len(entries)} words")
 
 

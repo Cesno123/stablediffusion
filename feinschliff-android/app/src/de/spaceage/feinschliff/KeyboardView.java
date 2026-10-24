@@ -189,6 +189,8 @@ final class KeyboardView extends View {
 
     float keyWidth() { return rows.get(0).get(0).rect.width() + 4 * density; }
 
+    float keyHeight() { return rows.get(0).get(0).rect.height() + 4 * density; }
+
     void showLetters() {
         mode = LETTERS;
         rebuild();

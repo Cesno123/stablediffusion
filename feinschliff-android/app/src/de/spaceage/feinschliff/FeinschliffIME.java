@@ -34,11 +34,12 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     private Button styleBtn, langBtn, undoBtn;
     private final Handler main = new Handler(Looper.getMainLooper());
     private boolean secret;            // password field: no AI at all
-    private String undoText;           // text before the last AI change ...
-    private int undoStart, undoLen;    // ... and where the AI's text now stands
-    private String lastOut;            // what the AI wrote last time
+    // every AI change can be undone, one step at a time: the whole field before each change
+    private final java.util.ArrayDeque<String[]> history = new java.util.ArrayDeque<>();   // {text before, action}
+    private String lastOut, lastSource; // what the AI wrote last time, and from which text
+    private int lastTask = -1;
     private boolean busy;              // a request is running
-    private LinearLayout styleBar;     // style choices, shown instead of the AI bar
+    private LinearLayout styleBar, langBar;   // style or language choices, shown instead of the AI bar
     private long lastSpace;
 
     private HorizontalScrollView aiScroll;
@@ -86,11 +87,11 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         addAi("Antwort", 5);
         styleBtn = chip("");
         styleBtn.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { showStyles(true); }
+            public void onClick(View v) { showRow(styleBar); }
         });
         langBtn = chip("");
         langBtn.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { cycle("lang", Tasks.LANGS.length); updateChips(); }
+            public void onClick(View v) { showRow(langBar); }
         });
         undoBtn = chip("↶ Rückgängig");
         undoBtn.setVisibility(View.GONE);
@@ -99,24 +100,8 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         aiBar.addView(langBtn);
         aiBar.addView(undoBtn);
         updateChips();
-        styleBar = new LinearLayout(this);
-        styleBar.setGravity(Gravity.CENTER_VERTICAL);
-        Button back = chip("✕");
-        back.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { showStyles(false); } });
-        styleBar.addView(back);
-        for (int i = 0; i < Tasks.STYLE_LABELS.length; i++) {
-            final int style = i;
-            Button b = chip(Tasks.STYLE_LABELS[i]);
-            b.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) {
-                    if (busy) return;
-                    prefs().edit().putInt("style", style).apply();
-                    updateChips();
-                    runAi(1);                         // rewrite right away in the chosen style
-                }
-            });
-            styleBar.addView(b);
-        }
+        styleBar = choiceRow(Tasks.STYLE_LABELS, "style", 1);     // tap a style: rewrite right away
+        langBar = choiceRow(Tasks.LANGS, "lang", 2);              // tap a language: translate right away
         aiScroll = new HorizontalScrollView(this);
         aiScroll.setHorizontalScrollBarEnabled(false);
         aiScroll.addView(aiBar);
@@ -173,23 +158,54 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
 
     private SharedPreferences prefs() { return Panel.prefs(this); }
 
-    private void cycle(String key, int n) { prefs().edit().putInt(key, (prefs().getInt(key, 0) + 1) % n).apply(); }
 
-    /** Swaps the AI bar for the list of styles (and back). */
-    private void showStyles(boolean on) {
-        if (aiScroll == null || (aiScroll.getChildAt(0) == styleBar) == on) return;
+    /** A row of choices (styles, languages) with ✕ to go back; tapping one saves it and runs the task. */
+    private LinearLayout choiceRow(final String[] labels, final String pref, final int task) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        Button back = chip("✕");
+        back.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { showRow(aiBar); } });
+        row.addView(back);
+        for (int i = 0; i < labels.length; i++) {
+            final int choice = i;
+            Button b = chip(labels[i]);
+            b.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    if (busy) return;
+                    prefs().edit().putInt(pref, choice).apply();
+                    updateChips();
+                    runAi(task);
+                }
+            });
+            row.addView(b);
+        }
+        Button undo = chip("↶");
+        undo.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { undo(); } });
+        row.addView(undo);
+        return row;
+    }
+
+    /** Shows the AI bar, the style row or the language row. */
+    private void showRow(LinearLayout row) {
+        if (aiScroll == null || aiScroll.getChildAt(0) == row) return;
         aiScroll.removeAllViews();
-        aiScroll.addView(on ? styleBar : aiBar);
+        aiScroll.addView(row);
         aiScroll.scrollTo(0, 0);
     }
 
     private void updateChips() {
         int sel = prefs().getInt("style", 0);
+        int lang = prefs().getInt("lang", 0);
         styleBtn.setText("Stil: " + Tasks.STYLE_LABELS[sel] + " ▾");
-        if (styleBar != null)
-            for (int i = 1; i < styleBar.getChildCount(); i++)
-                ((Button) styleBar.getChildAt(i)).setText((i - 1 == sel ? "✓ " : "") + Tasks.STYLE_LABELS[i - 1]);
-        langBtn.setText("→ " + Tasks.LANGS[prefs().getInt("lang", 0)]);
+        langBtn.setText("→ " + Tasks.LANGS[lang] + " ▾");
+        mark(styleBar, Tasks.STYLE_LABELS, sel);
+        mark(langBar, Tasks.LANGS, lang);
+    }
+
+    private void mark(LinearLayout row, String[] labels, int sel) {
+        if (row == null) return;
+        for (int i = 0; i < labels.length; i++)
+            ((Button) row.getChildAt(i + 1)).setText((i == sel ? "✓ " : "") + labels[i]);
     }
 
     @Override
@@ -208,10 +224,10 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         typing = false;
         acFrom = null;
         swiped = null;
-        undoText = null;
-        undoBtn.setVisibility(View.GONE);
+        if (!restarting) { history.clear(); lastOut = null; }   // a different field: its own undo steps
+        undoBtn.setVisibility(history.isEmpty() ? View.GONE : View.VISIBLE);
         status.setVisibility(View.GONE);
-        showStyles(false);
+        showRow(aiBar);
         keys.setTheme(dark());
         keys.showLetters();
         int action = info.imeOptions & EditorInfo.IME_MASK_ACTION;
@@ -256,6 +272,24 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         return before.subSequence(i, before.length()).toString();
     }
 
+    /**
+     * The word before the cursor, skipping the word being typed if skipCurrent; "<s>" at the start of a
+     * sentence, null when unclear (a number, a bracket ...). Gives suggestions and swipes their context.
+     */
+    private String previousWord(boolean skipCurrent) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return null;
+        CharSequence t = ic.getTextBeforeCursor(80, 0);
+        if (t == null) return null;
+        int i = t.length();
+        if (skipCurrent) while (i > 0 && (Character.isLetter(t.charAt(i - 1)) || t.charAt(i - 1) == '\'')) i--;
+        while (i > 0 && (t.charAt(i - 1) == ' ' || t.charAt(i - 1) == ',')) i--;
+        if (i == 0 || ".!?\n".indexOf(t.charAt(i - 1)) >= 0) return "<s>";
+        int end = i;
+        while (i > 0 && (Character.isLetter(t.charAt(i - 1)) || t.charAt(i - 1) == '\'')) i--;
+        return end > i ? t.subSequence(i, end).toString() : null;
+    }
+
     /** Gives a suggestion the case of what was typed: "Haus" at a sentence start, "HAUS" when shouting. */
     private static String matchCase(String typed, String word) {
         if (typed.isEmpty() || word.isEmpty()) return word;
@@ -275,6 +309,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
             return;
         }
         List<String> words = new ArrayList<>();
+        dict.setContext(previousWord(true));
         if (swiped != null && swiped.equals(w)) {
             words.addAll(swipeAlts);              // the other words the path could have meant
             showWords(words, w);
@@ -310,7 +345,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         if (word == null || ic == null || dict == null) return;
         String w = currentWord();
         if (word.equals(w) && !dict.isKnown(w)) dict.learn(w);      // tapped "„word“": keep this spelling
-        dict.used(word);
+        dict.used(word, previousWord(true));
         ic.beginBatchEdit();
         ic.deleteSurroundingText(w.length(), 0);
         ic.commitText(word + " ", 1);
@@ -329,7 +364,9 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         InputConnection ic = getCurrentInputConnection();
         if (ic == null || dict == null || keys == null) return;
         float[][] c = keys.letterCenters();
-        List<Dictionary.Suggestion> found = dict.swipe(xs, ys, c[0], c[1], keys.keyWidth(), 4);
+        if (afterSwipe()) dict.used(swiped, previousWord(true));   // the previous swiped word is finished now
+        dict.setContext(previousWord(false));
+        List<Dictionary.Suggestion> found = dict.swipe(xs, ys, c[0], c[1], keys.keyWidth(), keys.keyHeight(), 4);
         if (found.isEmpty()) return;
         swipeAlts.clear();
         for (Dictionary.Suggestion s : found) {
@@ -370,9 +407,9 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
             acFrom = w;
             acTo = fix;
             acSep = sep;
-            dict.used(fix);
+            dict.used(fix, previousWord(true));
         } else {
-            dict.used(w);
+            dict.used(w, previousWord(true));
         }
     }
 
@@ -531,9 +568,10 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         if (key.trim().isEmpty()) { say("Trage zuerst deinen API-Schlüssel in der Feinschliff-App ein."); return; }
         final Range r = target();
         if (r == null || r.text.trim().isEmpty()) { say("Kein Text im Feld."); return; }
-        if (task == 1 && undoText != null && r.text.equals(lastOut)) {
-            r.text = undoText;          // trying another style: start again from the original, not from the last rewrite
-        }
+        final String source = (task == 1 || task == 2) && task == lastTask && r.text.equals(lastOut) && lastSource != null
+                ? lastSource : r.text;  // another style or language: start again from the original, not from the last result
+        final String before = fieldText();
+        r.text = source;
         final String prompt = Tasks.prompt(task, prefs().getInt("style", 0), prefs().getInt("lang", 0), r.text, null);
         say("Denkt nach …");
         busy = true;
@@ -548,12 +586,15 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
                         if (er != null) { say(er); return; }
                         typing = false;
                         swiped = null;
+                        if (before != null) {
+                            history.push(new String[]{before, Tasks.NAMES[task]});
+                            while (history.size() > 30) history.removeLast();
+                        }
                         replace(r, o);
-                        undoText = r.text;
-                        undoStart = r.start;
-                        undoLen = o.length();
                         lastOut = o;
-                        undoBtn.setVisibility(View.VISIBLE);
+                        lastSource = source;
+                        lastTask = task;
+                        updateUndo();
                         say(null);
                     }
                 });
@@ -570,13 +611,30 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         ic.endBatchEdit();
     }
 
+    /** The whole text of the field, or null if the app doesn't tell. */
+    private String fieldText() {
+        InputConnection ic = getCurrentInputConnection();
+        ExtractedText et = ic == null ? null : ic.getExtractedText(new ExtractedTextRequest(), 0);
+        return et == null || et.text == null || et.startOffset != 0 ? null : et.text.toString();
+    }
+
+    private void updateUndo() {
+        undoBtn.setText("↶ Rückgängig" + (history.size() > 1 ? " (" + history.size() + ")" : ""));
+        undoBtn.setVisibility(history.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
+    /** Puts the field back as it was before the last AI change; tap again for the one before. */
     private void undo() {
-        if (undoText == null) return;
+        InputConnection ic = getCurrentInputConnection();
+        String now = fieldText();
+        if (history.isEmpty() || ic == null || now == null) { say(history.isEmpty() ? "Nichts mehr rückgängig zu machen." : null); return; }
+        String[] step = history.pop();
         Range r = new Range();
-        r.start = undoStart;
-        r.end = undoStart + undoLen;
-        replace(r, undoText);
-        undoText = null;
-        undoBtn.setVisibility(View.GONE);
+        r.start = 0;
+        r.end = now.length();
+        replace(r, step[0]);
+        lastOut = null;
+        say("Rückgängig: Text vor „" + step[1] + "“");
+        updateUndo();
     }
 }

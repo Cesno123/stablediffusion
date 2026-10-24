@@ -30,9 +30,12 @@ final class Dictionary {
 
     private final String[] keys, shown;         // shown[i] == null: display form equals the key
     private final short[] freq;
+    private final java.util.BitSet doubtful;    // swipe typing ranks these down
     private final Map<String, int[]> user = new HashMap<>();     // key -> {count}
     private final Map<String, String> userShown = new HashMap<>();
-    private final File userFile;
+    private final File userFile, pairFile;
+    private final Map<String, int[]> pairs = new HashMap<>();     // "prev word" -> how often typed in a row here
+    private String ctxPrev;
     private boolean dirty;
 
     static final class Suggestion {
@@ -50,22 +53,54 @@ final class Dictionary {
     Dictionary(Context ctx) throws Exception {
         ArrayList<String> k = new ArrayList<>(100000), s = new ArrayList<>(100000);
         ArrayList<Short> f = new ArrayList<>(100000);
+        ArrayList<Integer> odd = new ArrayList<>();
         try (BufferedReader r = new BufferedReader(new InputStreamReader(ctx.getAssets().open("dict.tsv"), "UTF-8"), 1 << 16)) {
             String line;
             while ((line = r.readLine()) != null) {
                 int a = line.indexOf('\t'), b = line.indexOf('\t', a + 1);
                 if (a <= 0 || b <= a) continue;
+                int c = line.indexOf('\t', b + 1);
                 String key = line.substring(0, a), disp = line.substring(a + 1, b);
+                if (c > 0) odd.add(k.size());           // "x": English or an odd short token
                 k.add(key);
                 s.add(disp.equals(key) ? null : disp);
-                f.add((short) Integer.parseInt(line.substring(b + 1)));
+                f.add((short) Integer.parseInt(c > 0 ? line.substring(b + 1, c) : line.substring(b + 1)));
             }
         }
         keys = k.toArray(new String[0]);
         shown = s.toArray(new String[0]);
         freq = new short[f.size()];
         for (int i = 0; i < freq.length; i++) freq[i] = f.get(i);
+        doubtful = new java.util.BitSet(keys.length);
+        for (int i : odd) doubtful.set(i);
 
+        try (BufferedReader r = new BufferedReader(new InputStreamReader(ctx.getAssets().open("bigrams.tsv"), "UTF-8"), 1 << 16)) {
+            String line;
+            while ((line = r.readLine()) != null) {
+                int tab = line.indexOf('\t');
+                if (tab <= 0) continue;
+                String[] parts = line.substring(tab + 1).split(",");
+                int[] e = new int[parts.length];
+                int n = 0;
+                for (String part : parts) {
+                    int colon = part.lastIndexOf(':');
+                    int idx = find(part.substring(0, colon));
+                    if (idx >= 0) e[n++] = idx << 10 | Math.min(1023, Integer.parseInt(part.substring(colon + 1)));
+                }
+                next.put(line.substring(0, tab), Arrays.copyOf(e, n));
+            }
+        } catch (java.io.FileNotFoundException ignored) { }
+
+        pairFile = new File(ctx.getFilesDir(), "user_pairs.tsv");
+        if (pairFile.exists()) {
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(pairFile), "UTF-8"))) {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    int tab = line.lastIndexOf('\t');
+                    if (tab > 0) pairs.put(line.substring(0, tab), new int[]{Integer.parseInt(line.substring(tab + 1))});
+                }
+            } catch (Exception ignored) { }
+        }
         userFile = new File(ctx.getFilesDir(), "user_words.tsv");
         if (userFile.exists()) {
             try (BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(userFile), "UTF-8"))) {
@@ -98,13 +133,50 @@ final class Dictionary {
         return userCount(k) >= KNOWN ? userShown.get(k) : null;
     }
 
-    private int score(int i) { return freq[i] + boost(keys[i]); }
+    private int score(int i) { return lm(i) + boost(keys[i]) + pairBoost(keys[i]); }
+
+    // --- context: which words follow which (assets/bigrams.tsv)
+
+    private final Map<String, int[]> next = new HashMap<>();   // word -> followers as (index << 10 | cost)
+    private int[] ctxNext;                                     // followers of the word before the cursor
+
+    /** The word before the one being typed ("<s>" at a sentence start, null if unknown); ranks likely followers up. */
+    void setContext(String prev) {
+        ctxPrev = prev == null ? null : key(prev);
+        ctxNext = prev == null ? null : next.get(ctxPrev);
+    }
+
+    /** Extra points for word pairs this phone's user types often ("hab dich"). */
+    private int pairBoost(String key) {
+        if (ctxPrev == null) return 0;
+        int[] c = pairs.get(ctxPrev + " " + key);
+        return c == null ? 0 : Math.min(c[0] * 35, 210);
+    }
+
+    /** Frequency mixed with how likely the word is after the previous one, in the same zipf*100 units. */
+    private int lm(int i) {
+        if (ctxNext == null) return freq[i];
+        int cost = -1;
+        for (int e : ctxNext) if (e >>> 10 == i) { cost = e & 1023; break; }
+        double uni = Math.pow(10, freq[i] / 100.0 - 9), bi = cost < 0 ? 0 : Math.pow(10, -cost / 100.0);
+        return (int) Math.round(100 * (Math.log10(0.75 * bi + 0.25 * uni) + 9));
+    }
 
     private int boost(String key) { return Math.min(userCount(key) * 15, 150); }
 
     // --- learning
 
     /** A finished word: counts towards learning new words and ranks familiar ones higher. */
+    void used(String word, String prev) {
+        used(word);
+        if (prev == null || word.length() < 2 || pairs.size() >= 20000) return;
+        String k = key(prev) + " " + key(word);
+        int[] c = pairs.get(k);
+        if (c == null) pairs.put(k, c = new int[]{0});
+        c[0]++;
+        dirty = true;
+    }
+
     void used(String word) {
         if (word.length() < 2 || word.length() > 40) return;
         String k = key(word);
@@ -135,7 +207,8 @@ final class Dictionary {
     void save() {
         if (!dirty) return;
         dirty = false;
-        final StringBuilder sb = new StringBuilder();
+        final StringBuilder sb = new StringBuilder(), sp = new StringBuilder();
+        for (Map.Entry<String, int[]> e : pairs.entrySet()) sp.append(e.getKey()).append('\t').append(e.getValue()[0]).append('\n');
         for (Map.Entry<String, int[]> e : user.entrySet()) {
             String w = userShown.get(e.getKey());
             sb.append(w != null ? w : e.getKey()).append('\t').append(e.getValue()[0]).append('\n');
@@ -147,6 +220,11 @@ final class Dictionary {
                     w.write(sb.toString());
                 } catch (Exception e) { return; }
                 tmp.renameTo(userFile);
+                File tmp2 = new File(pairFile.getPath() + ".tmp");
+                try (Writer w = new OutputStreamWriter(new FileOutputStream(tmp2), "UTF-8")) {
+                    w.write(sp.toString());
+                } catch (Exception e) { return; }
+                tmp2.renameTo(pairFile);
             }
         }).start();
     }
@@ -203,6 +281,14 @@ final class Dictionary {
 
     /** Words starting with the typed letters, best first. */
     private void completions(String w, Map<String, Suggestion> out) {
+        if (ctxNext != null)                    // likely next words, even if rare on their own
+            for (int e : ctxNext) {
+                int i = e >>> 10;
+                if (keys[i].startsWith(w) && !out.containsKey(keys[i])) {
+                    int s = score(i) - (keys[i].length() - w.length()) * 8 + (keys[i].equals(w) ? 120 : 0);
+                    out.put(keys[i], new Suggestion(keys[i], shown[i] != null ? shown[i] : keys[i], s, false));
+                }
+            }
         for (int i : w.length() == 1 ? firstLetter(w) : prefixRange(w)) {
             int s = score(i) - (keys[i].length() - w.length()) * 8;
             if (keys[i].equals(w)) s += 120;
@@ -289,7 +375,9 @@ final class Dictionary {
     // --- swipe typing
 
     private static final int N = 32;           // points both shapes are resampled to
-    private static final int SHAPE_WEIGHT = 1000, LEN_WEIGHT = 300;   // tuned on simulated noisy swipes
+    // weights of the swipe score, tuned on simulated sloppy swipes (corner cutting, misses by a third of a key)
+    static int ALIGN_W = 600, SHAPE_W = 600, LEN_W = 200, ODD_PENALTY = 150;
+    static float LM_SCALE = 1.4f;               // how much frequency and context count against the shape
 
     /** Evenly spaced points along a polyline, so a drawn path and a word's ideal path can be compared. */
     private static float[] resample(float[] xs, float[] ys, int m) {
@@ -316,53 +404,63 @@ final class Dictionary {
         return out;
     }
 
+    /** A swipe in key units: x in key widths, y in key heights (keys are taller than wide). */
+    private static final class Path {
+        float[] x, y, drawn;
+        int m;
+        float len;
+        float[] kx = new float[0x100], ky = new float[0x100];   // key centres, same units
+        String starts, ends;
+    }
+
     /**
-     * Words for a finger path drawn across the letter keys. cx/cy hold each letter's key centre
-     * (indexed by char, NaN where there is no key); keyW is a key's width.
-     * A word qualifies when it starts and ends near the path's ends and the path passes near all its
-     * letters in order; the survivors are ranked by how closely the path follows the word's shape,
-     * then by how common the word is.
+     * Words for a finger path drawn across the letter keys. cx/cy hold each letter's key centre in pixels
+     * (indexed by char, NaN where there is no key). A word qualifies when it starts and ends near the
+     * path's ends; it is ranked by how well its letters line up with the path in order, how closely the
+     * path follows its shape, and how likely it is after the previous word (setContext).
      */
-    List<Suggestion> swipe(float[] rawX, float[] rawY, float[] cx, float[] cy, float keyW, int max) {
-        int m = 0;                              // thin the path: points at least a fifth of a key apart
-        float[] px = new float[rawX.length], py = new float[rawY.length];
-        for (int i = 0; i < rawX.length; i++) {
-            if (m > 0 && i < rawX.length - 1 && Math.hypot(rawX[i] - px[m - 1], rawY[i] - py[m - 1]) < keyW * 0.2f) continue;
-            px[m] = rawX[i]; py[m] = rawY[i]; m++;
+    List<Suggestion> swipe(float[] rawX, float[] rawY, float[] cx, float[] cy, float keyW, float keyH, int max) {
+        Path p = new Path();
+        p.x = new float[rawX.length];
+        p.y = new float[rawY.length];
+        for (int i = 0; i < rawX.length; i++) {          // thin the path: points at least a quarter key apart
+            float x = rawX[i] / keyW, y = rawY[i] / keyH;
+            if (p.m > 0 && i < rawX.length - 1 && Math.hypot(x - p.x[p.m - 1], y - p.y[p.m - 1]) < 0.25f) continue;
+            p.x[p.m] = x; p.y[p.m] = y; p.m++;
         }
-        float[] drawn = resample(px, py, m);
-        float drawnLen = 0;
-        for (int i = 1; i < m; i++) drawnLen += (float) Math.hypot(px[i] - px[i - 1], py[i] - py[i - 1]);
-        float near = keyW * 1.1f, pass = keyW * 0.95f;
+        for (int i = 1; i < p.m; i++) p.len += (float) Math.hypot(p.x[i] - p.x[i - 1], p.y[i] - p.y[i - 1]);
+        p.drawn = resample(p.x, p.y, p.m);
         StringBuilder starts = new StringBuilder(), ends = new StringBuilder();
-        char nearestStart = 0, nearestEnd = 0;
         float bs = Float.MAX_VALUE, be = Float.MAX_VALUE;
         for (char c = 'a'; c < 0x100; c++) {
+            p.kx[c] = cx[c] / keyW;
+            p.ky[c] = cy[c] / keyH;
             if (Float.isNaN(cx[c]) || !Character.isLetter(c)) continue;
-            float ds = (float) Math.hypot(cx[c] - px[0], cy[c] - py[0]), de = (float) Math.hypot(cx[c] - px[m - 1], cy[c] - py[m - 1]);
-            if (ds < near) starts.append(c);
-            if (de < near) ends.append(c);
-            if (ds < bs) { bs = ds; nearestStart = c; }
-            if (de < be) { be = de; nearestEnd = c; }
+            bs = Math.min(bs, (float) Math.hypot(p.kx[c] - p.x[0], p.ky[c] - p.y[0]));
+            be = Math.min(be, (float) Math.hypot(p.kx[c] - p.x[p.m - 1], p.ky[c] - p.y[p.m - 1]));
         }
-        if (starts.length() == 0) starts.append(nearestStart);
-        if (ends.length() == 0) ends.append(nearestEnd);
+        for (char c = 'a'; c < 0x100; c++) {             // keys near the start and the end (and the nearest ones)
+            if (Float.isNaN(cx[c]) || !Character.isLetter(c)) continue;
+            if (Math.hypot(p.kx[c] - p.x[0], p.ky[c] - p.y[0]) < Math.max(1.0f, bs + 0.45f)) starts.append(c);
+            if (Math.hypot(p.kx[c] - p.x[p.m - 1], p.ky[c] - p.y[p.m - 1]) < Math.max(1.0f, be + 0.45f)) ends.append(c);
+        }
+        p.starts = starts.toString();
+        p.ends = ends.toString();
 
         Map<String, Suggestion> out = new HashMap<>();
-        float[] wx = new float[48], wy = new float[48];
-        for (int s = 0; s < starts.length(); s++) {
-            for (int i : prefixRange(String.valueOf(starts.charAt(s)))) {
-                int sc = swipeScore(keys[i], px, py, m, drawn, drawnLen, cx, cy, keyW, pass, ends, wx, wy);
-                if (sc != Integer.MIN_VALUE) {
-                    sc += score(i);
-                    out.put(keys[i], new Suggestion(keys[i], shown[i] != null ? shown[i] : keys[i], sc, false));
-                }
+        float[] wx = new float[48], wy = new float[48], dp = new float[p.m];
+        for (int s = 0; s < p.starts.length(); s++) {
+            for (int i : prefixRange(String.valueOf(p.starts.charAt(s)))) {
+                int sc = swipeShape(keys[i], p, wx, wy, dp);
+                if (sc != Integer.MIN_VALUE)
+                    out.put(keys[i], new Suggestion(keys[i], shown[i] != null ? shown[i] : keys[i],
+                            sc + Math.round(LM_SCALE * score(i)) - (doubtful.get(i) ? ODD_PENALTY : 0), false));
             }
         }
         for (Map.Entry<String, int[]> e : user.entrySet()) {
             String k = e.getKey();
-            if (e.getValue()[0] < KNOWN || find(k) >= 0 || starts.indexOf(k.substring(0, 1)) < 0) continue;
-            int sc = swipeScore(k, px, py, m, drawn, drawnLen, cx, cy, keyW, pass, ends, wx, wy);
+            if (e.getValue()[0] < KNOWN || find(k) >= 0 || p.starts.indexOf(k.charAt(0)) < 0) continue;
+            int sc = swipeShape(k, p, wx, wy, dp);
             if (sc != Integer.MIN_VALUE) out.put(k, new Suggestion(k, userShown.get(k), sc + 350 + boost(k), false));
         }
         List<Suggestion> list = new ArrayList<>(out.values());
@@ -372,35 +470,42 @@ final class Dictionary {
         return list.size() > max ? new ArrayList<>(list.subList(0, max)) : list;
     }
 
-    /** Shape part of a word's swipe score (higher is better), or MIN_VALUE if the path can't be this word. */
-    private static int swipeScore(String w, float[] px, float[] py, int m, float[] drawn, float drawnLen, float[] cx, float[] cy,
-                                  float keyW, float pass, CharSequence ends, float[] wx, float[] wy) {
+    /** How well the path fits a word (higher is better, around -100 for a good fit), or MIN_VALUE if not at all. */
+    private static int swipeShape(String w, Path p, float[] wx, float[] wy, float[] dp) {
         int n = w.length();
         if (n < 2 || n > 40) return Integer.MIN_VALUE;
         char last = w.charAt(n - 1) == 'ß' ? 's' : w.charAt(n - 1);
-        if (last >= 0x100 || ((StringBuilder) ends).indexOf(String.valueOf(last)) < 0) return Integer.MIN_VALUE;
+        if (p.ends.indexOf(last) < 0) return Integer.MIN_VALUE;
         int k = 0;
         char prev = 0;
         for (int i = 0; i < n; i++) {
             char c = w.charAt(i);
             if (c == 'ß') c = 's';
-            if (c >= 0x100 || Float.isNaN(cx[c])) return Integer.MIN_VALUE;      // apostrophe, é ...: not swipeable
-            if (c == prev) continue;                                              // double letters are one key
+            if (c >= 0x100 || Float.isNaN(p.kx[c])) return Integer.MIN_VALUE;   // apostrophe, é ...: not swipeable
+            if (c == prev) continue;                                            // double letters are one key
             prev = c;
-            wx[k] = cx[c]; wy[k] = cy[c]; k++;
+            wx[k] = p.kx[c]; wy[k] = p.ky[c]; k++;
         }
         if (k < 2) return Integer.MIN_VALUE;
-        int j = 0;                              // the path must pass near every key, in order
-        for (int i = 1; i < k - 1; i++) {
-            while (j < m && Math.hypot(px[j] - wx[i], py[j] - wy[i]) > pass) j++;
-            if (j == m) return Integer.MIN_VALUE;
+        float idealLen = 0;
+        for (int i = 1; i < k; i++) idealLen += (float) Math.hypot(wx[i] - wx[i - 1], wy[i] - wy[i - 1]);
+        float ratio = (p.len + 1) / (idealLen + 1);
+        if (ratio > 2.2f || ratio < 0.45f) return Integer.MIN_VALUE;
+        // line the letters up with the path in order: each letter takes the closest point after the previous one
+        int m = p.m;
+        for (int j = 0; j < m; j++) dp[j] = j == 0 ? (float) Math.hypot(wx[0] - p.x[0], wy[0] - p.y[0]) : Float.MAX_VALUE;
+        for (int i = 1; i < k; i++) {
+            float best = Float.MAX_VALUE;
+            for (int j = 0; j < m; j++) {
+                best = Math.min(best, dp[j]);
+                dp[j] = best == Float.MAX_VALUE ? Float.MAX_VALUE : best + (float) Math.hypot(wx[i] - p.x[j], wy[i] - p.y[j]);
+            }
         }
+        float align = dp[m - 1] / k;
+        if (align > 1.0f) return Integer.MIN_VALUE;
         float[] ideal = resample(wx, wy, k);
         float d = 0;
-        for (int i = 0; i < N; i++) d += (float) Math.hypot(ideal[2 * i] - drawn[2 * i], ideal[2 * i + 1] - drawn[2 * i + 1]);
-        float idealLen = 0;                     // a detour the word doesn't take (war vs wasser) costs extra
-        for (int i = 1; i < k; i++) idealLen += (float) Math.hypot(wx[i] - wx[i - 1], wy[i] - wy[i - 1]);
-        float ratio = (drawnLen + keyW) / (idealLen + keyW);
-        return Math.round(-SHAPE_WEIGHT * d / N / keyW - LEN_WEIGHT * Math.abs((float) Math.log(ratio)));
+        for (int i = 0; i < N; i++) d += (float) Math.hypot(ideal[2 * i] - p.drawn[2 * i], ideal[2 * i + 1] - p.drawn[2 * i + 1]);
+        return Math.round(-ALIGN_W * align - SHAPE_W * d / N - LEN_W * Math.abs((float) Math.log(ratio)));
     }
 }
