@@ -43,7 +43,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     private int lastTask = -1;
     private boolean busy;              // a request is running
     private LinearLayout styleBar, langBar;   // style or language choices, shown instead of the AI bar
-    private long lastSpace;
+    private long lastSpace, lastAction;
 
     private HorizontalScrollView aiScroll;
     private LinearLayout strip;                  // word suggestions, in place of the AI bar
@@ -285,6 +285,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
         status.setVisibility(View.GONE);
         showRow(aiBar);
         showEmoji(false);
+        keys.reset();
         keys.setTheme(dark());
         keys.showLetters();
         int action = enterAction(info);
@@ -304,6 +305,7 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
     @Override
     public void onFinishInputView(boolean finishing) {
         super.onFinishInputView(finishing);
+        if (keys != null) keys.reset();
         if (dict != null) dict.save();
     }
 
@@ -593,8 +595,13 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
             acFrom = null;                 // no revert across a line break or a sent message
             ic.endBatchEdit();
             int action = enterAction(getCurrentInputEditorInfo());
-            if (action >= 0) ic.performEditorAction(action);      // send, search, next ... (hold the key for a new line)
-            else ic.commitText("\n", 1);
+            long now = System.currentTimeMillis();
+            if (action >= 0) {                                    // send, search, next ...
+                if (now - lastAction > 800) ic.performEditorAction(action);   // never twice in a row by accident
+                lastAction = now;
+            } else {
+                ic.commitText("\n", 1);
+            }
             autoCaps();
         } else if (code == KeyboardView.EMOJI) {
             showEmoji(true);
@@ -608,8 +615,10 @@ public class FeinschliffIME extends InputMethodService implements KeyboardView.L
      * or -1 for a new line. Like the standard keyboards, a multi-line chat field still gets its send action
      * unless the app asks for plain enter.
      */
-    private static int enterAction(EditorInfo info) {
+    private int enterAction(EditorInfo info) {
         if (info == null || (info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0) return -1;
+        boolean multiLine = (info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0;
+        if (multiLine && !prefs().getBoolean("enterSends", true)) return -1;   // switched off in the app: new line
         if (info.actionLabel != null && info.actionId != 0) return info.actionId;
         int action = info.imeOptions & EditorInfo.IME_MASK_ACTION;
         return action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED ? -1 : action;

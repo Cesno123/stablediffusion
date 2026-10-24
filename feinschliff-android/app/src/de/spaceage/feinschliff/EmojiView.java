@@ -199,6 +199,12 @@ final class EmojiView extends LinearLayout {
         scroll.scrollTo(0, 0);
     }
 
+    @Override
+    protected void onVisibilityChanged(View changed, int visibility) {
+        super.onVisibilityChanged(changed, visibility);
+        if (visibility != VISIBLE && repeat != null) { handler.removeCallbacks(repeat); repeat = null; }
+    }
+
     /** Opening the panel shows the recently used emojis, if there are any. */
     void reset() { show(recent().isEmpty() ? 1 : 0); }
 }

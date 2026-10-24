@@ -98,6 +98,15 @@ public class MainActivity extends Activity {
             }
         });
         root.addView(autocorrect);
+        final android.widget.CheckBox enterSends = new android.widget.CheckBox(this);
+        enterSends.setText("Enter-Taste sendet in Chats (aus = Zeilenumbruch)");
+        enterSends.setChecked(Panel.prefs(this).getBoolean("enterSends", true));
+        enterSends.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(android.widget.CompoundButton b, boolean on) {
+                Panel.prefs(MainActivity.this).edit().putBoolean("enterSends", on).apply();
+            }
+        });
+        root.addView(enterSends);
         Button location = new Button(this);
         location.setText("Standort erlauben (für „📌 Mein Standort“)");
         location.setOnClickListener(new View.OnClickListener() {
@@ -128,7 +137,7 @@ public class MainActivity extends Activity {
         });
         root.addView(saveKey);
         TextView model = new TextView(this);
-        model.setText("Modell: " + Claude.MODEL + " · Version 2.1");
+        model.setText("Modell: " + Claude.MODEL + " · Version 2.2");
         model.setAlpha(0.5f);
         root.addView(model);
 

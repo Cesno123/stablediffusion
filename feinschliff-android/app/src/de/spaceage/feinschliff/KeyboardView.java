@@ -249,12 +249,7 @@ final class KeyboardView extends View {
                 boolean small = label.length() > 2;
                 textPaint.setTextSize((small ? 14 : 22) * density);
                 textPaint.setTypeface(small ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
-                if (k.code == ENTER) {                       // hold enter: new line even where enter sends
-            longPress = new Runnable() { public void run() { pressed = null; invalidate(); listener.onText("\n"); } };
-            handler.postDelayed(longPress, 450);
-            return;
-        }
-        if (k.code == SPACE) { textPaint.setTextSize(13 * density); textPaint.setAlpha(140); }
+                if (k.code == SPACE) { textPaint.setTextSize(13 * density); textPaint.setAlpha(140); }
                 c.drawText(label, k.rect.centerX(), k.rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2, textPaint);
                 textPaint.setAlpha(255);
                 if (k.alts.length > 0 && k.code == 0 && Character.isLetter(k.label.charAt(0)) && Character.isDigit(k.alts[0].charAt(0))) {
@@ -383,11 +378,6 @@ final class KeyboardView extends View {
             handler.postDelayed(repeat, 400);
             return;
         }
-        if (k.code == ENTER) {                       // hold enter: new line even where enter sends
-            longPress = new Runnable() { public void run() { pressed = null; invalidate(); listener.onText("\n"); } };
-            handler.postDelayed(longPress, 450);
-            return;
-        }
         if (k.code == SPACE) {
             longPress = new Runnable() { public void run() { pressed = null; invalidate(); listener.onSwitchLongPress(); } };
             handler.postDelayed(longPress, 500);
@@ -455,6 +445,16 @@ final class KeyboardView extends View {
         trailX[trailN] = x;
         trailY[trailN] = y;
         trailN++;
+    }
+
+    /** Stops anything still running from a touch (repeating delete, long press) when the keyboard goes away. */
+    void reset() {
+        cancelTimers();
+        pressed = null;
+        altKey = null;
+        swiping = false;
+        trailN = -1;
+        invalidate();
     }
 
     private void cancelTimers() {
