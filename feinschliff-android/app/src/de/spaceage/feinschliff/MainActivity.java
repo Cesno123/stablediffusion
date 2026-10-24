@@ -111,12 +111,15 @@ public class MainActivity extends Activity {
         saveKey.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Panel.prefs(MainActivity.this).edit().putString("key", key.getText().toString().trim()).apply();
-                panel.status.setText("Schlüssel gespeichert.");
+                String k = key.getText().toString().trim();
+                android.widget.Toast.makeText(MainActivity.this, k.isEmpty() ? "Schlüssel gelöscht."
+                        : k.startsWith("sk-ant-") ? "Schlüssel gespeichert ✓" : "Gespeichert – aber ein Schlüssel beginnt normalerweise mit sk-ant-",
+                        android.widget.Toast.LENGTH_LONG).show();
             }
         });
         root.addView(saveKey);
         TextView model = new TextView(this);
-        model.setText("Modell: " + Claude.MODEL + " · Version 1.3");
+        model.setText("Modell: " + Claude.MODEL + " · Version 1.4");
         model.setAlpha(0.5f);
         root.addView(model);
 
