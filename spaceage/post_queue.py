@@ -2,7 +2,7 @@
 
 Images (png/jpg/webp) become a 9:16 reel (other ratios shown whole on a
 blurred backdrop) with a slow 8-second zoom and a short generated piece of
-music (music.py). Videos (mp4/mov) are posted as reels unchanged. The oldest upload (by git history) goes first.
+music (music.py) that fits the picture's mood (mood.py). Videos (mp4/mov) are posted as reels unchanged. The oldest upload (by git history) goes first.
 
 Caption: queue/<name>.txt if it exists, otherwise the fixed CAPTION.
 The reel is built in a temp folder (not committed, to keep the repo small);
@@ -114,7 +114,11 @@ def to_reel(src, dst, seed):
     frame = dst + ".png"
     wav = dst + ".wav"
     reel_frame(img).save(frame)
-    print(f"music: {pick(wav, REEL_SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'))}", file=sys.stderr, flush=True)
+    from mood import mood_of
+
+    mood, why = mood_of(src, caption_for(src))
+    print(f"mood: {mood} ({why})", file=sys.stderr, flush=True)
+    print(f"music: {pick(wav, REEL_SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood)}", file=sys.stderr, flush=True)
     frames = REEL_SECONDS * FPS
     # zoompan on a 4x upscaled frame avoids the jitter of integer crop steps
     zoom = (f"scale={REEL_W * 4}:{REEL_H * 4}:flags=lanczos,"

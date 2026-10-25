@@ -115,15 +115,16 @@ def place(buf, start, sound):
     buf[s:s + len(sound)] += sound
 
 
-def song(path, seconds, seed, drums_on=True):
-    """Write a random piece; returns a short description."""
+def song(path, seconds, seed, drums_on=True, prefs=None):
+    """Write a random piece; returns a short description. prefs (mood.py) narrows the random choices."""
     rng = np.random.default_rng(seed)
-    bars = int(rng.choice([2, 3, 4]))
+    prefs = prefs or {}
+    bars = int(rng.choice(prefs.get("bars", [2, 3, 4])))
     bar = seconds / bars          # 2 bars = 60 bpm feel, 3 = 90 bpm, 4 = 120 bpm
     step = bar / 16
     n = int(seconds * SR)
-    groove = str(rng.choice(list(GROOVES)))
-    mode = str(rng.choice(list(SCALES)))
+    groove = str(rng.choice(prefs.get("grooves", list(GROOVES))))
+    mode = str(rng.choice(prefs.get("modes", list(SCALES))))
     family = "minor" if SCALES[mode][2] == 3 else "major"
     prog = PROGRESSIONS[family][rng.integers(len(PROGRESSIONS[family]))]
     root = int(rng.integers(45, 53))  # A2 .. E3
@@ -132,8 +133,8 @@ def song(path, seconds, seed, drums_on=True):
     def note(degree, octave=0):
         return root + 12 * (octave + degree // len(scale)) + scale[degree % len(scale)]
 
-    lead = str(rng.choice(["brass", "theremin", "bell", "square", "pluck"]))
-    pad_kind = str(rng.choice(["strings", "brass"]))
+    lead = str(rng.choice(prefs.get("leads", ["brass", "theremin", "bell", "square", "pluck"])))
+    pad_kind = str(rng.choice(prefs.get("pads", ["strings", "brass"])))
     bass_style = str(rng.choice(list(BASS)))
     drums, bass, chords, melody = (np.zeros(n) for _ in range(4))
 
@@ -270,31 +271,41 @@ def experimental(path, seconds, seed):
 
 # --------------------------------------------------------------- dispatcher
 
-KINDS = {
-    "drone": (1.0, lambda p, s, seed: synth_audio(p, s, [41.2, 49.0, 55.0, 61.7, 65.4, 73.4][seed % 6], [], seed)
+DRONE_HZ = [41.2, 49.0, 55.0, 61.7, 65.4, 73.4]
+KINDS = {  # weight, writer(path, seconds, seed, prefs)
+    "drone": (1.0, lambda p, s, seed, pr: synth_audio(p, s, DRONE_HZ[seed % (3 if pr.get("low") else 6)], [], seed)
               or "quiet drone"),
-    "ambient": (1.5, lambda p, s, seed: "ambient: " + soundtrack(p, s, seed)),
-    "song": (2.0, lambda p, s, seed: song(p, s, seed)),
-    "melodic": (1.5, lambda p, s, seed: song(p, s, seed, drums_on=False)),
-    "experimental": (1.5, experimental),
+    "ambient": (1.5, lambda p, s, seed, pr: "ambient: " + soundtrack(p, s, seed, pr.get("scales"), pr.get("low", False))),
+    "song": (2.0, lambda p, s, seed, pr: song(p, s, seed, prefs=pr)),
+    "melodic": (1.5, lambda p, s, seed, pr: song(p, s, seed, drums_on=False, prefs=pr)),
+    "experimental": (1.5, lambda p, s, seed, pr: experimental(p, s, seed)),
 }
 
 
-def pick(path, seconds, seed, history=None):
-    """Write one soundtrack of a random kind (not the previous one) and return its description.
+def pick(path, seconds, seed, history=None, mood=None):
+    """Write one soundtrack and return its description.
 
+    Without a mood: a random kind, never the previous one. With a mood from mood.py
+    ("action", "gentle", ...): a kind, scale, tempo and sound that fit the picture, still
+    avoiding the previous kind when the mood allows another.
     history: optional text file remembering the kinds used so far.
     """
+    from mood import profile
+
     rng = np.random.default_rng(seed)
     last = ""
     if history and os.path.exists(history):
         with open(history) as f:
             lines = f.read().split()
             last = lines[-1] if lines else ""
-    kinds = [k for k in KINDS if k != last]
-    weights = np.array([KINDS[k][0] for k in kinds])
+    prefs = profile(mood) or {}
+    weights_of = prefs.get("kinds") or {k: w for k, (w, _) in KINDS.items()}
+    kinds = [k for k in weights_of if k != last] or list(weights_of)
+    weights = np.array([float(weights_of[k]) for k in kinds])
     kind = str(rng.choice(kinds, p=weights / weights.sum()))
-    desc = KINDS[kind][1](path, seconds, seed)
+    desc = KINDS[kind][1](path, seconds, seed, prefs)
+    if mood:
+        desc = f"{mood} -> {kind}: {desc}"
     if history:
         os.makedirs(os.path.dirname(history), exist_ok=True)
         with open(history, "a") as f:

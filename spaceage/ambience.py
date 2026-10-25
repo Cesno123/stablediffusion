@@ -238,12 +238,13 @@ MELODIC = ["pad", "arpeggio", "theremin", "pings", "pulse",
            "modular sequence", "sample & hold", "ring mod", "poly brass", "poly strings"]
 
 
-def soundtrack(path, seconds, seed):
-    """Write a random sci-fi soundtrack; returns a short description of the mix."""
+def soundtrack(path, seconds, seed, scales=None, low=False):
+    """Write a random sci-fi soundtrack; returns a short description of the mix.
+    scales: allowed scale names (from mood.py), low: keep it deep."""
     rng = np.random.default_rng(seed)
     t = np.arange(int(seconds * SR)) / SR
-    scale = rng.choice(list(SCALES))
-    root = int(rng.integers(45, 57))  # A2 .. G#3
+    scale = rng.choice([s for s in (scales or SCALES) if s in SCALES] or list(SCALES))
+    root = int(rng.integers(40, 48) if low else rng.integers(45, 57))  # E2 .. D#3 or A2 .. G#3
     notes = [root + s for s in SCALES[scale]] + [root + 12 + s for s in SCALES[scale]]
     names = list(rng.choice(MELODIC, size=int(rng.integers(1, 4)), replace=False))
     names += list(rng.choice(["drone", "wind"], size=int(rng.integers(1, 3)), replace=False))
