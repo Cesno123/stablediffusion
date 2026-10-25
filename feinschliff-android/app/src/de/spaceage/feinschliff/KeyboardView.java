@@ -19,6 +19,7 @@ import java.util.List;
 /** Draws the keys and turns touches into key presses (tap, long-press alternates, repeating delete, swipe). */
 final class KeyboardView extends View {
     static final int SHIFT = -1, DELETE = -2, SYMBOLS = -3, LETTERS = -4, MORE = -5, ENTER = -6, SPACE = -7, SWITCH = -8, EMOJI = -9, ENTER_INFO = -10;
+    static final String NEW_LINE = "↵", FIELD_INFO = "ⓘ";
 
     interface Listener {
         void onText(String text);
@@ -111,7 +112,7 @@ final class KeyboardView extends View {
         r.add(new Key(",", 0, 1f));
         r.add(new Key("Leertaste", SPACE, 3.5f));
         r.add(new Key(".", 0, 1f, "?", "!", "…"));
-        r.add(new Key(enterLabel, ENTER, 1.5f));
+        r.add(new Key(enterLabel, ENTER, 1.5f, NEW_LINE, FIELD_INFO));   // hold: new line, or what the app reports
         return r;
     }
 
@@ -275,7 +276,7 @@ final class KeyboardView extends View {
                 textPaint.setColor(i == altIndex ? 0xFFFFFFFF : fg);
                 textPaint.setTextSize(22 * density);
                 String s = altKey.alts[i];
-                if (isShift()) s = s.toUpperCase();
+                if (isShift() && altKey.code == 0) s = s.toUpperCase();
                 RectF ar = altRects.get(i);
                 c.drawText(s, ar.centerX(), ar.centerY() - (textPaint.descent() + textPaint.ascent()) / 2, textPaint);
             }
@@ -378,11 +379,6 @@ final class KeyboardView extends View {
             handler.postDelayed(repeat, 400);
             return;
         }
-        if (k.code == ENTER) {                       // hold enter: show what the app says about the field
-            longPress = new Runnable() { public void run() { pressed = null; invalidate(); listener.onCode(ENTER_INFO); } };
-            handler.postDelayed(longPress, 700);
-            return;
-        }
         if (k.code == SPACE) {
             longPress = new Runnable() { public void run() { pressed = null; invalidate(); listener.onSwitchLongPress(); } };
             handler.postDelayed(longPress, 500);
@@ -412,7 +408,10 @@ final class KeyboardView extends View {
         Key k = pressed;
         pressed = null;
         if (altKey != null) {
-            if (altIndex >= 0) emitText(altKey.alts[altIndex]);
+            if (altIndex >= 0 && altKey.code == ENTER) {
+                if (NEW_LINE.equals(altKey.alts[altIndex])) listener.onText("\n");
+                else listener.onCode(ENTER_INFO);
+            } else if (altIndex >= 0) emitText(altKey.alts[altIndex]);
             altKey = null;
             invalidate();
             return;
