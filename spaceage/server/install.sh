@@ -67,9 +67,9 @@ grep -q '^SPACEAGE_PUBLIC_URL=' /etc/spaceage.env || echo "SPACEAGE_PUBLIC_URL=h
 chown root:spaceage /etc/spaceage.env
 chmod 640 /etc/spaceage.env
 
-# 8 posts a day, every 2 hours 8:07-22:07 (Berlin time)
+# one post an hour, 7:07-23:07 (Berlin time): 17 a day
 cat > /etc/cron.d/spaceage <<CRON
-7 8-22/2 * * * spaceage $APP/spaceage/server/run.sh >> /var/log/spaceage.log 2>&1
+7 7-23 * * * spaceage $APP/spaceage/server/run.sh >> /var/log/spaceage.log 2>&1
 CRON
 
 # First check: is the Instagram token ok? Result on https://$host/status.txt
