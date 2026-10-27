@@ -1,6 +1,6 @@
 """One posting round on the own server (replaces the GitHub workflow).
 
-Started by cron 4 times a day:
+Started by cron 6 times a day:
   1. queue empty -> generate a new FLUX image (autogen.py)
   2. turn the oldest queue file into a 9:16 reel with zoom and sound
   3. put the reel into the public web folder (served by Caddy) and let

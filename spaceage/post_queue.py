@@ -4,7 +4,8 @@ Images (png/jpg/webp) become a 9:16 reel (other ratios shown whole on a
 blurred backdrop) with a slow 8-second zoom and a short generated piece of
 music (music.py) that fits the picture's mood (mood.py). Videos (mp4/mov) are posted as reels unchanged. The oldest upload (by git history) goes first.
 
-Caption: queue/<name>.txt if it exists, otherwise the fixed CAPTION.
+Caption: queue/<name>.txt if it exists, otherwise default_caption() (rotating
+intro and hashtags).
 The reel is built in a temp folder (not committed, to keep the repo small);
 posted/ only keeps a small preview image and the caption.
 Prints key=value lines for $GITHUB_OUTPUT.
@@ -27,19 +28,48 @@ BUILD = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "spaceage")
 IMAGES = {".png", ".jpg", ".jpeg", ".webp"}
 VIDEOS = {".mp4", ".mov"}
 
-# Fixed caption for every post (the owner's text). Instagram allows at most
-# 30 hashtags; #nasa was dropped because it duplicates #NASA.
-CAPTION = (
+# Caption when no queue/<name>.txt exists: one of several intros (the owner's
+# text first) plus a few hashtags drawn from the pool. The same text and the
+# same 30 hashtags on every post look like spam to Instagram; brand tags
+# (#NASA, #SpaceX, #StarWars...) that don't match the picture were dropped.
+INTROS = [
     "🚀 Step into the future with SpaceAge42 – your gateway to cosmic art and sci-fi "
     "visions! 🌌 Perfect for dreamers, explorers, and tech lovers. From interstellar "
     "landscapes to futuristic worlds, our gallery brings the thrill of space exploration "
-    "to life. ✨\n\n"
-    "#SpaceAge42 #SciFiArt #SpaceArt #FuturisticVibes #CosmicDreams #ExploreTheUniverse "
-    "#DigitalArt #FutureWorlds #SciFiCommunity #AstronomyLovers #CyberpunkArt #GalaxyVibes "
-    "#StarsAndBeyond #NewWorlds #DeepSpaceDreams #SciFiUniverse #SpaceExploration "
-    "#OuterSpaceArt #StellarVisions #NextFrontier #NASA #SpaceX #StarWarsFans "
-    "#StarTrekUniverse #MarsMission #space #astronomy #starwars #startrek #dystopian"
-)
+    "to life. ✨",
+    "🌌 Another world from the SpaceAge42 archive – painted like the old paperback covers "
+    "we used to stare at for hours. Where would you land? 🚀",
+    "✨ Giant machines, strange skies, tiny travellers. A new vision from SpaceAge42 – "
+    "the future as the 70s and 80s dreamed it. 🪐",
+    "🛸 Somewhere out there, this is just an ordinary day. SpaceAge42 – cosmic art and "
+    "retro sci-fi for dreamers and explorers. 🌠",
+    "🪐 Look closer: every hull plate, every distant moon tells a story. Welcome to "
+    "SpaceAge42, a gallery of worlds that never were – yet. 🚀",
+    "🌠 Turn the volume up, let the picture pull you in. SpaceAge42 – interstellar "
+    "landscapes and futuristic worlds, one transmission at a time. 📡",
+    "🚀 Ready for departure? SpaceAge42 brings you sci-fi art inspired by the golden age "
+    "of space paintings – for everyone who still looks up at night. 🌌",
+    "🌌 A postcard from the far future. Which detail do you spot first? SpaceAge42 – "
+    "cosmic art and sci-fi visions. ✨",
+]
+HASHTAGS = (
+    "#SciFiArt #SpaceArt #FuturisticVibes #CosmicDreams #ExploreTheUniverse #DigitalArt "
+    "#FutureWorlds #SciFiCommunity #AstronomyLovers #GalaxyVibes #StarsAndBeyond #NewWorlds "
+    "#DeepSpaceDreams #SciFiUniverse #SpaceExploration #OuterSpaceArt #StellarVisions "
+    "#NextFrontier #MarsMission #space #astronomy #dystopian #RetroSciFi #RetroFuturism "
+    "#SciFiIllustration #SpaceshipArt #PulpArt #ConceptArt"
+).split()
+TAGS_PER_POST = 7  # #SpaceAge42 plus 6 from the pool
+
+
+def default_caption(src):
+    """Intro and hashtags for one file; the same file always gets the same caption."""
+    import hashlib
+    import random
+
+    rng = random.Random(hashlib.sha256(os.path.basename(src).encode()).hexdigest())
+    tags = ["#SpaceAge42"] + rng.sample(HASHTAGS, TAGS_PER_POST - 1)
+    return rng.choice(INTROS) + "\n\n" + " ".join(tags)
 
 
 def added_at(path):
@@ -67,7 +97,7 @@ def caption_for(src):
     if os.path.exists(txt):
         with open(txt) as f:
             return f.read().strip()
-    return CAPTION
+    return default_caption(src)
 
 
 REEL_W, REEL_H, REEL_SECONDS, FPS = 1080, 1920, 8, 30
