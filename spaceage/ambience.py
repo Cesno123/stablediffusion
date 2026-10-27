@@ -1,10 +1,12 @@
 """Synthesized sci-fi soundtracks as stereo WAV files.
 
 synth_audio:    the original quiet drone + wind (used by make_reel.py).
-soundtrack:     a different mix for every seed - two to four layers out of
-                pad chords, arpeggios, theremin, radio pings, a heartbeat
-                pulse, drone and space wind, in a random key, scale, tempo
-                and stereo placement. Some layers imitate classic analog
+soundtrack:     a different mix for every seed - always one sustained bed
+                (pad, string or brass ensemble), at most one sparse accent
+                (slow theremin, radio pings, heartbeat pulse, ring mod clangs)
+                and drone or space wind, in a random key, scale and stereo
+                placement. Fast patterns (arpeggios, sequences, bleeps) stay out
+                of the default mix: in an 8 second reel they sound like tinkling. Some layers imitate classic analog
                 synthesizers: a 1970s modular (resonant filter sequences,
                 sample & hold bleeps, ring modulation) and a 1970s/80s
                 polyphonic (detuned brass and string pads with swelling
@@ -112,7 +114,7 @@ def arpeggio(rng, t, notes):
 
 
 def theremin(rng, t, notes):
-    seq = rng.choice(notes, size=rng.integers(3, 6)) + 12
+    seq = rng.choice(notes, size=rng.integers(2, 4)) + 12
     pos = np.minimum((t / t[-1] * len(seq)).astype(int), len(seq) - 1)
     f = np.convolve(hz(seq)[pos], np.ones(SR // 4) / (SR // 4), mode="same")  # glide
     f *= 1 + 0.012 * np.sin(2 * np.pi * rng.uniform(5, 7) * t)  # vibrato
@@ -122,7 +124,7 @@ def theremin(rng, t, notes):
 
 def pings(rng, t, notes):
     sig = np.zeros_like(t)
-    for start in np.sort(rng.uniform(0.5, t[-1] - 1, size=rng.integers(3, 8))):
+    for start in np.sort(rng.uniform(0.5, t[-1] - 1, size=rng.integers(2, 4))):
         k = t >= start
         tt = t[k] - start
         sig[k] += np.sin(2 * np.pi * hz(rng.choice(notes) + 24) * tt) * np.exp(-9 * tt)
@@ -234,8 +236,8 @@ LAYERS = {"pad": (pad, 0.5), "arpeggio": (arpeggio, 0.35), "theremin": (theremin
           "pings": (pings, 0.35), "pulse": (pulse, 0.6), "drone": (drone, 0.45), "wind": (wind, 0.35),
           "modular sequence": (modular_sequence, 0.4), "sample & hold": (sample_hold, 0.3),
           "ring mod": (ring_mod, 0.3), "poly brass": (poly_brass, 0.45), "poly strings": (poly_strings, 0.45)}
-MELODIC = ["pad", "arpeggio", "theremin", "pings", "pulse",
-           "modular sequence", "sample & hold", "ring mod", "poly brass", "poly strings"]
+BEDS = ["pad", "poly brass", "poly strings"]
+ACCENTS = ["theremin", "pings", "pulse", "ring mod"]
 
 
 def soundtrack(path, seconds, seed, scales=None, low=False):
@@ -246,7 +248,9 @@ def soundtrack(path, seconds, seed, scales=None, low=False):
     scale = rng.choice([s for s in (scales or SCALES) if s in SCALES] or list(SCALES))
     root = int(rng.integers(40, 48) if low else rng.integers(45, 57))  # E2 .. D#3 or A2 .. G#3
     notes = [root + s for s in SCALES[scale]] + [root + 12 + s for s in SCALES[scale]]
-    names = list(rng.choice(MELODIC, size=int(rng.integers(1, 4)), replace=False))
+    names = [str(rng.choice(BEDS))]
+    if rng.random() < 0.6:
+        names.append(str(rng.choice(ACCENTS)))
     names += list(rng.choice(["drone", "wind"], size=int(rng.integers(1, 3)), replace=False))
     left = np.zeros_like(t)
     right = np.zeros_like(t)
