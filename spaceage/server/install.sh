@@ -14,7 +14,7 @@ fi
 apt-get -o DPkg::Lock::Timeout=900 update
 DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=900 install -y python3-venv caddy cron curl ffmpeg
 python3 -m venv "$APP/venv"
-"$APP/venv/bin/pip" install --quiet requests pillow numpy
+"$APP/venv/bin/pip" install --quiet requests pillow numpy anthropic
 
 id spaceage >/dev/null 2>&1 || useradd --system --home-dir /var/lib/spaceage --shell /usr/sbin/nologin spaceage
 mkdir -p /var/lib/spaceage /srv/spaceage/www "$APP/spaceage/queue" "$APP/spaceage/posted"

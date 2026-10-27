@@ -276,13 +276,20 @@ KINDS = {  # weight, writer(path, seconds, seed, prefs)
 def pick(path, seconds, seed, history=None, mood=None):
     """Write one soundtrack and return its description.
 
-    Without a mood: a random kind, never the previous one. With a mood from mood.py
-    ("action", "gentle", ...): a kind, scale, tempo and sound that fit the picture, still
-    avoiding the previous kind when the mood allows another.
+    With a mood from mood.py ("action", "gentle", ...): the cue score.py writes for that
+    mood. Without a mood: a random kind, never the previous one.
     history: optional text file remembering the kinds used so far.
     """
     from mood import profile
+    from score import RECIPES, cue
 
+    if mood in RECIPES:  # a cue written for this mood: the music follows the picture
+        desc = f"{mood} -> score: {cue(path, seconds, seed, mood)}"
+        if history:
+            os.makedirs(os.path.dirname(history), exist_ok=True)
+            with open(history, "a") as f:
+                f.write("score\n")
+        return desc
     rng = np.random.default_rng(seed)
     last = ""
     if history and os.path.exists(history):

@@ -146,7 +146,8 @@ def to_reel(src, dst, seed):
     reel_frame(img).save(frame)
     from mood import mood_of
 
-    mood, why = mood_of(src, caption_for(src))
+    own = os.path.splitext(src)[0] + ".txt"  # only the owner's own text says something about this picture
+    mood, why = mood_of(src, caption_for(src) if os.path.exists(own) else "")
     print(f"mood: {mood} ({why})", file=sys.stderr, flush=True)
     print(f"music: {pick(wav, REEL_SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood)}", file=sys.stderr, flush=True)
     frames = REEL_SECONDS * FPS

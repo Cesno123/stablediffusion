@@ -1,6 +1,8 @@
 """Reads the mood of an image so the soundtrack can fit it (music.pick(..., mood=...)).
 
-Two sources, both free and offline:
+Best source: Claude looks at the picture (when ANTHROPIC_API_KEY is set in
+/etc/spaceage.env) and names the mood that fits what it shows. Without a key, or if
+that call fails, two free offline sources decide:
   words   the file name and caption: Midjourney downloads and our own auto images carry
           their prompt words in the name ("..._space_battle_over_jupiter_...")
   colors  brightness, saturation, warmth and how busy the picture is
@@ -10,7 +12,12 @@ The result is one of eight moods, each with the sound worlds, scales, tempos, gr
 instruments that suit it; music.py picks freely within those, so posts still vary.
 """
 
+import base64
+import io
+import json
+import os
 import re
+import sys
 
 import numpy as np
 from PIL import Image, ImageFilter
@@ -88,8 +95,57 @@ def colors(path):
     return bright, sat, warm, busy
 
 
+ASK = """You choose the soundtrack for an 8 second Instagram reel of this science fiction picture.
+Look at what the picture shows (subject, action, place, light) and pick the one mood whose music fits it best:
+- action: battle, chase, explosions, attack, danger in motion
+- eerie: alien, horror, ruins, wrecks, fog, something unsettling or mysterious
+- neon: night city, rain, cyberpunk streets, neon lights
+- cosmic: open space, planets, nebulae, stars, calm vastness
+- gentle: peaceful, people at ease, gardens, villages, warm and friendly scenes
+- heroic: launches, expeditions, pioneers, monumental ships or stations shown with pride
+- retro: playful 1950s/60s futurism, toy-like robots, flying saucers, raygun gothic
+- deep: underwater, ice worlds, deep sea, frozen silence
+Judge the content and the feeling, not the painting technique."""
+SCHEMA = {"type": "object", "additionalProperties": False, "required": ["mood", "reason"],
+          "properties": {"mood": {"type": "string", "enum": list(WORDS)},
+                         "reason": {"type": "string", "description": "a few words on what the picture shows"}}}
+
+
+def ask_claude(path):
+    """(mood, reason) chosen by Claude from the picture itself, or None (no key, no network, error)."""
+    if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        return None
+    try:
+        import anthropic
+
+        img = Image.open(path).convert("RGB")
+        img.thumbnail((1024, 1024))
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=85)
+        data = base64.standard_b64encode(buf.getvalue()).decode()
+        client = anthropic.Anthropic(timeout=60.0)
+        resp = client.messages.create(
+            model=os.environ.get("SPACEAGE_MOOD_MODEL", "claude-opus-5-5"),
+            max_tokens=2000,
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}},
+            messages=[{"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": data}},
+                {"type": "text", "text": ASK}]}],
+        )
+        text = next(b.text for b in resp.content if b.type == "text")
+        out = json.loads(text)
+        if out.get("mood") in PROFILES:
+            return out["mood"], "claude: " + str(out.get("reason", ""))[:80]
+    except Exception as e:  # never let the soundtrack stop a post
+        print(f"mood: claude failed ({type(e).__name__}: {e}), using words and colors", file=sys.stderr, flush=True)
+    return None
+
+
 def mood_of(path, caption=""):
     """The mood name for an image, and a short reason (for the log)."""
+    seen = ask_claude(path)
+    if seen:
+        return seen
     score = {m: 0.0 for m in PROFILES}
     hits = []
     for w in words_of(path.rsplit("/", 1)[-1]) + words_of(caption):
