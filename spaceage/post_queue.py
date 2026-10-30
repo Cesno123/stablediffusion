@@ -62,6 +62,17 @@ HASHTAGS = (
     "#SciFiIllustration #SpaceshipArt #PulpArt #ConceptArt"
 ).split()
 TAGS_PER_POST = 7  # #SpaceAge42 plus 6 from the pool
+# about every second post ends its intro with a question: comments push a reel further
+QUESTIONS = [
+    "Would you land here? 🚀",
+    "Which detail do you spot first? 👀",
+    "Would you board this ship – yes or no?",
+    "What do you think happens next? 🌌",
+    "Which planet would you call home? 🪐",
+    "Give this place a name in the comments ✨",
+    "Explorer or stay at home – which are you?",
+    "Day or night shift on this station? 🌗",
+]
 
 
 def default_caption(src):
@@ -71,7 +82,10 @@ def default_caption(src):
 
     rng = random.Random(hashlib.sha256(os.path.basename(src).encode()).hexdigest())
     tags = ["#SpaceAge42"] + rng.sample(HASHTAGS, TAGS_PER_POST - 1)
-    return rng.choice(INTROS) + "\n\n" + " ".join(tags)
+    intro = rng.choice(INTROS)
+    if rng.random() < 0.5:
+        intro += "\n\n" + rng.choice(QUESTIONS)
+    return intro + "\n\n" + " ".join(tags)
 
 
 def added_at(path):
@@ -87,7 +101,9 @@ def added_at(path):
 
 
 VIDEO_EVERY = 10  # every 10th post is a video from the queue (when one is waiting)
-ANIMATE_EVERY = 20  # every 20th post an image is animated by Atlas Cloud (server/run.py)
+# every 10th post, halfway between the uploaded-video slots (5th, 15th, 25th, ...), an image is
+# animated by Atlas Cloud (server/run.py)
+ANIMATE_EVERY, ANIMATE_AT = 10, 5
 POST_COUNT = os.path.join(POSTED, "post_count.txt")
 
 

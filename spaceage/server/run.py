@@ -3,7 +3,7 @@
 Started by cron every four hours (4 times a day):
   1. queue empty -> generate a new FLUX image (autogen.py)
   2. turn a random queued image (or a waiting video) into a 9:16 reel with zoom and sound;
-     every 20th post is a 5 second Atlas Cloud clip instead (ATLAS_API_KEY), made by a
+     the 5th, 15th, 25th, ... post is a 5 second Atlas Cloud clip instead (ATLAS_API_KEY), made by a
      --prepare run 15 minutes earlier; if that failed, the image is posted
   3. put the reel into the public web folder (served by Caddy) and let
      Instagram fetch it from there
@@ -112,11 +112,11 @@ def prepared_src():
 
 
 def prepare():
-    """Run 15 minutes before a post: when that post is the 20th, 40th, ... animate an image with
+    """Run 15 minutes before a post: when that post is the 5th, 15th, 25th, ... animate an image with
     Atlas Cloud now (it takes a few minutes), so the post can use the finished clip."""
     number = pq.posts_so_far() + 1
     key = os.environ.get("ATLAS_API_KEY", "").strip()
-    if number % pq.ANIMATE_EVERY:
+    if number % pq.ANIMATE_EVERY != pq.ANIMATE_AT:
         return f"Vorbereitung: Post Nr. {number} wird kein Video"
     if not key:
         return "Vorbereitung: kein ATLAS_API_KEY, Post bleibt ein Bild"
