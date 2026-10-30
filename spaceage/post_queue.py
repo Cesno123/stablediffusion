@@ -200,16 +200,16 @@ def to_reel(src, dst, seed):
     os.remove(wav)
 
 
-def to_moving_reel(src, dst, seed, frame_path, frame_url, key):
-    """Still image -> 5 second clip animated by Atlas Cloud, with our music for its mood.
+def to_moving_reel(src, dst, seed, key):
+    """Still image -> 5 second clip animated by Atlas Cloud, with our music for its mood."""
+    import io
 
-    frame_path/frame_url: where the 9:16 frame is put so Atlas can fetch it (public web folder).
-    """
     import atlas
     from mood import mood_of
     from music import pick
 
-    reel_frame(Image.open(src).convert("RGB")).save(frame_path, "JPEG", quality=92)
+    buf = io.BytesIO()
+    reel_frame(Image.open(src).convert("RGB")).save(buf, "JPEG", quality=90)
     wav = dst + ".wav"
     clip = dst + ".clip.mp4"
     try:
@@ -219,8 +219,7 @@ def to_moving_reel(src, dst, seed, frame_path, frame_url, key):
         print(f"music: {pick(wav, atlas.SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood)}",
               file=sys.stderr, flush=True)
         with open(clip, "wb") as f:
-            sure = not why.startswith("colors")  # Claude or picture words, not just a color guess
-            f.write(atlas.animate(frame_url, atlas.motion_prompt(mood if sure else None), key))
+            f.write(atlas.animate(buf.getvalue(), key))
         fit = (f"scale={REEL_W}:{REEL_H}:force_original_aspect_ratio=increase:flags=lanczos,"
                f"crop={REEL_W}:{REEL_H},fps={FPS},format=yuv420p")
         subprocess.run([
@@ -231,7 +230,7 @@ def to_moving_reel(src, dst, seed, frame_path, frame_url, key):
             "-movflags", "+faststart", dst,
         ], check=True)
     finally:
-        for tmp in (frame_path, wav, clip):
+        for tmp in (wav, clip):
             if os.path.exists(tmp):
                 os.remove(tmp)
 

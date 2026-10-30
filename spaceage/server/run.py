@@ -100,19 +100,17 @@ def post_next(dry_run=False):
 
     os.makedirs(WWW, exist_ok=True)
     for old in os.listdir(WWW):  # only the current reel stays public
-        if old.endswith(".mp4") or (old.startswith("frame-") and old.endswith(".jpg")):
+        if old.endswith(".mp4"):
             os.remove(os.path.join(WWW, old))
     reel = f"reel-{dt.datetime.now():%Y%m%d-%H%M%S}.mp4"
     media = os.path.join(WWW, reel)
     log(f"building reel from {name}")
     atlas_key = os.environ.get("ATLAS_API_KEY", "").strip()
-    animate = (ext in pq.IMAGES and atlas_key and PUBLIC_URL and not dry_run  # a test run costs nothing
+    animate = (ext in pq.IMAGES and atlas_key and not dry_run  # a test run costs nothing
                and (pq.posts_so_far() + 1) % pq.VIDEO_EVERY == 0)
     if animate:  # every 10th image becomes a short animated clip
-        frame = f"frame-{dt.datetime.now():%Y%m%d-%H%M%S}.jpg"
         try:
-            pq.to_moving_reel(src, media, zlib.crc32(name.encode()), os.path.join(WWW, frame),
-                              f"{PUBLIC_URL}/{frame}", atlas_key)
+            pq.to_moving_reel(src, media, zlib.crc32(name.encode()), atlas_key)
             log("animated with Atlas Cloud")
         except Exception as e:  # noqa: BLE001 - a failed animation must not stop the post
             log(f"Atlas animation failed ({e}), posting the still reel instead")
