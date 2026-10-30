@@ -87,6 +87,7 @@ def added_at(path):
 
 
 VIDEO_EVERY = 10  # every 10th post is a video from the queue (when one is waiting)
+ANIMATE_EVERY = 20  # every 20th post an image is animated by Atlas Cloud (server/run.py)
 POST_COUNT = os.path.join(POSTED, "post_count.txt")
 
 
@@ -203,7 +204,7 @@ def to_reel(src, dst, seed):
     os.remove(wav)
 
 
-def to_moving_reel(src, dst, seed, key):
+def to_moving_reel(src, dst, seed, key, timeout=900):
     """Still image -> 5 second clip animated by Atlas Cloud, with our music for its mood."""
     import io
 
@@ -222,7 +223,7 @@ def to_moving_reel(src, dst, seed, key):
         print(f"music: {pick(wav, atlas.SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood)}",
               file=sys.stderr, flush=True)
         with open(clip, "wb") as f:
-            f.write(atlas.animate(buf.getvalue(), key))
+            f.write(atlas.animate(buf.getvalue(), key, timeout))
         fit = (f"scale={REEL_W}:{REEL_H}:force_original_aspect_ratio=increase:flags=lanczos,"
                f"crop={REEL_W}:{REEL_H},fps={FPS},format=yuv420p")
         subprocess.run([

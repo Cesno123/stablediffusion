@@ -2,8 +2,9 @@
 
 Started by cron every four hours (4 times a day):
   1. queue empty -> generate a new FLUX image (autogen.py)
-  2. turn a random queued image (or a waiting video) into a 9:16 reel with zoom and sound; every 10th
-     image is animated into a 5 second clip by Atlas Cloud instead (ATLAS_API_KEY)
+  2. turn a random queued image (or a waiting video) into a 9:16 reel with zoom and sound;
+     every 20th post is a 5 second Atlas Cloud clip instead (ATLAS_API_KEY), made by a
+     --prepare run 15 minutes earlier; if that failed, the image is posted
   3. put the reel into the public web folder (served by Caddy) and let
      Instagram fetch it from there
   4. only after a successful post: remove the original from the queue,
@@ -16,7 +17,10 @@ The result of the last round is written to WWW/status.txt.
 
 import argparse
 import datetime as dt
+import json
 import os
+import random
+import shutil
 import sys
 import time
 import traceback
@@ -35,6 +39,8 @@ DATA = os.environ.get("SPACEAGE_DATA", "/var/lib/spaceage")
 WWW = os.environ.get("SPACEAGE_WWW", "/srv/spaceage/www")
 PUBLIC_URL = os.environ.get("SPACEAGE_PUBLIC_URL", "").rstrip("/")
 TOKEN_FILE = os.path.join(DATA, "ig_token.txt")
+PREPARED_MP4 = os.path.join(DATA, "prepared.mp4")  # Atlas clip made ahead of its post
+PREPARED_INFO = os.path.join(DATA, "prepared.json")
 REFRESH_DAYS = 20
 
 
@@ -85,13 +91,63 @@ def ig_user_id(token):
     return str(info.get("user_id") or info["id"])
 
 
+def drop_prepared():
+    for path in (PREPARED_MP4, PREPARED_INFO):
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def prepared_src():
+    """Queue file whose Atlas clip was prepared for exactly the coming post, else None (stale ones are dropped)."""
+    try:
+        with open(PREPARED_INFO) as f:
+            info = json.load(f)
+    except (OSError, ValueError):
+        return None
+    src = os.path.join(pq.QUEUE, os.path.basename(info.get("src", "")))
+    if info.get("post") == pq.posts_so_far() + 1 and os.path.isfile(src) and os.path.isfile(PREPARED_MP4):
+        return src
+    drop_prepared()
+    return None
+
+
+def prepare():
+    """Run 15 minutes before a post: when that post is the 20th, 40th, ... animate an image with
+    Atlas Cloud now (it takes a few minutes), so the post can use the finished clip."""
+    number = pq.posts_so_far() + 1
+    key = os.environ.get("ATLAS_API_KEY", "").strip()
+    if number % pq.ANIMATE_EVERY:
+        return f"Vorbereitung: Post Nr. {number} wird kein Video"
+    if not key:
+        return "Vorbereitung: kein ATLAS_API_KEY, Post bleibt ein Bild"
+    if pq.video_turn():
+        return "Vorbereitung: ein eigenes Video ist dran"
+    if prepared_src():
+        return "Vorbereitung: Video liegt schon bereit"
+    images = pq.queue_files(pq.IMAGES)
+    if not images:
+        return "Vorbereitung: keine Bilder in der Warteschlange"
+    src = random.choice(images)
+    name = os.path.basename(src)
+    os.makedirs(DATA, exist_ok=True)
+    try:
+        pq.to_moving_reel(src, PREPARED_MP4, zlib.crc32(name.encode()), key, timeout=780)
+    except Exception as e:  # noqa: BLE001 - e.g. 402 balance empty: the post stays an image
+        drop_prepared()
+        return f"Vorbereitung: Atlas-Video fehlgeschlagen ({e}), Post bleibt ein Bild"
+    with open(PREPARED_INFO, "w") as f:
+        json.dump({"src": name, "post": number}, f)
+    return f"Vorbereitung: Atlas-Video aus {name} fertig fuer Post Nr. {number}"
+
+
 def post_next(dry_run=False):
     if os.environ.get("BFL_API_KEY", "").strip():
         try:
             autogen.main()
         except SystemExit as e:  # no image this round; maybe the queue still has something
             log(f"FLUX: {e}")
-    src = pq.next_file()
+    prepared = prepared_src()
+    src = prepared or pq.next_file()
     if not src:
         return "Warteschlange leer, nichts gepostet"
     name = os.path.basename(src)
@@ -105,21 +161,13 @@ def post_next(dry_run=False):
     reel = f"reel-{dt.datetime.now():%Y%m%d-%H%M%S}.mp4"
     media = os.path.join(WWW, reel)
     log(f"building reel from {name}")
-    atlas_key = os.environ.get("ATLAS_API_KEY", "").strip()
-    animate = (ext in pq.IMAGES and atlas_key and not dry_run  # a test run costs nothing
-               and (pq.posts_so_far() + 1) % pq.VIDEO_EVERY == 0)
-    if animate:  # every 10th image becomes a short animated clip
-        try:
-            pq.to_moving_reel(src, media, zlib.crc32(name.encode()), atlas_key)
-            log("animated with Atlas Cloud")
-        except Exception as e:  # noqa: BLE001 - a failed animation must not stop the post
-            log(f"Atlas animation failed ({e}), posting the still reel instead")
-            animate = False
-    if ext in pq.IMAGES and not animate:
+    if prepared:  # the Atlas clip made 15 minutes ago for this post
+        shutil.copyfile(PREPARED_MP4, media)
+        log("posting the Atlas video prepared for this post")
+    elif ext in pq.IMAGES:
         pq.to_reel(src, media, seed=zlib.crc32(name.encode()))
-    elif ext not in pq.IMAGES:
-        with open(src, "rb") as fi, open(media, "wb") as fo:
-            fo.write(fi.read())
+    else:
+        shutil.copyfile(src, media)
     if dry_run:
         return f"Probelauf: {name} -> {PUBLIC_URL}/{reel} (nicht gepostet)"
     if not PUBLIC_URL:
@@ -145,14 +193,19 @@ def post_next(dry_run=False):
     txt = os.path.splitext(src)[0] + ".txt"
     if os.path.exists(txt):
         os.remove(txt)
-    return f"gepostet: {name} (Instagram-ID {media_id})"
+    drop_prepared()
+    return f"gepostet: {name} (Instagram-ID {media_id})" + (" als Atlas-Video" if prepared else "")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="build the reel but do not post")
     ap.add_argument("--check", action="store_true", help="only test the Instagram access")
+    ap.add_argument("--prepare", action="store_true", help="make the Atlas clip for the coming post if it is due")
     args = ap.parse_args()
+    if args.prepare:
+        log(prepare())
+        return
     try:
         if args.check:
             token = ig_token()

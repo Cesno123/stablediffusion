@@ -1,10 +1,10 @@
 """Animate a still image into a 5 second clip with Atlas Cloud (needs ATLAS_API_KEY).
 
 animate(jpeg_bytes, key) sends the image as a base64 data URL to generateVideo,
-polls the prediction every 10 seconds until data.status is "completed" (usually
-2-3 minutes) and returns the MP4 bytes from data.outputs[0].
-Atlas Cloud checks where requests come from: on a 403 the request is repeated
-with a curl User-Agent.
+polls the prediction every 10 seconds until data.status is "completed" (a few
+minutes) and returns the MP4 bytes from data.outputs[0].
+Atlas Cloud checks where requests come from, so every request carries a curl
+User-Agent. A 402 means the Atlas balance is empty.
 """
 
 import base64
@@ -14,20 +14,19 @@ import time
 import requests
 
 API = os.environ.get("ATLAS_API_URL", "https://api.atlascloud.ai/api/v1/model")
-MODEL = os.environ.get("SPACEAGE_VIDEO_MODEL", "minimax/h3-max-turbo/image-to-video")
+MODEL = os.environ.get("SPACEAGE_VIDEO_MODEL", "kwaivgi/kling-v3.0-pro/image-to-video")
 SECONDS = 5
-RESOLUTION = "768P"
-PROMPT = ("Gentle cinematic animation of this illustration: subtle natural motion of clouds, lights, vehicles "
-          "and figures. Keep the original art style and texture unchanged, no new objects, no text, smooth "
-          "subtle motion.")
+PROMPT = ("Very slow, smooth camera push-in. The scene stays almost still: all objects keep their exact shape, "
+          "rigid, no deformation; only light and atmosphere move very subtly. Preserve the original art style, "
+          "fine lines, textures, colors and every detail exactly. No morphing, no new objects, no text, no flicker.")
 USER_AGENT = "curl/8.5.0"
 
 
 def _call(method, url, key, **kw):
-    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": USER_AGENT}
     r = requests.request(method, url, headers=headers, timeout=120, **kw)
-    if r.status_code == 403:  # Atlas Cloud checks the origin of the request
-        r = requests.request(method, url, headers={**headers, "User-Agent": USER_AGENT}, timeout=120, **kw)
+    if r.status_code == 402:
+        raise RuntimeError("Atlas 402: balance empty")
     if not r.ok:
         raise RuntimeError(f"Atlas {method} {r.status_code}: {r.text[:300]}")
     return r.json()
@@ -35,7 +34,7 @@ def _call(method, url, key, **kw):
 
 def animate(jpeg, key, timeout=900):
     image = "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()
-    body = {"model": MODEL, "image": image, "duration": SECONDS, "resolution": RESOLUTION, "prompt": PROMPT}
+    body = {"model": MODEL, "image": image, "duration": SECONDS, "sound": False, "prompt": PROMPT}
     reply = _call("POST", f"{API}/generateVideo", key, json=body)
     job = (reply.get("data") or {}).get("id")
     if not job:

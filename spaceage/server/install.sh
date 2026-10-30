@@ -67,8 +67,10 @@ grep -q '^SPACEAGE_PUBLIC_URL=' /etc/spaceage.env || echo "SPACEAGE_PUBLIC_URL=h
 chown root:spaceage /etc/spaceage.env
 chmod 640 /etc/spaceage.env
 
-# a post every four hours (Berlin time): 8:07, 12:07, 16:07, 20:07
+# a post every four hours (Berlin time): 8:07, 12:07, 16:07, 20:07; 15 minutes before each,
+# --prepare makes the Atlas clip when that post is the 20th, 40th, ...
 cat > /etc/cron.d/spaceage <<CRON
+52 7,11,15,19 * * * spaceage $APP/spaceage/server/run.sh --prepare >> /var/log/spaceage.log 2>&1
 7 8,12,16,20 * * * spaceage $APP/spaceage/server/run.sh >> /var/log/spaceage.log 2>&1
 CRON
 
