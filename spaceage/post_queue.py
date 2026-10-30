@@ -204,6 +204,44 @@ def to_reel(src, dst, seed):
     os.remove(wav)
 
 
+def video_info(path):
+    """(has_audio, seconds) of a video, read from ffmpeg's report (works without ffprobe)."""
+    import re
+
+    out = subprocess.run([ffmpeg_exe(), "-hide_banner", "-i", path], capture_output=True, text=True).stderr
+    m = re.search(r"Duration: (\d+):(\d+):([\d.]+)", out)
+    seconds = int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3]) if m else 8.0
+    return bool(re.search(r"Stream #.*Audio:", out)), seconds
+
+
+def video_with_sound(src, dst, seed):
+    """Copy an uploaded video; one without sound gets our music for its picture's mood."""
+    has_audio, seconds = video_info(src)
+    if has_audio:
+        shutil.copyfile(src, dst)
+        return "own sound"
+    from mood import mood_of
+    from music import pick
+
+    frame, wav = dst + ".jpg", dst + ".wav"
+    try:
+        subprocess.run([ffmpeg_exe(), "-y", "-loglevel", "error", "-ss", str(min(1.0, seconds / 2)), "-i", src,
+                        "-frames:v", "1", frame], check=True)
+        own = os.path.splitext(src)[0] + ".txt"
+        mood, why = mood_of(frame, caption_for(src) if os.path.exists(own) else "")
+        print(f"mood: {mood} ({why})", file=sys.stderr, flush=True)
+        desc = pick(wav, seconds, seed, os.path.join(POSTED, "used_sounds.txt"), mood)
+        print(f"music: {desc}", file=sys.stderr, flush=True)
+        subprocess.run([ffmpeg_exe(), "-y", "-loglevel", "error", "-i", src, "-i", wav, "-map", "0:v:0",
+                        "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-ar", "48000",
+                        "-shortest", "-movflags", "+faststart", dst], check=True)
+    finally:
+        for tmp in (frame, wav):
+            if os.path.exists(tmp):
+                os.remove(tmp)
+    return "music added: " + desc
+
+
 def to_moving_reel(src, dst, seed, key, timeout=900):
     """Still image -> 5 second clip animated by Atlas Cloud, with our music for its mood."""
     import io

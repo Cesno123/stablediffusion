@@ -166,8 +166,8 @@ def post_next(dry_run=False):
         log("posting the Atlas video prepared for this post")
     elif ext in pq.IMAGES:
         pq.to_reel(src, media, seed=zlib.crc32(name.encode()))
-    else:
-        shutil.copyfile(src, media)
+    else:  # an uploaded video; a silent one gets music for its mood
+        log(f"video: {pq.video_with_sound(src, media, zlib.crc32(name.encode()))}")
     if dry_run:
         return f"Probelauf: {name} -> {PUBLIC_URL}/{reel} (nicht gepostet)"
     if not PUBLIC_URL:
