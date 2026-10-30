@@ -17,7 +17,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from bfl import generate  # noqa: E402
-from post_queue import IMAGES, VIDEOS, QUEUE  # noqa: E402
+from post_queue import IMAGES, QUEUE, queue_files, video_turn  # noqa: E402
 from prompt_library import SCENES, STYLE_ENDING, STYLES  # noqa: E402
 
 USED = os.path.join(HERE, "posted", "used_prompts.txt")
@@ -44,7 +44,8 @@ def add_grain(data, seed, strength=5.0):
 
 
 def queue_has_media():
-    return any(os.path.splitext(f)[1].lower() in IMAGES | VIDEOS for f in os.listdir(QUEUE))
+    """Something to post this round: an image, or a video whose turn it is (waiting videos don't count)."""
+    return bool(queue_files(IMAGES)) or video_turn()
 
 
 def main():

@@ -119,6 +119,7 @@ def post_next(dry_run=False):
     container = ig.create_container(user_id, token, caption, f"{PUBLIC_URL}/{reel}")
     ig.wait_until_ready(container, token)
     media_id = ig.publish(user_id, token, container)
+    pq.count_post()
 
     # posted: archive a small preview and the caption, drop the original
     os.makedirs(pq.POSTED, exist_ok=True)

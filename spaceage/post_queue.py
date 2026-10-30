@@ -2,7 +2,9 @@
 
 Images (png/jpg/webp) become a 9:16 reel (other ratios shown whole on a
 blurred backdrop) with a slow 8-second zoom and a short generated piece of
-music (music.py) that fits the picture's mood (mood.py). Videos (mp4/mov) are posted as reels unchanged. The oldest upload (by git history) goes first.
+music (music.py) that fits the picture's mood (mood.py). Videos (mp4/mov) are posted as reels unchanged.
+The oldest image goes first; uploaded videos wait and come every 10th post (VIDEO_EVERY),
+or earlier when no image is left.
 
 Caption: queue/<name>.txt if it exists, otherwise default_caption() (rotating
 intro and hashtags).
@@ -84,12 +86,44 @@ def added_at(path):
     return int(out[-1]) if out else int(os.path.getmtime(path))
 
 
-def next_file():
+VIDEO_EVERY = 10  # every 10th post is a video from the queue (when one is waiting)
+POST_COUNT = os.path.join(POSTED, "post_count.txt")
+
+
+def queue_files(kinds):
+    """Queue files with one of these extensions, oldest upload first."""
     if not os.path.isdir(QUEUE):
-        return None
-    files = [os.path.join(QUEUE, f) for f in os.listdir(QUEUE)
-             if os.path.splitext(f)[1].lower() in IMAGES | VIDEOS]
-    return min(files, key=lambda p: (added_at(p), p)) if files else None
+        return []
+    files = [os.path.join(QUEUE, f) for f in os.listdir(QUEUE) if os.path.splitext(f)[1].lower() in kinds]
+    return sorted(files, key=lambda p: (added_at(p), p))
+
+
+def posts_so_far():
+    try:
+        with open(POST_COUNT) as f:
+            return int(f.read().strip() or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def count_post():
+    count = posts_so_far() + 1  # read before "w" empties the file
+    os.makedirs(POSTED, exist_ok=True)
+    with open(POST_COUNT, "w") as f:
+        f.write(f"{count}\n")
+
+
+def video_turn():
+    """True when the next post is the 10th, 20th, ... and a video is waiting."""
+    return (posts_so_far() + 1) % VIDEO_EVERY == 0 and bool(queue_files(VIDEOS))
+
+
+def next_file():
+    """Images in upload order; a waiting video every VIDEO_EVERY posts (or when no image is left)."""
+    images, videos = queue_files(IMAGES), queue_files(VIDEOS)
+    if videos and (video_turn() or not images):
+        return videos[0]
+    return images[0] if images else None
 
 
 def caption_for(src):
