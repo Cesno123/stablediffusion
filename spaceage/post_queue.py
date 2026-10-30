@@ -3,8 +3,8 @@
 Images (png/jpg/webp) become a 9:16 reel (other ratios shown whole on a
 blurred backdrop) with a slow 8-second zoom and a short generated piece of
 music (music.py) that fits the picture's mood (mood.py). Videos (mp4/mov) are posted as reels unchanged.
-The oldest image goes first; uploaded videos wait and come every 10th post (VIDEO_EVERY),
-or earlier when no image is left.
+Images are picked at random from the queue, so styles and upload batches mix; uploaded
+videos wait and come every 10th post (VIDEO_EVERY), or earlier when no image is left.
 
 Caption: queue/<name>.txt if it exists, otherwise default_caption() (rotating
 intro and hashtags).
@@ -119,11 +119,14 @@ def video_turn():
 
 
 def next_file():
-    """Images in upload order; a waiting video every VIDEO_EVERY posts (or when no image is left)."""
+    """A random image (mixes styles and upload batches); the oldest waiting video every
+    VIDEO_EVERY posts (or when no image is left)."""
+    import random
+
     images, videos = queue_files(IMAGES), queue_files(VIDEOS)
     if videos and (video_turn() or not images):
         return videos[0]
-    return images[0] if images else None
+    return random.choice(images) if images else None
 
 
 def caption_for(src):

@@ -2,7 +2,7 @@
 
 Started by cron every four hours (4 times a day):
   1. queue empty -> generate a new FLUX image (autogen.py)
-  2. turn the oldest queue file into a 9:16 reel with zoom and sound; every 10th
+  2. turn a random queued image (or a waiting video) into a 9:16 reel with zoom and sound; every 10th
      image is animated into a 5 second clip by Atlas Cloud instead (ATLAS_API_KEY)
   3. put the reel into the public web folder (served by Caddy) and let
      Instagram fetch it from there
