@@ -163,3 +163,8 @@ cython_debug/
 # IDEs
 .idea/
 .vscode/
+
+# SpaceAge42 media lives on the own server, not on GitHub
+spaceage/queue/*
+!spaceage/queue/README.md
+spaceage/posted/
