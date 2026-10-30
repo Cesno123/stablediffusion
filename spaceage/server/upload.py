@@ -2,7 +2,8 @@
 
 Runs as the spaceage user on 127.0.0.1:8081; Caddy serves it under
 https://<host>/upload behind a password (see install.sh). Uploaded files
-go into the queue and are posted before any new FLUX image, oldest first.
+go into the queue and are posted before any new FLUX image (images at random,
+videos every 10th post); run.py removes each file from the queue once it is posted.
 
 GET  /upload                 page: upload form + current queue
 GET  /upload/file?name=X     a queued file (for the previews)
@@ -24,16 +25,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from post_queue import IMAGES, QUEUE, VIDEOS  # noqa: E402
 
 MAX_BYTES = 300 * 1024 * 1024
-POST_TIMES = "8:07, 10:07, 12:07, 14:07, 16:07, 18:07, 20:07, 22:07"
+POST_TIMES = "8:07, 12:07, 16:07, 20:07"
 
 PAGE = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>SpaceAge Uploads</title>
 <body style="font-family:sans-serif;background:#111;color:#eee;padding:16px;max-width:640px;margin:auto">
 <h2>SpaceAge Uploads</h2>
 <p>Bilder (JPG, PNG, WEBP) oder Videos (MP4, MOV). Eigene Uploads werden <b>vor</b> neuen
-FLUX-Bildern gepostet, &auml;lteste zuerst. Postzeiten: {times}.</p>
+FLUX-Bildern gepostet, Bilder in zuf&auml;lliger Reihenfolge, Videos bei jedem 10. Post.
+Was gepostet ist, verschwindet automatisch aus dieser Liste. Postzeiten: {times}.</p>
 <input type="file" id="f" multiple accept="image/*,video/*"><br><br>
-<textarea id="c" rows="3" style="width:100%" placeholder="Eigene Bildunterschrift (optional, sonst die feste)"></textarea><br>
+<textarea id="c" rows="3" style="width:100%" placeholder="Eigene Bildunterschrift (optional, sonst eine wechselnde)"></textarea><br>
 <button id="b" style="font-size:18px;padding:8px 16px">Hochladen</button>
 <p id="r"></p>
 <h3>Warteschlange ({count})</h3>{items}
