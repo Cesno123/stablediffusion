@@ -67,11 +67,12 @@ grep -q '^SPACEAGE_PUBLIC_URL=' /etc/spaceage.env || echo "SPACEAGE_PUBLIC_URL=h
 chown root:spaceage /etc/spaceage.env
 chmod 640 /etc/spaceage.env
 
-# a post every four hours (Berlin time): 8:07, 12:07, 16:07, 20:07; 15 minutes before each,
+# four posts a day (Berlin time), two in the followers' most active hours (18-21):
+# 9:07, 13:07, 18:07, 21:07; 15 minutes before each,
 # --prepare makes the Atlas clip when that post is the 5th, 15th, 25th, ...
 cat > /etc/cron.d/spaceage <<CRON
-52 7,11,15,19 * * * spaceage $APP/spaceage/server/run.sh --prepare >> /var/log/spaceage.log 2>&1
-7 8,12,16,20 * * * spaceage $APP/spaceage/server/run.sh >> /var/log/spaceage.log 2>&1
+52 8,12,17,20 * * * spaceage $APP/spaceage/server/run.sh --prepare >> /var/log/spaceage.log 2>&1
+7 9,13,18,21 * * * spaceage $APP/spaceage/server/run.sh >> /var/log/spaceage.log 2>&1
 CRON
 
 # First check: is the Instagram token ok? Result on https://$host/status.txt

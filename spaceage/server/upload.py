@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from post_queue import IMAGES, QUEUE, VIDEOS  # noqa: E402
 
 MAX_BYTES = 300 * 1024 * 1024
-POST_TIMES = "8:07, 12:07, 16:07, 20:07"
+POST_TIMES = "9:07, 13:07, 18:07, 21:07"
 
 PAGE = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>SpaceAge Uploads</title>

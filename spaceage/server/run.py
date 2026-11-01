@@ -1,6 +1,6 @@
 """One posting round on the own server (replaces the GitHub workflow).
 
-Started by cron every four hours (4 times a day):
+Started by cron 4 times a day (9:07, 13:07, 18:07, 21:07):
   1. queue empty -> generate a new FLUX image (autogen.py)
   2. turn a random queued image (or a waiting video) into a 9:16 reel with zoom and sound;
      the 5th, 15th, 25th, ... post is a 5 second Atlas Cloud clip instead (ATLAS_API_KEY), made by a
