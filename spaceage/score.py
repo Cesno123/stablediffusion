@@ -130,13 +130,6 @@ def epiano(n, midi, decay=1.8):
         * np.minimum(1, t / 0.004)
 
 
-def harp(n, midi, decay=3.0):
-    """Plucked string: a few harmonics, the high ones dying faster."""
-    t = np.arange(n) / SR
-    f = hz(midi)
-    x = sum(np.sin(2 * np.pi * f * k * t) * np.exp(-decay * k * t) / k for k in range(1, 7))
-    return x * np.minimum(1, t / 0.002)
-
 
 def choir(midis, n, rng, vowel="a"):
     """Soft 'aah' choir: detuned saws through two vowel formants."""
@@ -152,20 +145,6 @@ def choir(midis, n, rng, vowel="a"):
     out = low1 + 0.5 * (low2 - resonant_lowpass(x, f1 * 0.8, 1.0))
     return out * np.minimum(1, t / 0.8) * np.minimum(1, (n / SR - t) / 0.8)
 
-
-def arp(c, midis, step_count, gain_curve=None, decay=8.0, octave=1):
-    """A slow arpeggio over the given notes, one note per step_count steps of 16."""
-    out = np.zeros(c.n)
-    k = 0
-    for b in range(c.bars):
-        for i in range(0, 16, step_count):
-            m = midis[k % len(midis)] + 12 * octave
-            n = int(c.step * step_count * SR * 1.5)
-            tt = np.arange(n) / SR
-            note = resonant_lowpass(saw(hz(m), tt, 3000), 900 + 1600 * np.exp(-6 * tt), 2.5) * np.exp(-decay * tt)
-            place(out, c.at(b, i), note)
-            k += 1
-    return out
 
 
 def noise_hit(rng, n, bright=0.5, decay=20.0):
@@ -444,16 +423,6 @@ def eerie_heartbeat(c):
     c.add(ensemble([c.root, c.root + 1, c.root + 6], c.n, "strings", 2.0, 1.5, rng), 0.3, 0.45)
 
 
-def cosmic_sequencer(c):
-    """Berlin-school space music: a slow filtered sequence over a wide pad."""
-    rng = c.rng
-    chord = c.chord(0, 0, 4)
-    order = [chord[i] for i in rng.permutation(4)]
-    c.add(arp(c, order, int(rng.choice([2, 4])), decay=6.0), 0.3, 0.6)
-    c.add(ensemble(c.chord(0, 1, 3), c.n, "strings", 1.5, 1.5, rng), 0.4, 0.4)
-    c.add(np.sin(2 * np.pi * hz(c.root - 12) * c.t), 0.25, 0.5)
-    c.add(lowpass_noise(rng, c.n, 700) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.08 * c.t)), 0.12, 0.5)
-
 
 def cosmic_choir(c):
     """Distant choir and a sub drone: the silence of deep space, but human."""
@@ -483,24 +452,11 @@ def gentle_epiano(c):
     c.add(brush, 0.08, 0.6)
 
 
-def gentle_harp(c):
-    """A slow harp arpeggio over soft strings: a fairy tale far away."""
-    rng = c.rng
-    h = np.zeros(c.n)
-    for b, deg in enumerate([0, int(rng.choice([3, 4, 5]))]):
-        notes = c.chord(deg, 1, 4)
-        for k, i in enumerate(range(0, 16, 2)):
-            place(h, c.at(b, i), harp(int(2.5 * SR), notes[k % 4] + (12 if k >= 4 else 0)))
-    c.add(echo(h, c.step * 3, 0.25), 0.4, 0.55)
-    c.add(ensemble(c.chord(0, 1), c.n, "strings", 1.5, 1.5, rng), 0.3, 0.45)
-
 
 def neon_dark(c):
     """Slow dark synth with rain: a lonely street at night."""
     rng = c.rng
-    chord = c.chord(0, 0, 4)
-    c.add(arp(c, chord + chord[::-1][1:3], 2, decay=10.0, octave=1), 0.25, 0.65)
-    c.add(ensemble(c.chord(0, 1), c.n, "brass", 1.0, 1.0, rng), 0.3, 0.4)
+    c.add(ensemble(c.chord(0, 1), c.n, "brass", 1.0, 1.0, rng), 0.35, 0.4)
     bass = np.zeros(c.n)
     for b in range(c.bars):
         place(bass, c.at(b), voice("bass", c.note(0) - 12, int(c.bar * SR), rng))
@@ -547,22 +503,6 @@ def retro_lounge(c):
     c.add(hats, 0.1, 0.65)
 
 
-def retro_harpsichord(c):
-    """Harpsichord and an otherworldly gliding lead: 60s TV science fiction."""
-    rng = c.rng
-    keys = np.zeros(c.n)
-    for b, deg in enumerate([0, int(rng.choice([3, 4]))]):
-        for k, i in enumerate(range(0, 16, 2)):
-            m = c.chord(deg, 1, 3)[k % 3]
-            n = int(0.8 * SR)
-            tt = np.arange(n) / SR
-            note = resonant_lowpass(saw(hz(m), tt, 6000), 2500, 1.0) * np.exp(-7 * tt)
-            place(keys, c.at(b, i), note)
-    line = [c.note(int(d), 2) for d in rng.choice([0, 2, 4, 6, 7], size=2, replace=False)] + [c.note(7, 2)]
-    c.add(keys, 0.3, 0.4)
-    c.add(glide(c.t, line, 0.02) * np.minimum(1, c.t / 0.6), 0.25, 0.65)
-    c.add(ensemble(c.chord(0, 0), c.n, "strings", 1.0, 1.0, rng), 0.2, 0.5)
-
 
 def deep_whales(c):
     """Whale song glides over low strings and drifting bubbles."""
@@ -601,33 +541,121 @@ def deep_engine(c):
     c.add(ensemble(c.chord(0, 0), c.n, "strings", 2.0, 2.0, rng), 0.2, 0.4)
 
 
+# ------------------------------------------- soundscapes: no melody, no beat, just a place
+
+def wind(c, cutoff=600, speed=0.08, depth=0.5):
+    return lowpass_noise(c.rng, c.n, cutoff) * (1 - depth + depth * np.sin(2 * np.pi * speed * c.t + c.rng.uniform(0, 6)))
+
+
+def rumble(c, cutoff=90):
+    return lowpass_noise(c.rng, c.n, cutoff) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.05 * c.t))
+
+
+def events(c, count, make, spread=(0.3, 0.9)):
+    """count one-off sounds made by make(rng) at random times, each with its own place in the stereo field."""
+    out = np.zeros(c.n)
+    for start in c.rng.uniform(0.2, c.seconds - 0.5, size=count):
+        place(out, start * SR, make(c.rng))
+    return out
+
+
+def chirp(rng, f0, f1, length, decay):
+    n = int(length * SR)
+    tt = np.arange(n) / SR
+    f = f0 * (f1 / f0) ** (tt / tt[-1])
+    return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-decay * tt) * np.minimum(1, tt / 0.005)
+
+
+def boom(rng):
+    n = int(2.5 * SR)
+    tt = np.arange(n) / SR
+    return lowpass_noise(rng, n, rng.uniform(80, 200)) * np.exp(-2.5 * tt) * np.minimum(1, tt / 0.02)
+
+
+def soundscape(c):
+    """A pure sound environment for the picture's mood (c.mood): air, machines, water, signals."""
+    rng, t, mood = c.rng, c.t, c.mood
+    drone = np.sin(2 * np.pi * hz(c.root - 24) * t) + 0.4 * np.sin(2 * np.pi * hz(c.root - 12) * 1.003 * t)
+    if mood == "action":  # a battle far away: rumble, distant blasts, an alarm sweeping
+        c.add(rumble(c, 70), 0.5, 0.5)
+        c.add(events(c, int(rng.integers(3, 6)), boom), 0.45, 0.4)
+        alarm = np.sin(2 * np.pi * (600 + 250 * np.sin(2 * np.pi * 0.5 * t)) * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.25 * t))
+        c.add(resonant_lowpass(alarm, 1200, 1.0), 0.06, 0.7)
+    elif mood == "heroic":  # a launch pad: deep engine roar slowly rising, wind, radio blips
+        roar = lowpass_noise(rng, c.n, 140) * np.minimum(1, 0.3 + t / c.seconds)
+        c.add(roar, 0.55, 0.5)
+        c.add(wind(c, 900, 0.1), 0.2, 0.5)
+        c.add(events(c, 3, lambda r: chirp(r, 1200, 1200, 0.12, 10)), 0.08, 0.75)
+    elif mood == "eerie":  # a derelict: drips, creaking metal, breathing air
+        c.add(drone, 0.25, 0.5)
+        c.add(echo(events(c, int(rng.integers(4, 8)), lambda r: chirp(r, r.uniform(1500, 2500), r.uniform(600, 900), 0.06, 40)), 0.35, 0.5), 0.15, 0.4)
+        c.add(events(c, 2, lambda r: resonant_lowpass(saw(r.uniform(60, 120) * (1 + 0.2 * np.sin(2 * np.pi * 6 * np.arange(int(0.8 * SR)) / SR)), np.arange(int(0.8 * SR)) / SR, 1200), 500, 3.0) * np.sin(np.pi * np.arange(int(0.8 * SR)) / int(0.8 * SR))), 0.18, 0.6)
+        c.add(wind(c, 400, 0.15, 0.8), 0.2, 0.5)
+    elif mood == "cosmic":  # deep space: solar wind, a low hum, a pulsar ticking far away
+        c.add(wind(c, 500, 0.05), 0.35, 0.5)
+        c.add(drone, 0.3, 0.5)
+        ticks = np.zeros(c.n)
+        period = rng.uniform(0.6, 1.2)
+        for k in range(int(c.seconds / period)):
+            place(ticks, k * period * SR, chirp(rng, 2000, 2000, 0.03, 80))
+        c.add(echo(ticks, period / 2, 0.3), 0.06, 0.7)
+    elif mood == "gentle":  # a quiet planet morning: breeze, water, strange small birds
+        c.add(wind(c, 1200, 0.12, 0.6), 0.25, 0.5)
+        c.add(lowpass_noise(rng, c.n, 2500) * 0.4, 0.1, 0.4)  # a stream
+        c.add(events(c, int(rng.integers(4, 7)), lambda r: chirp(r, r.uniform(2000, 3500), r.uniform(3000, 5000), r.uniform(0.08, 0.2), 12)), 0.1, 0.65)
+    elif mood == "neon":  # a city night: rain, traffic hum, neon buzz, a hover car passing
+        c.add(noise_hit(rng, c.n, 0.95, 0.0), 0.12, 0.5)
+        c.add(np.sin(2 * np.pi * 50 * t) + 0.3 * np.sin(2 * np.pi * 150 * t), 0.06, 0.6)
+        c.add(rumble(c, 120), 0.3, 0.5)
+        start = rng.uniform(1, c.seconds - 3)
+        whoosh = lowpass_noise(rng, c.n, 900) * np.exp(-((t - start - 1) / 0.6) ** 2)
+        c.add(whoosh, 0.3, float(rng.uniform(0.2, 0.8)))
+    elif mood == "retro":  # a 1950s control room: valve hum, relay clicks, computer beeps
+        c.add(np.sin(2 * np.pi * 60 * t) + 0.3 * np.sin(2 * np.pi * 120 * t), 0.15, 0.5)
+        c.add(events(c, int(rng.integers(6, 12)), lambda r: noise_hit(r, int(0.03 * SR), 0.9, 200)), 0.12, 0.4)
+        beep = lambda r: np.sin(2 * np.pi * r.choice([800, 1000, 1200, 1600]) * np.arange(int(0.12 * SR)) / SR)  # noqa: E731
+        c.add(events(c, int(rng.integers(3, 6)), beep), 0.07, 0.65)
+        c.add(lowpass_noise(rng, c.n, 3000) * 0.3, 0.05, 0.5)  # tape hiss
+    else:  # deep: under water, low pressure, bubbles, a far sonar
+        c.add(rumble(c, 110), 0.45, 0.5)
+        c.add(events(c, int(rng.integers(8, 15)), lambda r: chirp(r, r.uniform(300, 700), r.uniform(900, 1800), 0.07, 30)), 0.1, 0.55)
+        ping = np.zeros(c.n)
+        place(ping, rng.uniform(0.5, 2) * SR, chirp(rng, 900, 900, 1.2, 4))
+        c.add(echo(ping, 0.7, 0.55, repeats=6), 0.1, 0.7)
+
+
 # mood: list of (variant, recipe, scales, bars, lowest root, highest root, ambient fades).
 # Several clearly different variants per mood keep the music varied while it fits the picture.
 RECIPES = {
     "action": [("war drums", action, ["phrygian", "minor"], 3, 40, 46, False),
                ("synth pulse", action_pulse, ["minor", "phrygian"], 4, 40, 46, False),
-               ("taiko", action_taiko, ["phrygian", "minor"], 2, 40, 45, False)],
+               ("taiko", action_taiko, ["phrygian", "minor"], 2, 40, 45, False),
+               ("soundscape", soundscape, ["minor"], 2, 40, 46, True)],
     "heroic": [("brass", heroic, ["mixolydian", "major"], 2, 43, 50, False),
                ("rising strings", heroic_rise, ["major", "lydian"], 2, 43, 50, False),
-               ("cathedral", heroic_choir, ["major", "mixolydian"], 2, 41, 48, True)],
+               ("cathedral", heroic_choir, ["major", "mixolydian"], 2, 41, 48, True),
+               ("soundscape", soundscape, ["major"], 2, 40, 46, True)],
     "eerie":  [("cluster", eerie, ["phrygian", "minor"], 2, 40, 47, True),
                ("music box", eerie_musicbox, ["minor", "phrygian"], 2, 45, 52, True),
-               ("heartbeat", eerie_heartbeat, ["phrygian"], 2, 38, 45, True)],
+               ("heartbeat", eerie_heartbeat, ["phrygian"], 2, 38, 45, True),
+               ("soundscape", soundscape, ["phrygian"], 2, 38, 45, True)],
     "cosmic": [("strings", cosmic, ["lydian"], 2, 45, 53, True),
-               ("sequencer", cosmic_sequencer, ["dorian", "lydian", "minor"], 2, 40, 47, True),
+               ("soundscape", soundscape, ["lydian"], 2, 40, 47, True),
                ("choir", cosmic_choir, ["lydian", "major", "dorian"], 2, 43, 50, True)],
     "gentle": [("music box", gentle, ["major", "lydian"], 2, 48, 55, True),
                ("e-piano", gentle_epiano, ["major", "mixolydian", "dorian"], 2, 45, 52, True),
-               ("harp", gentle_harp, ["major", "lydian"], 2, 48, 55, True)],
+               ("soundscape", soundscape, ["major"], 2, 45, 52, True)],
     "neon":   [("synthwave", neon, ["minor", "dorian"], 3, 40, 46, False),
                ("dark rain", neon_dark, ["minor", "phrygian"], 2, 40, 46, True),
-               ("electro funk", neon_funk, ["dorian", "minor"], 4, 40, 46, False)],
+               ("electro funk", neon_funk, ["dorian", "minor"], 4, 40, 46, False),
+               ("soundscape", soundscape, ["minor"], 2, 40, 46, True)],
     "retro":  [("vibes", retro, ["major", "mixolydian"], 2, 45, 52, False),
                ("lounge", retro_lounge, ["major", "dorian"], 2, 43, 50, False),
-               ("harpsichord", retro_harpsichord, ["minor", "dorian", "major"], 2, 45, 52, False)],
+               ("soundscape", soundscape, ["major"], 2, 45, 52, True)],
     "deep":   [("sonar", deep, ["dorian", "minor"], 2, 38, 44, True),
                ("whales", deep_whales, ["dorian", "lydian"], 2, 40, 46, True),
-               ("engine", deep_engine, ["minor", "phrygian"], 2, 38, 44, True)],
+               ("engine", deep_engine, ["minor", "phrygian"], 2, 38, 44, True),
+               ("soundscape", soundscape, ["dorian"], 2, 38, 44, True)],
 }
 
 def cue(path, seconds, seed, mood, avoid=()):
@@ -649,6 +677,7 @@ def cue(path, seconds, seed, mood, avoid=()):
     else:
         name, fn, scales, bars, low, high, ambient = min(RECIPES[mood], key=last_use)
     c = Cue(seconds, seed, scales, bars, low, high)
+    c.mood = mood
     fn(c)
     c.write(path, *((0.4, 0.6) if ambient else (0.02, 0.2)))
     return f"{mood}:{name}", f"{mood} cue '{name}', {c.mode} on {c.root}"
