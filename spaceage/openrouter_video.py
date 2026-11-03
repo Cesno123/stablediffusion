@@ -5,7 +5,9 @@ POST /api/v1/videos with the picture as the first frame, polls the returned poll
 URL every 10 seconds until the status is "completed" and downloads the first of the
 unsigned_urls (they need the API key too). image_url: a public address of the frame;
 without one the frame is sent as a base64 data URL. A 402 means the balance is empty.
-The model is SPACEAGE_OPENROUTER_VIDEO_MODEL, by default Kling v3.0 Standard.
+The model is SPACEAGE_OPENROUTER_VIDEO_MODEL, by default TBC Mischief 1 (image-to-video,
+3 or 5 seconds). If the model refuses the 9:16 aspect ratio, the request is repeated
+without it; the reel is cropped to 9:16 afterwards anyway.
 """
 
 import base64
@@ -15,7 +17,7 @@ import time
 import requests
 
 API = os.environ.get("OPENROUTER_API_URL", "https://openrouter.ai/api/v1")
-MODEL = os.environ.get("SPACEAGE_OPENROUTER_VIDEO_MODEL", "kwaivgi/kling-v3.0-std")
+MODEL = os.environ.get("SPACEAGE_OPENROUTER_VIDEO_MODEL", "tbc/mischief-1")
 SECONDS = 5
 PROMPT = ("Very slow, smooth camera push-in. The scene stays almost still: all objects keep their exact shape, "
           "rigid, no deformation; only light and atmosphere move very subtly. Preserve the original art style, "
@@ -40,7 +42,11 @@ def animate(jpeg, key, timeout=900, image_url=None):
         "aspect_ratio": "9:16",
         "frame_images": [{"type": "image_url", "image_url": {"url": url}, "frame_type": "first_frame"}],
     }
-    job = _check(requests.post(f"{API}/videos", json=body, headers=headers, timeout=120), "submit")
+    r = requests.post(f"{API}/videos", json=body, headers=headers, timeout=120)
+    if r.status_code == 400:  # e.g. a model without a 9:16 option
+        body.pop("aspect_ratio")
+        r = requests.post(f"{API}/videos", json=body, headers=headers, timeout=120)
+    job = _check(r, "submit")
     poll = job.get("polling_url") or f"{API}/videos/{job.get('id')}"
     deadline = time.time() + timeout
     while time.time() < deadline:
