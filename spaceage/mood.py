@@ -22,6 +22,8 @@ import sys
 import numpy as np
 from PIL import Image, ImageFilter
 
+from score import FITS
+
 # mood -> trigger words (English prompt words and German caption words)
 WORDS = {
     "action": "battle war attack attacking fight fighting fighter fighters explosion explosions laser lasers blaster invaders "
@@ -96,23 +98,19 @@ def colors(path):
 
 
 ASK = """You choose the soundtrack for an 8 second Instagram reel of this science fiction picture.
-Look at what the picture shows (subject, action, place, light) and pick the one mood whose music fits it best:
-- action: battle, chase, explosions, attack, danger in motion
-- eerie: alien, horror, ruins, wrecks, fog, something unsettling or mysterious
-- neon: night city, rain, cyberpunk streets, neon lights
-- cosmic: open space, planets, nebulae, stars, calm vastness
-- gentle: peaceful, people at ease, gardens, villages, warm and friendly scenes
-- heroic: launches, expeditions, pioneers, monumental ships or stations shown with pride
-- retro: playful 1950s/60s futurism, toy-like robots, flying saucers, raygun gothic
-- deep: underwater, ice worlds, deep sea, frozen silence
+Look at what the picture shows (subject, action, place, light, feeling) and choose from these cues the
+three that fit it best, best first. Each cue says which pictures it fits; a cue marked soundscape has no
+music, only the sound of the place. Only choose cues that really fit this picture; if fewer than three
+fit well, repeat the best one.
+{catalog}
 Judge the content and the feeling, not the painting technique."""
-SCHEMA = {"type": "object", "additionalProperties": False, "required": ["mood", "reason"],
-          "properties": {"mood": {"type": "string", "enum": list(WORDS)},
+SCHEMA = {"type": "object", "additionalProperties": False, "required": ["cues", "reason"],
+          "properties": {"cues": {"type": "array", "items": {"type": "string", "enum": list(FITS)}},
                          "reason": {"type": "string", "description": "a few words on what the picture shows"}}}
 
 
 def ask_claude(path):
-    """(mood, reason) chosen by Claude from the picture itself, or None (no key, no network, error)."""
+    """(mood, reason, cues) chosen by Claude from the picture itself, or None (no key, no network, error)."""
     if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
         return None
     try:
@@ -130,19 +128,20 @@ def ask_claude(path):
             output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}},
             messages=[{"role": "user", "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": data}},
-                {"type": "text", "text": ASK}]}],
+                {"type": "text", "text": ASK.format(catalog="\n".join(f"- {k}: {v}" for k, v in FITS.items()))}]}],
         )
         text = next(b.text for b in resp.content if b.type == "text")
         out = json.loads(text)
-        if out.get("mood") in PROFILES:
-            return out["mood"], "claude: " + str(out.get("reason", ""))[:80]
+        cues = [c for c in out.get("cues", []) if c in FITS][:3]
+        if cues:
+            return cues[0].split(":")[0], f"claude: {str(out.get('reason', ''))[:80]} -> {', '.join(cues)}", cues
     except Exception as e:  # never let the soundtrack stop a post
         print(f"mood: claude failed ({type(e).__name__}: {e}), using words and colors", file=sys.stderr, flush=True)
     return None
 
 
 def mood_of(path, caption=""):
-    """The mood name for an image, and a short reason (for the log)."""
+    """(mood, short reason for the log, cue ids that fit the picture best first; empty without Claude)."""
     seen = ask_claude(path)
     if seen:
         return seen
@@ -168,7 +167,7 @@ def mood_of(path, caption=""):
     score["retro"] += (sat - 0.4) + max(0.0, warm) * 0.5
     mood = max(score, key=score.get)
     why = f"words: {', '.join(hits[:5])}" if hits else "colors only"
-    return mood, f"{why}; light {bright:.2f}, color {sat:.2f}, warm {warm:+.2f}, busy {busy:.2f}"
+    return mood, f"{why}; light {bright:.2f}, color {sat:.2f}, warm {warm:+.2f}, busy {busy:.2f}", []
 
 
 def profile(mood):

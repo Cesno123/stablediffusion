@@ -658,14 +658,60 @@ RECIPES = {
                ("soundscape", soundscape, ["dorian"], 2, 38, 44, True)],
 }
 
-def cue(path, seconds, seed, mood, avoid=()):
+# What picture each cue fits; Claude reads this list and picks the cues for a picture (mood.py).
+FITS = {
+    "action:war_drums": "a battle or attack in full swing, warships firing, invasion",
+    "action:synth_pulse": "a fast chase or escape, racing ships or vehicles, tense high-tech pursuit",
+    "action:taiko": "an epic clash of giants, colossal monsters or armies, raw ancient-feeling power",
+    "action:soundscape": "the aftermath or a battle far away: wreckage, smoke on the horizon, burning ships",
+    "heroic:brass": "a triumphant launch, a proud fleet, victory, a hero ship in its glory",
+    "heroic:rising_strings": "departure and hope: a ship rising into the sky, an expedition setting out",
+    "heroic:cathedral": "monumental, almost sacred scale: colossal stations, megastructures, awe-inspiring architecture",
+    "heroic:soundscape": "raw machine power before takeoff: a launch pad, engines firing up, a shipyard",
+    "eerie:cluster": "an alien threat or dark mystery, strange creatures, the unknown",
+    "eerie:music_box": "abandoned human places, an empty colony, a haunted home, nostalgic decay",
+    "eerie:heartbeat": "suspense: a lone figure in danger, hiding, something approaching",
+    "eerie:soundscape": "inside a derelict, ruins, caves, wrecks, dripping darkness",
+    "cosmic:strings": "a serene space vista, planets and nebulae, quiet wonder",
+    "cosmic:choir": "the sublime cosmos: vast light, huge celestial bodies, humans tiny before the universe",
+    "cosmic:soundscape": "empty silent space: a lone probe or station, a cold void, nothing moving",
+    "gentle:music_box": "dreamy, small and cozy: children, toys, a little house under alien skies",
+    "gentle:e-piano": "relaxed everyday life: people at ease, a café, a warm evening, a living room",
+    "gentle:soundscape": "peaceful nature on another world: meadows, gardens, water, morning light",
+    "neon:synthwave": "night drive through a neon city, cool 80s retro-future streets",
+    "neon:dark_rain": "lonely rainy noir: a detective, a melancholy figure in the city at night",
+    "neon:electro_funk": "lively nightlife: crowds, clubs, markets, a buzzing fun city",
+    "neon:soundscape": "a city at night with no one in focus: rainy streets, traffic, skyline",
+    "retro:vibes": "playful 1950s/60s futurism: rockets on fins, flying saucers, ray guns, tin robots",
+    "retro:lounge": "space-age leisure and style: a retro lounge, hotel, fashion, cocktails on the moon",
+    "retro:soundscape": "a retro control room: mainframe computers, labs, mission control, blinking panels",
+    "deep:sonar": "underwater exploration: a submarine in the deep, dark ocean",
+    "deep:whales": "sea creatures and ocean life: whales, giant animals, a living deep sea",
+    "deep:engine": "inside a submarine or ship hull, an industrial underwater base",
+    "deep:soundscape": "under water or under ice: frozen silence, depths with nothing happening",
+}
+
+
+def cue(path, seconds, seed, mood, avoid=(), prefer=()):
     """Write a cue for a mood; returns (variant id, description).
 
-    avoid: recently used variant ids, oldest first. A variant not among them is picked at random;
-    when all were used, the one used longest ago, so the variants take turns.
+    prefer: cue ids Claude chose for this picture, best first (FITS). Then only those are used:
+    the best one not among the last cues, else the best one; the mood comes from the first.
+    avoid: recently used variant ids, oldest first. Without prefer, a variant not among them is
+    picked at random; when all were used, the one used longest ago, so the variants take turns.
     """
     rng = np.random.default_rng(seed)
     avoid = list(avoid)
+    chosen = [p for p in prefer if p in FITS]
+    if chosen:
+        best = next((p for p in chosen if p not in avoid), chosen[0])
+        mood, wanted = best.split(":")
+        name, fn, scales, bars, low, high, ambient = next(v for v in RECIPES[mood] if v[0].replace(" ", "_") == wanted)
+        c = Cue(seconds, seed, scales, bars, low, high)
+        c.mood = mood
+        fn(c)
+        c.write(path, *((0.4, 0.6) if ambient else (0.02, 0.2)))
+        return f"{mood}:{wanted}", f"{mood} cue '{name}' (chosen for the picture), {c.mode} on {c.root}"
 
     def last_use(v):
         vid = f"{mood}:{v[0]}".replace(" ", "_")

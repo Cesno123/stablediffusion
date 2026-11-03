@@ -201,9 +201,9 @@ def to_reel(src, dst, seed):
     from mood import mood_of
 
     own = os.path.splitext(src)[0] + ".txt"  # only the owner's own text says something about this picture
-    mood, why = mood_of(src, caption_for(src) if os.path.exists(own) else "")
+    mood, why, cues = mood_of(src, caption_for(src) if os.path.exists(own) else "")
     print(f"mood: {mood} ({why})", file=sys.stderr, flush=True)
-    print(f"music: {pick(wav, REEL_SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood)}", file=sys.stderr, flush=True)
+    print(f"music: {pick(wav, REEL_SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood, cues)}", file=sys.stderr, flush=True)
     frames = REEL_SECONDS * FPS
     # zoompan on a 4x upscaled frame avoids the jitter of integer crop steps
     zoom = (f"scale={REEL_W * 4}:{REEL_H * 4}:flags=lanczos,"
@@ -244,9 +244,9 @@ def video_with_sound(src, dst, seed):
         subprocess.run([ffmpeg_exe(), "-y", "-loglevel", "error", "-ss", str(min(1.0, seconds / 2)), "-i", src,
                         "-frames:v", "1", frame], check=True)
         own = os.path.splitext(src)[0] + ".txt"
-        mood, why = mood_of(frame, caption_for(src) if os.path.exists(own) else "")
+        mood, why, cues = mood_of(frame, caption_for(src) if os.path.exists(own) else "")
         print(f"mood: {mood} ({why})", file=sys.stderr, flush=True)
-        desc = pick(wav, seconds, seed, os.path.join(POSTED, "used_sounds.txt"), mood)
+        desc = pick(wav, seconds, seed, os.path.join(POSTED, "used_sounds.txt"), mood, cues)
         print(f"music: {desc}", file=sys.stderr, flush=True)
         subprocess.run([ffmpeg_exe(), "-y", "-loglevel", "error", "-i", src, "-i", wav, "-map", "0:v:0",
                         "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-ar", "48000",
@@ -272,9 +272,9 @@ def to_moving_reel(src, dst, seed, key, timeout=900):
     clip = dst + ".clip.mp4"
     try:
         own = os.path.splitext(src)[0] + ".txt"
-        mood, why = mood_of(src, caption_for(src) if os.path.exists(own) else "")
+        mood, why, cues = mood_of(src, caption_for(src) if os.path.exists(own) else "")
         print(f"mood: {mood} ({why})", file=sys.stderr, flush=True)
-        print(f"music: {pick(wav, atlas.SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood)}",
+        print(f"music: {pick(wav, atlas.SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood, cues)}",
               file=sys.stderr, flush=True)
         with open(clip, "wb") as f:
             f.write(atlas.animate(buf.getvalue(), key, timeout))
