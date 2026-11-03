@@ -284,12 +284,16 @@ def pick(path, seconds, seed, history=None, mood=None):
     from score import RECIPES, cue
 
     if mood in RECIPES:  # a cue written for this mood: the music follows the picture
-        desc = f"{mood} -> score: {cue(path, seconds, seed, mood)}"
+        recent = []
+        if history and os.path.exists(history):
+            with open(history) as f:
+                recent = f.read().split()[-6:]
+        variant, desc = cue(path, seconds, seed, mood, avoid=recent)  # not one of the last six cues
         if history:
             os.makedirs(os.path.dirname(history), exist_ok=True)
             with open(history, "a") as f:
-                f.write("score\n")
-        return desc
+                f.write(variant.replace(" ", "_") + "\n")
+        return f"{mood} -> score: {desc}"
     rng = np.random.default_rng(seed)
     last = ""
     if history and os.path.exists(history):

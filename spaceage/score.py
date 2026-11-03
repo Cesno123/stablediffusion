@@ -1,7 +1,8 @@
-"""One short film-score cue per picture mood (mood.py), so the music fits the motif.
+"""Short film-score cues per picture mood (mood.py), so the music fits the motif.
 
-Each mood has its own recipe with a clear character, varied by the seed (key,
-scale, chords, instruments, small details), but never busy melodies:
+Each mood has three clearly different variants (RECIPES), and music.pick() avoids
+the cues of the last six posts, so the sound changes from post to post while it
+still fits the picture. The first variant of each mood:
   action   driving low ostinato, war drums, brass stabs (90 bpm feel)
   heroic   brass chords swelling, timpani hits and a roll into the loop, one long horn line
   eerie    low drone, dissonant string cluster, slow theremin glide, metallic clangs
@@ -55,7 +56,7 @@ class Cue:
     def write(self, path, fade_in=0.02, fade_out=0.2):
         left, right = np.zeros(self.n), np.zeros(self.n)
         for sig, gain, pan in self.layers:
-            sig = sig[:self.n] / (np.abs(sig).max() + 1e-9) * gain
+            sig = np.pad(sig[:self.n], (0, max(0, self.n - len(sig)))) / (np.abs(sig).max() + 1e-9) * gain
             left += sig * (1 - pan)
             right += sig * pan
         mix = np.stack([left, right], axis=1)
@@ -118,6 +119,69 @@ def glide(t, midis, vib=0.012):
     f *= 1 + vib * np.sin(2 * np.pi * 6 * t)
     phase = 2 * np.pi * np.cumsum(f) / SR
     return np.sin(phase) + 0.15 * np.sin(2 * phase)
+
+
+def epiano(n, midi, decay=1.8):
+    """Warm electric piano (FM tine)."""
+    t = np.arange(n) / SR
+    f = hz(midi)
+    mod = 1.2 * np.exp(-5 * t) * np.sin(2 * np.pi * f * t)
+    return (np.sin(2 * np.pi * f * t + mod) + 0.2 * np.sin(4 * np.pi * f * t)) * np.exp(-decay * t) \
+        * np.minimum(1, t / 0.004)
+
+
+def harp(n, midi, decay=3.0):
+    """Plucked string: a few harmonics, the high ones dying faster."""
+    t = np.arange(n) / SR
+    f = hz(midi)
+    x = sum(np.sin(2 * np.pi * f * k * t) * np.exp(-decay * k * t) / k for k in range(1, 7))
+    return x * np.minimum(1, t / 0.002)
+
+
+def choir(midis, n, rng, vowel="a"):
+    """Soft 'aah' choir: detuned saws through two vowel formants."""
+    t = np.arange(n) / SR
+    x = np.zeros(n)
+    for m in midis:
+        for d in (0.994, 1.0, 1.006):
+            vib = 1 + 0.004 * np.sin(2 * np.pi * rng.uniform(4.5, 6) * t + rng.uniform(0, 6))
+            x += saw(hz(m) * d * vib, t, 3500)
+    f1, f2 = {"a": (750, 1150), "o": (450, 800), "u": (325, 700)}[vowel]
+    low1 = resonant_lowpass(x, f1, 4.0)
+    low2 = resonant_lowpass(x, f2, 4.0)
+    out = low1 + 0.5 * (low2 - resonant_lowpass(x, f1 * 0.8, 1.0))
+    return out * np.minimum(1, t / 0.8) * np.minimum(1, (n / SR - t) / 0.8)
+
+
+def arp(c, midis, step_count, gain_curve=None, decay=8.0, octave=1):
+    """A slow arpeggio over the given notes, one note per step_count steps of 16."""
+    out = np.zeros(c.n)
+    k = 0
+    for b in range(c.bars):
+        for i in range(0, 16, step_count):
+            m = midis[k % len(midis)] + 12 * octave
+            n = int(c.step * step_count * SR * 1.5)
+            tt = np.arange(n) / SR
+            note = resonant_lowpass(saw(hz(m), tt, 3000), 900 + 1600 * np.exp(-6 * tt), 2.5) * np.exp(-decay * tt)
+            place(out, c.at(b, i), note)
+            k += 1
+    return out
+
+
+def noise_hit(rng, n, bright=0.5, decay=20.0):
+    """Clap / brush / shaker: filtered noise burst."""
+    t = np.arange(n) / SR
+    x = rng.normal(0, 1, n)
+    x = x - np.convolve(x, np.ones(int(2 + 10 * (1 - bright))) / int(2 + 10 * (1 - bright)), mode="same")
+    return x * np.exp(-decay * t)
+
+
+def kick4(c, accents=(0, 4, 8, 12)):
+    out = np.zeros(c.n)
+    for b in range(c.bars):
+        for i in accents:
+            place(out, c.at(b, i), kick(int(0.35 * SR)))
+    return out
 
 
 # ------------------------------------------------------------------ recipes
@@ -273,23 +337,318 @@ def deep(c):
     c.add(glide(t, whale, 0.004) * np.clip(np.sin(np.pi * t / c.seconds) * 1.5, 0, 1), 0.12, 0.6)
 
 
-# mood: (recipe, scales, bars, lowest root, highest root, ambient fades)
+# ---------------------------------------------- more recipes (variants per mood)
+
+def action_pulse(c):
+    """Driving synth: four-on-the-floor kick, pulsing octave bass, gated stabs (80s thriller)."""
+    rng = c.rng
+    prog = [0, 0, 5, 6][:c.bars] if c.bars <= 4 else [0, 5]
+    bass, stabs = np.zeros(c.n), np.zeros(c.n)
+    for b in range(c.bars):
+        deg = prog[b % len(prog)]
+        for i in range(0, 16, 1 if rng.random() < 0.5 else 2):
+            m = c.note(deg) - 12 + (12 if i % 2 else 0)
+            place(bass, c.at(b, i), voice("bass", m, int(c.step * 0.9 * SR), rng))
+        for i in (0, 6, 10):
+            place(stabs, c.at(b, i), ensemble(c.chord(deg, 1), int(c.step * 1.5 * SR), "brass", 0.005, 0.05, rng))
+    hats = np.zeros(c.n)
+    for b in range(c.bars):
+        for i in range(2, 16, 4):
+            place(hats, c.at(b, i), noise_hit(rng, int(0.1 * SR), 0.9, 40))
+    c.add(kick4(c), 0.7, 0.5)
+    c.add(bass, 0.5, 0.5)
+    c.add(echo(stabs, c.step * 3, 0.3), 0.35, 0.6)
+    c.add(hats, 0.15, 0.7)
+
+
+def action_taiko(c):
+    """Big drums in a rolling 6/8 feel with low string ostinato and a choir swell."""
+    rng = c.rng
+    drums, strings = np.zeros(c.n), np.zeros(c.n)
+    pattern = [0, 3, 6, 8, 10, 12, 14] if rng.random() < 0.5 else [0, 2, 6, 8, 12, 13, 14]
+    for b in range(c.bars):
+        for k, i in enumerate(pattern):
+            place(drums, c.at(b, i), timpani(int(0.9 * SR), c.root - 12 + (0 if k % 3 else 7), 1.0 if k == 0 else 0.6))
+        for i in range(0, 16, 2):
+            m = c.note([0, 0, 1, 0, 3, 2, 1, 0][i // 2]) - 12
+            place(strings, c.at(b, i), ensemble([m], int(c.step * 2 * SR), "strings", 0.01, 0.05, rng))
+    c.add(drums, 0.8, 0.5)
+    c.add(strings, 0.45, 0.4)
+    c.add(choir(c.chord(0, 1), c.n, rng, "o"), 0.25, 0.6)
+
+
+def heroic_rise(c):
+    """Rising strings over a snare roll, horns in fifths answering."""
+    rng = c.rng
+    strings, roll, horns = np.zeros(c.n), np.zeros(c.n), np.zeros(c.n)
+    for b, deg in enumerate([0, int(rng.choice([4, 5, 6]))]):
+        place(strings, c.at(b), ensemble(c.chord(deg, 1, 4), int(c.bar * SR), "strings", 0.5, 0.3, rng))
+        place(horns, c.at(b, 8), ensemble([c.note(deg), c.note(deg + 4)], int(c.step * 8 * SR), "brass", 0.15, 0.3, rng))
+    for k in range(int(c.seconds / 0.09)):
+        place(roll, k * 0.09 * SR, noise_hit(rng, int(0.12 * SR), 0.7, 30) * (0.3 + 0.7 * k * 0.09 / c.seconds))
+    c.add(strings, 0.5, 0.45)
+    c.add(roll, 0.18, 0.55)
+    c.add(echo(horns, c.step * 4, 0.2), 0.4, 0.6)
+    c.add(timpani(int(1.5 * SR), c.root - 12, 1.0), 0.4, 0.5)
+
+
+def heroic_choir(c):
+    """Majestic organ and choir, a cathedral in space."""
+    rng = c.rng
+    organ, voices = np.zeros(c.n), np.zeros(c.n)
+    for b, deg in enumerate([0, int(rng.choice([3, 5]))]):
+        place(organ, c.at(b), ensemble(c.chord(deg, 0, 4) + [c.note(deg) - 12], int(c.bar * SR) + int(0.3 * SR), "organ", 0.3, 0.5, rng))
+        place(voices, c.at(b), choir(c.chord(deg, 1), int(c.bar * SR) + int(0.3 * SR), rng, str(rng.choice(["a", "o"]))))
+    c.add(organ, 0.45, 0.5)
+    c.add(voices, 0.4, 0.5)
+    c.add(echo(bell(int(3 * SR), c.note(7, 2), 1.0), 0.5, 0.4), 0.15, 0.7)
+
+
+def eerie_musicbox(c):
+    """A detuned, slowing music box over reversed swells: something is wrong here."""
+    rng = c.rng
+    box = np.zeros(c.n)
+    notes = [c.note(int(d), 2) + (0.3 if rng.random() < 0.5 else 0) for d in rng.choice([0, 1, 3, 4, 6], size=6)]
+    t_pos = 0.2
+    for k, m in enumerate(notes):
+        n = int(2.5 * SR)
+        tt = np.arange(n) / SR
+        f = 440.0 * 2 ** ((m - 69) / 12) * (1 - 0.01 * k)
+        place(box, t_pos * SR, np.sin(2 * np.pi * f * tt) * np.exp(-3 * tt))
+        t_pos += 0.45 + 0.12 * k  # slowing down like a dying spring
+    swell = np.zeros(c.n)
+    for start in (0.5, c.seconds / 2 + 0.3):
+        n = int(2.2 * SR)
+        place(swell, start * SR, ensemble([c.root + 12, c.root + 13], n, "strings", 0.01, 0.01, rng)[::-1])
+    c.add(echo(box, 0.33, 0.45), 0.35, 0.65)
+    c.add(swell, 0.3, 0.35)
+    c.add(np.sin(2 * np.pi * hz(c.root - 12) * c.t), 0.25, 0.5)
+
+
+def eerie_heartbeat(c):
+    """Slow heartbeat, scraping metal and a low cluster: suspense."""
+    rng = c.rng
+    beat = np.zeros(c.n)
+    period = c.seconds / int(rng.choice([6, 7, 8]))
+    for k in range(int(c.seconds / period) + 1):
+        for off, amp in ((0, 1.0), (0.22, 0.6)):
+            place(beat, (k * period + off) * SR, kick(int(0.3 * SR)) * amp)
+    scrape = np.zeros(c.n)
+    for start in rng.uniform(0.5, c.seconds - 1.5, size=2):
+        n = int(1.2 * SR)
+        tt = np.arange(n) / SR
+        f = rng.uniform(900, 2400) * (1 + 0.15 * np.sin(2 * np.pi * 3 * tt))
+        place(scrape, start * SR, np.sin(2 * np.pi * np.cumsum(f) / SR) * rng.normal(1, 0.4, n) * np.sin(np.pi * tt / tt[-1]))
+    c.add(beat, 0.6, 0.5)
+    c.add(echo(scrape, 0.4, 0.4), 0.12, float(rng.uniform(0.2, 0.8)))
+    c.add(ensemble([c.root, c.root + 1, c.root + 6], c.n, "strings", 2.0, 1.5, rng), 0.3, 0.45)
+
+
+def cosmic_sequencer(c):
+    """Berlin-school space music: a slow filtered sequence over a wide pad."""
+    rng = c.rng
+    chord = c.chord(0, 0, 4)
+    order = [chord[i] for i in rng.permutation(4)]
+    c.add(arp(c, order, int(rng.choice([2, 4])), decay=6.0), 0.3, 0.6)
+    c.add(ensemble(c.chord(0, 1, 3), c.n, "strings", 1.5, 1.5, rng), 0.4, 0.4)
+    c.add(np.sin(2 * np.pi * hz(c.root - 12) * c.t), 0.25, 0.5)
+    c.add(lowpass_noise(rng, c.n, 700) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.08 * c.t)), 0.12, 0.5)
+
+
+def cosmic_choir(c):
+    """Distant choir and a sub drone: the silence of deep space, but human."""
+    rng = c.rng
+    c.add(choir(c.chord(0, 1), c.n, rng, str(rng.choice(["a", "o", "u"]))), 0.45, 0.45)
+    c.add(choir([c.note(4, 2)], c.n, rng, "u"), 0.15, 0.7)
+    c.add(np.sin(2 * np.pi * hz(c.root - 24) * c.t) + 0.3 * np.sin(2 * np.pi * hz(c.root - 12) * c.t), 0.3, 0.5)
+    sparkle = np.zeros(c.n)
+    for start in rng.uniform(0.5, c.seconds - 1, size=int(rng.integers(3, 6))):
+        place(sparkle, start * SR, bell(int(2 * SR), c.note(int(rng.choice([0, 2, 4, 6])), 3), 2.0))
+    c.add(echo(sparkle, 0.45, 0.5, repeats=5), 0.12, float(rng.uniform(0.2, 0.8)))
+
+
+def gentle_epiano(c):
+    """Warm electric piano chords with soft brushes: a calm evening."""
+    rng = c.rng
+    keys, brush, bass = np.zeros(c.n), np.zeros(c.n), np.zeros(c.n)
+    for b, deg in enumerate([0, int(rng.choice([3, 5]))]):
+        for i in (0, 6, 8) if rng.random() < 0.5 else (0, 8):
+            for m in c.chord(deg, 1, 4):
+                place(keys, c.at(b, i), epiano(int(2.2 * SR), m))
+        place(bass, c.at(b), voice("bass", c.note(deg) - 12, int(c.bar * SR), rng))
+        for i in range(0, 16, 4):
+            place(brush, c.at(b, i + 2), noise_hit(rng, int(0.2 * SR), 0.6, 14))
+    c.add(keys, 0.45, 0.5)
+    c.add(resonant_lowpass(bass, 350, 0.7), 0.3, 0.5)
+    c.add(brush, 0.08, 0.6)
+
+
+def gentle_harp(c):
+    """A slow harp arpeggio over soft strings: a fairy tale far away."""
+    rng = c.rng
+    h = np.zeros(c.n)
+    for b, deg in enumerate([0, int(rng.choice([3, 4, 5]))]):
+        notes = c.chord(deg, 1, 4)
+        for k, i in enumerate(range(0, 16, 2)):
+            place(h, c.at(b, i), harp(int(2.5 * SR), notes[k % 4] + (12 if k >= 4 else 0)))
+    c.add(echo(h, c.step * 3, 0.25), 0.4, 0.55)
+    c.add(ensemble(c.chord(0, 1), c.n, "strings", 1.5, 1.5, rng), 0.3, 0.45)
+
+
+def neon_dark(c):
+    """Slow dark synth with rain: a lonely street at night."""
+    rng = c.rng
+    chord = c.chord(0, 0, 4)
+    c.add(arp(c, chord + chord[::-1][1:3], 2, decay=10.0, octave=1), 0.25, 0.65)
+    c.add(ensemble(c.chord(0, 1), c.n, "brass", 1.0, 1.0, rng), 0.3, 0.4)
+    bass = np.zeros(c.n)
+    for b in range(c.bars):
+        place(bass, c.at(b), voice("bass", c.note(0) - 12, int(c.bar * SR), rng))
+    c.add(bass, 0.35, 0.5)
+    c.add(noise_hit(rng, c.n, 0.95, 0.0) * 0.5, 0.08, 0.5)  # rain
+    snare_line = np.zeros(c.n)
+    for b in range(c.bars):
+        place(snare_line, c.at(b, 8), snare(rng, int(0.4 * SR)))
+    c.add(echo(snare_line, c.step * 6, 0.45), 0.3, 0.5)
+
+
+def neon_funk(c):
+    """Electro funk: syncopated bass, claps and short chord stabs."""
+    rng = c.rng
+    bass, claps, stabs = np.zeros(c.n), np.zeros(c.n), np.zeros(c.n)
+    line = [0, 3, 6, 10, 11, 14]
+    for b in range(c.bars):
+        for k, i in enumerate(line):
+            m = c.note([0, 0, 2, 0, 4, 3][k]) - 12
+            place(bass, c.at(b, i), voice("bass", m, int(c.step * 1.5 * SR), rng))
+        for i in (4, 12):
+            place(claps, c.at(b, i), noise_hit(rng, int(0.2 * SR), 0.7, 25))
+        place(stabs, c.at(b, 7), ensemble(c.chord(0, 1, 4), int(c.step * 1.2 * SR), "strings", 0.005, 0.05, rng))
+    c.add(kick4(c, (0, 8)), 0.6, 0.5)
+    c.add(bass, 0.5, 0.5)
+    c.add(claps, 0.3, 0.55)
+    c.add(echo(stabs, c.step * 3, 0.35), 0.3, 0.6)
+
+
+def retro_lounge(c):
+    """Space-age bachelor pad: swinging hats, walking bass, vibraphone chords."""
+    rng = c.rng
+    vib, bass, hats = np.zeros(c.n), np.zeros(c.n), np.zeros(c.n)
+    for b, deg in enumerate([0, 3]):
+        for i in (0, 10):
+            for m in c.chord(deg, 1, 4):
+                place(vib, c.at(b, i), vibes(int(1.4 * SR), m))
+        for k, i in enumerate((0, 4, 8, 12)):
+            place(bass, c.at(b, i), voice("bass", c.note(deg + [0, 2, 4, 6][k]) - 12, int(c.step * 3.6 * SR), rng))
+        for i in (0, 4, 7, 8, 12, 15):  # swung ride
+            place(hats, c.at(b, i), noise_hit(rng, int(0.25 * SR), 0.95, 12))
+    c.add(vib, 0.35, 0.4)
+    c.add(resonant_lowpass(bass, 500, 0.8), 0.35, 0.5)
+    c.add(hats, 0.1, 0.65)
+
+
+def retro_harpsichord(c):
+    """Harpsichord and an otherworldly gliding lead: 60s TV science fiction."""
+    rng = c.rng
+    keys = np.zeros(c.n)
+    for b, deg in enumerate([0, int(rng.choice([3, 4]))]):
+        for k, i in enumerate(range(0, 16, 2)):
+            m = c.chord(deg, 1, 3)[k % 3]
+            n = int(0.8 * SR)
+            tt = np.arange(n) / SR
+            note = resonant_lowpass(saw(hz(m), tt, 6000), 2500, 1.0) * np.exp(-7 * tt)
+            place(keys, c.at(b, i), note)
+    line = [c.note(int(d), 2) for d in rng.choice([0, 2, 4, 6, 7], size=2, replace=False)] + [c.note(7, 2)]
+    c.add(keys, 0.3, 0.4)
+    c.add(glide(c.t, line, 0.02) * np.minimum(1, c.t / 0.6), 0.25, 0.65)
+    c.add(ensemble(c.chord(0, 0), c.n, "strings", 1.0, 1.0, rng), 0.2, 0.5)
+
+
+def deep_whales(c):
+    """Whale song glides over low strings and drifting bubbles."""
+    rng = c.rng
+    t = c.t
+    calls = [c.root + 12 + int(x) for x in rng.choice([0, 3, 5, 7, 10, -2], size=4)]
+    c.add(glide(t, calls, 0.006) * (0.5 + 0.5 * np.sin(np.pi * t / c.seconds)), 0.2, 0.6)
+    c.add(ensemble([c.root - 12, c.root - 5, c.root], c.n, "strings", 2.0, 2.0, rng), 0.35, 0.45)
+    bubbles = np.zeros(c.n)
+    for start in rng.uniform(0.2, c.seconds - 0.3, size=int(rng.integers(8, 16))):
+        n = int(0.08 * SR)
+        tt = np.arange(n) / SR
+        f = rng.uniform(400, 1200) * (1 + 3 * tt / tt[-1])
+        place(bubbles, start * SR, np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-30 * tt))
+    c.add(bubbles, 0.12, float(rng.uniform(0.3, 0.7)))
+    c.add(lowpass_noise(rng, c.n, 150), 0.25, 0.5)
+
+
+def deep_engine(c):
+    """Inside a submarine: engine hum pulsing, hull creaks, a far sonar."""
+    rng = c.rng
+    t = c.t
+    hum = (np.sin(2 * np.pi * hz(c.root - 24) * t) + 0.5 * np.sin(2 * np.pi * hz(c.root - 12) * 1.01 * t)) \
+        * (0.6 + 0.4 * np.sin(2 * np.pi * (c.bars / c.seconds) * 2 * t))
+    c.add(hum, 0.45, 0.5)
+    creak = np.zeros(c.n)
+    for start in rng.uniform(0.5, c.seconds - 1, size=2):
+        n = int(0.6 * SR)
+        tt = np.arange(n) / SR
+        f = rng.uniform(80, 200) * (1 + 0.3 * np.sin(2 * np.pi * 7 * tt))
+        place(creak, start * SR, saw(f, tt, 1500) * np.sin(np.pi * tt / tt[-1]))
+    c.add(resonant_lowpass(creak, 600, 3.0), 0.15, float(rng.uniform(0.2, 0.8)))
+    ping = np.zeros(c.n)
+    place(ping, rng.uniform(0.5, 2.0) * SR, np.sin(2 * np.pi * 1000 * np.arange(int(1.2 * SR)) / SR) * np.exp(-5 * np.arange(int(1.2 * SR)) / SR))
+    c.add(echo(ping, 0.6, 0.6, repeats=6), 0.15, 0.7)
+    c.add(ensemble(c.chord(0, 0), c.n, "strings", 2.0, 2.0, rng), 0.2, 0.4)
+
+
+# mood: list of (variant, recipe, scales, bars, lowest root, highest root, ambient fades).
+# Several clearly different variants per mood keep the music varied while it fits the picture.
 RECIPES = {
-    "action": (action, ["phrygian", "minor"], 3, 40, 46, False),
-    "heroic": (heroic, ["mixolydian", "major"], 2, 43, 50, False),
-    "eerie":  (eerie, ["phrygian", "minor"], 2, 40, 47, True),
-    "cosmic": (cosmic, ["lydian"], 2, 45, 53, True),
-    "gentle": (gentle, ["major", "lydian"], 2, 48, 55, True),
-    "neon":   (neon, ["minor", "dorian"], 3, 40, 46, False),
-    "retro":  (retro, ["major", "mixolydian"], 2, 45, 52, False),
-    "deep":   (deep, ["dorian", "minor"], 2, 38, 44, True),
+    "action": [("war drums", action, ["phrygian", "minor"], 3, 40, 46, False),
+               ("synth pulse", action_pulse, ["minor", "phrygian"], 4, 40, 46, False),
+               ("taiko", action_taiko, ["phrygian", "minor"], 2, 40, 45, False)],
+    "heroic": [("brass", heroic, ["mixolydian", "major"], 2, 43, 50, False),
+               ("rising strings", heroic_rise, ["major", "lydian"], 2, 43, 50, False),
+               ("cathedral", heroic_choir, ["major", "mixolydian"], 2, 41, 48, True)],
+    "eerie":  [("cluster", eerie, ["phrygian", "minor"], 2, 40, 47, True),
+               ("music box", eerie_musicbox, ["minor", "phrygian"], 2, 45, 52, True),
+               ("heartbeat", eerie_heartbeat, ["phrygian"], 2, 38, 45, True)],
+    "cosmic": [("strings", cosmic, ["lydian"], 2, 45, 53, True),
+               ("sequencer", cosmic_sequencer, ["dorian", "lydian", "minor"], 2, 40, 47, True),
+               ("choir", cosmic_choir, ["lydian", "major", "dorian"], 2, 43, 50, True)],
+    "gentle": [("music box", gentle, ["major", "lydian"], 2, 48, 55, True),
+               ("e-piano", gentle_epiano, ["major", "mixolydian", "dorian"], 2, 45, 52, True),
+               ("harp", gentle_harp, ["major", "lydian"], 2, 48, 55, True)],
+    "neon":   [("synthwave", neon, ["minor", "dorian"], 3, 40, 46, False),
+               ("dark rain", neon_dark, ["minor", "phrygian"], 2, 40, 46, True),
+               ("electro funk", neon_funk, ["dorian", "minor"], 4, 40, 46, False)],
+    "retro":  [("vibes", retro, ["major", "mixolydian"], 2, 45, 52, False),
+               ("lounge", retro_lounge, ["major", "dorian"], 2, 43, 50, False),
+               ("harpsichord", retro_harpsichord, ["minor", "dorian", "major"], 2, 45, 52, False)],
+    "deep":   [("sonar", deep, ["dorian", "minor"], 2, 38, 44, True),
+               ("whales", deep_whales, ["dorian", "lydian"], 2, 40, 46, True),
+               ("engine", deep_engine, ["minor", "phrygian"], 2, 38, 44, True)],
 }
 
+def cue(path, seconds, seed, mood, avoid=()):
+    """Write a cue for a mood; returns (variant id, description).
 
-def cue(path, seconds, seed, mood):
-    """Write the cue for a mood; returns a short description."""
-    fn, scales, bars, low, high, ambient = RECIPES[mood]
+    avoid: recently used variant ids, oldest first. A variant not among them is picked at random;
+    when all were used, the one used longest ago, so the variants take turns.
+    """
+    rng = np.random.default_rng(seed)
+    avoid = list(avoid)
+
+    def last_use(v):
+        vid = f"{mood}:{v[0]}".replace(" ", "_")
+        return max((i for i, a in enumerate(avoid) if a == vid), default=-1)
+
+    unused = [v for v in RECIPES[mood] if last_use(v) < 0]
+    if unused:
+        name, fn, scales, bars, low, high, ambient = unused[int(rng.integers(len(unused)))]
+    else:
+        name, fn, scales, bars, low, high, ambient = min(RECIPES[mood], key=last_use)
     c = Cue(seconds, seed, scales, bars, low, high)
     fn(c)
     c.write(path, *((0.4, 0.6) if ambient else (0.02, 0.2)))
-    return f"{mood} cue, {c.mode} on {c.root}"
+    return f"{mood}:{name}", f"{mood} cue '{name}', {c.mode} on {c.root}"
