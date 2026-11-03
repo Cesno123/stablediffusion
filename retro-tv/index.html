@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Röhrenkiste</title>
+<style>
+  :root {
+    --bg: #101418; --panel: #1b232b; --line: #33414f;
+    --text: #e8e2d0; --muted: #9aa5ae; --accent: #e8a33d; --live: #d9483b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.4 "Courier New", ui-monospace, monospace; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+           background: var(--panel); border-bottom: 2px solid var(--accent); }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: 2px; color: var(--accent); }
+  #clock { margin-left: auto; font-size: 18px; }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; }
+  button { background: var(--panel); color: var(--text); border: 2px solid var(--line);
+           font: inherit; padding: 8px 14px; cursor: pointer; }
+  button:active { border-color: var(--accent); }
+  #chnum { font-size: 28px; min-width: 70px; text-align: center; }
+  #chname { color: var(--accent); }
+  .live { color: var(--live); font-weight: bold; }
+  #screen { position: relative; background: #000; aspect-ratio: 16/9; width: 100%;
+            max-width: 960px; margin: 0 auto; overflow: hidden; }
+  #screen video, #screen iframe { width: 100%; height: 100%; border: 0; display: block; }
+  #testbild { position: absolute; inset: 0; display: none; place-items: center; text-align: center;
+              background: repeating-linear-gradient(90deg,#c0c0c0 0 12.5%,#c0c000 0 25%,#00c0c0 0 37.5%,
+              #00c000 0 50%,#c000c0 0 62.5%,#c00000 0 75%,#0000c0 0 87.5%,#000 0 100%); }
+  #testbild div { background: #000c; padding: 12px 18px; max-width: 85%; }
+  main { max-width: 960px; margin: 0 auto; padding: 0 16px 40px; }
+  #info h2 { margin: 14px 0 4px; font-size: 20px; color: var(--accent); }
+  #info p { margin: 4px 0; color: var(--muted); }
+  progress { width: 100%; height: 10px; accent-color: var(--accent); }
+  h3 { border-top: 1px solid var(--line); padding-top: 12px; color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.t { white-space: nowrap; color: var(--accent); width: 80px; }
+  tr.ch { cursor: pointer; }
+  tr.ch.on td { background: #2a3540; }
+  #status { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>RÖHRENKISTE</h1>
+  <span id="clock">--:--</span>
+</header>
+
+<div class="bar">
+  <button id="down" aria-label="Kanal runter">▼</button>
+  <span id="chnum">01</span>
+  <button id="up" aria-label="Kanal hoch">▲</button>
+  <span class="live">● LIVE</span>
+  <span id="chname"></span>
+</div>
+
+<div id="screen">
+  <div id="player"></div>
+  <div id="testbild"><div id="testtext">Sendepause</div></div>
+</div>
+
+<main>
+  <section id="info">
+    <h2 id="title">–</h2>
+    <p id="meta"></p>
+    <progress id="prog" value="0" max="1"></progress>
+    <p id="desc"></p>
+  </section>
+
+  <h3>Gleich im Anschluss</h3>
+  <table id="next"></table>
+
+  <h3>Programmübersicht</h3>
+  <table id="guide"></table>
+
+  <p id="status"></p>
+  <button id="reload">Sendungen neu laden</button>
+</main>
+
+<!-- Optional: von build_channels.py erzeugt. Fehlt die Datei, lädt die Seite selbst. -->
+<script src="channels.js" onerror="void 0"></script>
+<script>
+/* ===================== KANÄLE – HIER ANPASSEN =====================
+   Jeder Kanal = eine Suche in den öffentlich-rechtlichen Mediatheken
+   (über die Suchmaschine mediathekviewweb.de).
+   query:   Suchbegriffe (Thema oder Titel). "|" = mehrere Suchen kombiniert.
+   minMin:  nur Sendungen ab dieser Länge (Minuten) – filtert Trailer/Schnipsel.
+   items:   alternativ feste Liste: [{title, url, duration (Sek.), year, desc}]
+            url = .mp4-Link ODER "yt:VIDEO_ID" für ein YouTube-Video.
+   Die Suchbegriffe unten sind Startpunkte, keine geprüfte Auswahl.     */
+const CHANNEL_DEFS = [
+  { name: "ARD Retro",          query: "ARD Retro|Retro",               minMin: 5  },
+  { name: "Zeitgeschichte",     query: "Zeitreise|Damals|Archivschätze", minMin: 10 },
+  { name: "DDR-Fernsehen",      query: "DDR-Fernsehen|DFF|Ostalgie",      minMin: 10 },
+  { name: "Krimi-Klassiker",    query: "Stahlnetz|Der Kommissar|Polizeiruf 110", minMin: 40 },
+  { name: "Kinderprogramm",     query: "Sandmännchen|Augsburger Puppenkiste|Löwenzahn", minMin: 5 },
+];
+/* ================================================================== */
+
+const API = "https://mediathekviewweb.de/api/query";
+const CACHE_KEY = "roehrenkiste-v1";
+const EPOCH = Date.UTC(2020, 0, 1) / 1000;   // fester Startpunkt aller Sendepläne
+const $ = id => document.getElementById(id);
+
+let channels = [];      // [{name, items:[{title,url,duration,year,desc}]}]
+let current = 0;
+let playingKey = null;
+
+/* ---------- Sendungen laden ---------- */
+async function searchMediathek(q, minMin) {
+  const body = {
+    queries: [{ fields: ["topic", "title"], query: q }],
+    sortBy: "timestamp", sortOrder: "asc", future: false,
+    duration_min: minMin * 60, offset: 0, size: 200,
+  };
+  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain" },
+                               body: JSON.stringify(body) });
+  const j = await r.json();
+  if (j.err) throw new Error(String(j.err));
+  return j.result.results.map(x => ({
+    title: (x.topic && x.topic !== x.title ? x.topic + ": " : "") + x.title,
+    url: (x.url_video_hd || x.url_video || "").replace(/^http:/, "https:"),
+    duration: x.duration,
+    year: x.timestamp ? new Date(x.timestamp * 1000).getFullYear() : "",
+    desc: (x.channel || "") + " · " + (x.description || ""),
+  })).filter(x => x.url && x.duration > 0 && !/\.m3u8/.test(x.url));
+}
+
+async function loadFromApi() {
+  const out = [];
+  for (const def of CHANNEL_DEFS) {
+    if (def.items) { out.push({ name: def.name, items: def.items }); continue; }
+    const seen = new Set(), items = [];
+    for (const q of def.query.split("|")) {
+      try {
+        for (const it of await searchMediathek(q.trim(), def.minMin || 0))
+          if (!seen.has(it.url)) { seen.add(it.url); items.push(it); }
+      } catch (e) { console.warn("Suche fehlgeschlagen:", q, e); }
+    }
+    out.push({ name: def.name, items });
+  }
+  return out;
+}
+
+async function loadChannels(force) {
+  if (!force) {
+    try {
+      const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+      if (c && Date.now() - c.at < 24 * 3600e3 && c.channels.some(ch => ch.items.length))
+        return [c.channels, "aus Zwischenspeicher (" + new Date(c.at).toLocaleString("de-DE") + ")"];
+    } catch (e) {}
+  }
+  try {
+    const ch = await loadFromApi();
+    if (ch.some(c => c.items.length)) {
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), channels: ch })); } catch (e) {}
+      return [ch, "live aus den Mediatheken geladen"];
+    }
+  } catch (e) { console.warn(e); }
+  if (window.CHANNELS) return [window.CHANNELS, "aus channels.js"];
+  return [CHANNEL_DEFS.map(d => ({ name: d.name, items: d.items || [] })),
+          "Keine Sendungen gefunden. Läuft build_channels.py, oder blockiert der Browser die Mediathek-Suche?"];
+}
+
+/* ---------- Sendeplan: "Was läuft gerade?" ----------
+   Jeder Kanal ist eine Endlosschleife seiner Sendungen in fester, gemischter
+   Reihenfolge. Aus (jetzt − EPOCH) modulo Schleifenlänge folgt Sendung + Sekunde.
+   Dadurch sieht jedes Gerät zur selben Zeit dasselbe – ohne Server.          */
+function shuffled(items, seed) {
+  const a = items.slice();
+  let s = seed * 9301 + 49297;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 9301 + 49297) % 233280;
+    const j = Math.floor(s / 233280 * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function scheduleAt(ch, idx, t) {
+  const list = ch._order || (ch._order = shuffled(ch.items, idx + 1));
+  if (!list.length) return null;
+  const total = list.reduce((s, x) => s + x.duration, 0);
+  let pos = ((t - EPOCH) % total + total) % total;
+  let i = 0;
+  while (pos >= list[i].duration) { pos -= list[i].duration; i++; }
+  return { list, i, offset: pos, startedAt: t - pos };
+}
+
+function upcoming(ch, idx, t, n) {
+  const s = scheduleAt(ch, idx, t);
+  if (!s) return [];
+  const out = [];
+  let start = s.startedAt;
+  for (let k = 0; k < n; k++) {
+    const it = s.list[(s.i + k) % s.list.length];
+    out.push({ it, start });
+    start += it.duration;
+  }
+  return out;
+}
+
+/* ---------- Abspielen ---------- */
+const now = () => Date.now() / 1000;
+const hhmm = t => new Date(t * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+const mmss = s => { s = Math.floor(s); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+function testbild(text, keepKey) {
+  $("player").innerHTML = "";
+  $("testtext").textContent = text;
+  $("testbild").style.display = "grid";
+  if (!keepKey) playingKey = null;   // keepKey: kaputte Sendung nicht jede Sekunde neu laden
+}
+
+function tune() {
+  const ch = channels[current];
+  $("chnum").textContent = String(current + 1).padStart(2, "0");
+  $("chname").textContent = ch ? ch.name : "";
+  const s = ch && scheduleAt(ch, current, now());
+  if (!s) { testbild("Sendepause – auf diesem Kanal wurden keine Sendungen gefunden."); renderInfo(); return; }
+  const it = s.list[s.i];
+  const key = current + "|" + it.url + "|" + s.startedAt;
+  if (key !== playingKey) {
+    playingKey = key;
+    $("testbild").style.display = "none";
+    const start = Math.floor(s.offset);
+    if (it.url.startsWith("yt:")) {
+      $("player").innerHTML = `<iframe allow="autoplay; fullscreen" allowfullscreen
+        src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(it.url.slice(3))}?autoplay=1&start=${start}"></iframe>`;
+    } else {
+      const v = document.createElement("video");
+      v.controls = true; v.autoplay = true; v.playsInline = true;
+      v.src = it.url + "#t=" + start;
+      v.onerror = () => testbild("Bildstörung – diese Sendung ist nicht mehr abrufbar (evtl. depubliziert). Weiter mit der nächsten Sendung oder anderem Kanal.", true);
+      v.onended = () => { playingKey = null; tune(); };
+      $("player").innerHTML = ""; $("player").appendChild(v);
+      v.play().catch(() => {});   // Autoplay mit Ton blockiert? Dann einmal auf Play tippen.
+    }
+  }
+  renderInfo();
+}
+
+function renderInfo() {
+  const ch = channels[current];
+  const t = now();
+  const s = ch && scheduleAt(ch, current, t);
+  if (s) {
+    const it = s.list[s.i];
+    $("title").textContent = it.title;
+    $("meta").textContent = `${hhmm(s.startedAt)} – ${hhmm(s.startedAt + it.duration)} · ${it.year || ""}`;
+    $("desc").textContent = (it.desc || "").slice(0, 400);
+    $("prog").max = it.duration; $("prog").value = s.offset;
+    $("next").innerHTML = upcoming(ch, current, t, 5).slice(1)
+      .map(u => `<tr><td class="t">${hhmm(u.start)}</td><td>${esc(u.it.title)}</td></tr>`).join("");
+  } else {
+    $("title").textContent = "–"; $("meta").textContent = ""; $("desc").textContent = "";
+    $("next").innerHTML = "";
+  }
+  $("guide").innerHTML = channels.map((c, i) => {
+    const u = upcoming(c, i, t, 2);
+    return `<tr class="ch ${i === current ? "on" : ""}" data-i="${i}">
+      <td class="t">${String(i + 1).padStart(2, "0")}</td><td><b>${esc(c.name)}</b><br>
+      ${u[0] ? "Jetzt: " + esc(u[0].it.title) : "<i>Sendepause</i>"}
+      ${u[1] ? "<br>" + hhmm(u[1].start) + ": " + esc(u[1].it.title) : ""}</td></tr>`;
+  }).join("");
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function setChannel(i) {
+  current = (i + channels.length) % channels.length;
+  try { localStorage.setItem(CACHE_KEY + "-ch", current); } catch (e) {}
+  playingKey = null; tune();
+}
+
+$("up").onclick = () => setChannel(current + 1);
+$("down").onclick = () => setChannel(current - 1);
+$("guide").onclick = e => { const r = e.target.closest("tr.ch"); if (r) setChannel(+r.dataset.i); };
+$("reload").onclick = () => start(true);
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowUp") setChannel(current + 1);
+  if (e.key === "ArrowDown") setChannel(current - 1);
+});
+setInterval(() => {
+  $("clock").textContent = new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  if (channels.length) tune();
+}, 1000);
+
+async function start(force) {
+  testbild("Einen Moment – das Programm wird geladen …");
+  $("status").textContent = "Lade Sendungen …";
+  const [ch, how] = await loadChannels(force);
+  channels = ch;
+  const count = ch.reduce((s, c) => s + c.items.length, 0);
+  $("status").textContent = `${count} Sendungen in ${ch.length} Kanälen – ${how}`;
+  try { current = Math.min(+localStorage.getItem(CACHE_KEY + "-ch") || 0, ch.length - 1); } catch (e) {}
+  playingKey = null; tune();
+}
+start(false);
+</script>
+</body>
+</html>
