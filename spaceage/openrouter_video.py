@@ -3,8 +3,9 @@
 animate(jpeg_bytes, key, timeout, image_url=None) submits an image-to-video job to
 POST /api/v1/videos with the picture as the first frame, polls the returned polling
 URL every 10 seconds until the status is "completed" and downloads the first of the
-unsigned_urls (they need the API key too). image_url: a public address of the frame;
-without one the frame is sent as a base64 data URL. A 402 means the balance is empty.
+unsigned_urls (they need the API key too). The frame is sent as a base64 data URL; if
+that fails, image_url (a public address of the frame) is tried. A 402 means the balance
+is empty.
 The model is SPACEAGE_OPENROUTER_VIDEO_MODEL, by default TBC Mischief 1 (image-to-video,
 3 or 5 seconds). If the model refuses the 9:16 aspect ratio, the request is repeated
 without it; the reel is cropped to 9:16 afterwards anyway.
@@ -32,23 +33,14 @@ def _check(r, what):
     return r.json()
 
 
-def animate(jpeg, key, timeout=900, image_url=None, model=None):
-    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "SpaceAge42"}
-    url = image_url or "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()
-    body = {
-        "model": model or MODEL,
-        "prompt": PROMPT,
-        "duration": SECONDS,
-        "aspect_ratio": "9:16",
-        "frame_images": [{"type": "image_url", "image_url": {"url": url}, "frame_type": "first_frame"}],
-    }
+def _run(body, headers, deadline):
+    """Submit one job and wait for it; returns the video bytes or raises."""
     r = requests.post(f"{API}/videos", json=body, headers=headers, timeout=120)
-    if r.status_code == 400:  # e.g. a model without a 9:16 option
-        body.pop("aspect_ratio")
+    if r.status_code == 400 and "aspect_ratio" in body:  # e.g. a model without a 9:16 option
+        body = {k: v for k, v in body.items() if k != "aspect_ratio"}
         r = requests.post(f"{API}/videos", json=body, headers=headers, timeout=120)
     job = _check(r, "submit")
     poll = job.get("polling_url") or f"{API}/videos/{job.get('id')}"
-    deadline = time.time() + timeout
     while time.time() < deadline:
         time.sleep(10)
         state = _check(requests.get(poll, headers=headers, timeout=60), "poll")
@@ -63,3 +55,27 @@ def animate(jpeg, key, timeout=900, image_url=None, model=None):
         if status in ("failed", "cancelled", "canceled", "expired"):
             raise RuntimeError(f"OpenRouter job {status}: {str(state.get('error') or state)[:300]}")
     raise RuntimeError("OpenRouter timed out")
+
+
+def animate(jpeg, key, timeout=900, image_url=None, model=None):
+    """The frame goes in as base64 first: some providers (Kling via AtlasCloud) cannot fetch it
+    from our server. If that fails, the public image_url is tried. Failed jobs cost nothing."""
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "SpaceAge42"}
+    sources = ["data:image/jpeg;base64," + base64.b64encode(jpeg).decode()] + ([image_url] if image_url else [])
+    deadline = time.time() + timeout
+    error = None
+    for url in sources:
+        body = {
+            "model": model or MODEL,
+            "prompt": PROMPT,
+            "duration": SECONDS,
+            "aspect_ratio": "9:16",
+            "frame_images": [{"type": "image_url", "image_url": {"url": url}, "frame_type": "first_frame"}],
+        }
+        try:
+            return _run(body, headers, deadline)
+        except RuntimeError as e:
+            if "402" in str(e) or "timed out" in str(e):
+                raise
+            error = e
+    raise error
