@@ -146,6 +146,40 @@ def prepare():
     return f"Vorbereitung: {label}-Video aus {name} fertig fuer Post Nr. {number}"
 
 
+TEST_MODELS = "tbc/mischief-1,kwaivgi/kling-v3.0-std,kwaivgi/kling-video-o1"
+
+
+def test_videos(image=None, models=TEST_MODELS):
+    """Animate one queued image with several OpenRouter models for comparison. Nothing is posted,
+    nothing leaves the queue, the post counter stays; the clips land in WWW/tests/ for the phone."""
+    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not key:
+        return "Test: kein OPENROUTER_API_KEY"
+    if image:
+        src = os.path.join(pq.QUEUE, os.path.basename(image))
+        if not os.path.isfile(src):
+            return f"Test: {image} liegt nicht in der Warteschlange"
+    else:
+        images = pq.queue_files(pq.IMAGES)
+        if not images:
+            return "Test: keine Bilder in der Warteschlange"
+        src = random.choice(images)
+    name = os.path.basename(src)
+    folder = os.path.join(WWW, "tests")
+    os.makedirs(folder, exist_ok=True)
+    stamp = f"{dt.datetime.now():%Y%m%d-%H%M%S}"
+    lines = [f"Test mit {name}:"]
+    for model in [m.strip() for m in models.split(",") if m.strip()]:
+        out = f"{stamp}-{model.split('/')[-1]}.mp4"
+        try:
+            pq.to_moving_reel(src, os.path.join(folder, out), zlib.crc32(name.encode()), key, timeout=900,
+                              provider="openrouter", public=(WWW, PUBLIC_URL) if PUBLIC_URL else None, model=model)
+            lines.append(f"  {model}: {PUBLIC_URL}/tests/{out}")
+        except Exception as e:  # noqa: BLE001 - one failing model must not stop the others
+            lines.append(f"  {model}: fehlgeschlagen ({e})")
+    return "\n".join(lines)
+
+
 def post_next(dry_run=False):
     if os.environ.get("BFL_API_KEY", "").strip():
         try:
@@ -208,9 +242,15 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="build the reel but do not post")
     ap.add_argument("--check", action="store_true", help="only test the Instagram access")
     ap.add_argument("--prepare", action="store_true", help="make the Atlas clip for the coming post if it is due")
+    ap.add_argument("--test-video", action="store_true", help="compare video models on one image; posts nothing")
+    ap.add_argument("--image", help="queue file for --test-video (default: a random one)")
+    ap.add_argument("--models", default=TEST_MODELS, help="comma separated OpenRouter models for --test-video")
     args = ap.parse_args()
     if args.prepare:
         log(prepare())
+        return
+    if args.test_video:
+        log(test_videos(args.image, args.models))
         return
     try:
         if args.check:

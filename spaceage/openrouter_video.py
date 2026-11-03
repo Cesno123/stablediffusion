@@ -32,11 +32,11 @@ def _check(r, what):
     return r.json()
 
 
-def animate(jpeg, key, timeout=900, image_url=None):
+def animate(jpeg, key, timeout=900, image_url=None, model=None):
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "SpaceAge42"}
     url = image_url or "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()
     body = {
-        "model": MODEL,
+        "model": model or MODEL,
         "prompt": PROMPT,
         "duration": SECONDS,
         "aspect_ratio": "9:16",
