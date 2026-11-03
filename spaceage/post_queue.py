@@ -258,11 +258,18 @@ def video_with_sound(src, dst, seed):
     return "music added: " + desc
 
 
-def to_moving_reel(src, dst, seed, key, timeout=900):
-    """Still image -> 5 second clip animated by Atlas Cloud, with our music for its mood."""
+def to_moving_reel(src, dst, seed, key, timeout=900, provider="atlas", public=None):
+    """Still image -> 5 second clip animated by Atlas Cloud or OpenRouter, with our music for its mood.
+
+    public: (folder, base URL) of the public web folder; OpenRouter then fetches the frame from
+    there instead of getting it as base64 (some video providers only take real URLs).
+    """
     import io
 
-    import atlas
+    if provider == "openrouter":
+        import openrouter_video as animator
+    else:
+        import atlas as animator
     from mood import mood_of
     from music import pick
 
@@ -274,21 +281,33 @@ def to_moving_reel(src, dst, seed, key, timeout=900):
         own = os.path.splitext(src)[0] + ".txt"
         mood, why, cues = mood_of(src, caption_for(src) if os.path.exists(own) else "")
         print(f"mood: {mood} ({why})", file=sys.stderr, flush=True)
-        print(f"music: {pick(wav, atlas.SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood, cues)}",
+        print(f"music: {pick(wav, animator.SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood, cues)}",
               file=sys.stderr, flush=True)
+        if provider == "openrouter":
+            image_url = None
+            if public:
+                frame = f"frame-{seed}.jpg"
+                frame_file = os.path.join(public[0], frame)
+                with open(frame_file, "wb") as f:
+                    f.write(buf.getvalue())
+                image_url = f"{public[1]}/{frame}"
+            data = animator.animate(buf.getvalue(), key, timeout, image_url)
+        else:
+            data = animator.animate(buf.getvalue(), key, timeout)
         with open(clip, "wb") as f:
-            f.write(atlas.animate(buf.getvalue(), key, timeout))
+            f.write(data)
         fit = (f"scale={REEL_W}:{REEL_H}:force_original_aspect_ratio=increase:flags=lanczos,"
                f"crop={REEL_W}:{REEL_H},fps={FPS},format=yuv420p")
         subprocess.run([
             ffmpeg_exe(), "-y", "-loglevel", "error", "-i", clip, "-i", wav, "-map", "0:v:0", "-map", "1:a:0",
             "-vf", fit, "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-maxrate", "12M",
             "-bufsize", "24M", "-profile:v", "high", "-level", "4.1",
-            "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-t", str(atlas.SECONDS), "-shortest",
+            "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-t", str(animator.SECONDS), "-shortest",
             "-movflags", "+faststart", dst,
         ], check=True)
     finally:
-        for tmp in (wav, clip):
+        tmps = [wav, clip] + ([os.path.join(public[0], f"frame-{seed}.jpg")] if public else [])
+        for tmp in tmps:
             if os.path.exists(tmp):
                 os.remove(tmp)
 

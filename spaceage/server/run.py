@@ -113,13 +113,17 @@ def prepared_src():
 
 def prepare():
     """Run 15 minutes before a post: when that post is the 5th, 15th, 25th, ... animate an image with
-    Atlas Cloud now (it takes a few minutes), so the post can use the finished clip."""
+    OpenRouter (OPENROUTER_API_KEY) or Atlas Cloud (ATLAS_API_KEY) now (it takes a few minutes),
+    so the post can use the finished clip."""
     number = pq.posts_so_far() + 1
-    key = os.environ.get("ATLAS_API_KEY", "").strip()
+    if os.environ.get("OPENROUTER_API_KEY", "").strip():  # OpenRouter first, Atlas Cloud otherwise
+        provider, key, label = "openrouter", os.environ["OPENROUTER_API_KEY"].strip(), "OpenRouter"
+    else:
+        provider, key, label = "atlas", os.environ.get("ATLAS_API_KEY", "").strip(), "Atlas"
     if number % pq.ANIMATE_EVERY != pq.ANIMATE_AT:
         return f"Vorbereitung: Post Nr. {number} wird kein Video"
     if not key:
-        return "Vorbereitung: kein ATLAS_API_KEY, Post bleibt ein Bild"
+        return "Vorbereitung: weder OPENROUTER_API_KEY noch ATLAS_API_KEY, Post bleibt ein Bild"
     if pq.video_turn():
         return "Vorbereitung: ein eigenes Video ist dran"
     if prepared_src():
@@ -131,13 +135,15 @@ def prepare():
     name = os.path.basename(src)
     os.makedirs(DATA, exist_ok=True)
     try:
-        pq.to_moving_reel(src, PREPARED_MP4, zlib.crc32(name.encode()), key, timeout=780)
+        public = (WWW, PUBLIC_URL) if PUBLIC_URL and os.path.isdir(WWW) else None
+        pq.to_moving_reel(src, PREPARED_MP4, zlib.crc32(name.encode()), key, timeout=780,
+                          provider=provider, public=public)
     except Exception as e:  # noqa: BLE001 - e.g. 402 balance empty: the post stays an image
         drop_prepared()
-        return f"Vorbereitung: Atlas-Video fehlgeschlagen ({e}), Post bleibt ein Bild"
+        return f"Vorbereitung: {label}-Video fehlgeschlagen ({e}), Post bleibt ein Bild"
     with open(PREPARED_INFO, "w") as f:
         json.dump({"src": name, "post": number}, f)
-    return f"Vorbereitung: Atlas-Video aus {name} fertig fuer Post Nr. {number}"
+    return f"Vorbereitung: {label}-Video aus {name} fertig fuer Post Nr. {number}"
 
 
 def post_next(dry_run=False):
@@ -163,7 +169,7 @@ def post_next(dry_run=False):
     log(f"building reel from {name}")
     if prepared:  # the Atlas clip made 15 minutes ago for this post
         shutil.copyfile(PREPARED_MP4, media)
-        log("posting the Atlas video prepared for this post")
+        log("posting the video prepared for this post")
     elif ext in pq.IMAGES:
         pq.to_reel(src, media, seed=zlib.crc32(name.encode()))
     else:  # an uploaded video; a silent one gets music for its mood
@@ -194,7 +200,7 @@ def post_next(dry_run=False):
     if os.path.exists(txt):
         os.remove(txt)
     drop_prepared()
-    return f"gepostet: {name} (Instagram-ID {media_id})" + (" als Atlas-Video" if prepared else "")
+    return f"gepostet: {name} (Instagram-ID {media_id})" + (" als Video" if prepared else "")
 
 
 def main():
