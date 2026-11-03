@@ -258,12 +258,12 @@ def video_with_sound(src, dst, seed):
     return "music added: " + desc
 
 
-def to_moving_reel(src, dst, seed, key, timeout=900, provider="atlas", public=None, model=None):
+def to_moving_reel(src, dst, seed, key, timeout=900, provider="atlas", public=None, model=None, prompt=None):
     """Still image -> 5 second clip animated by Atlas Cloud or OpenRouter, with our music for its mood.
 
     public: (folder, base URL) of the public web folder; OpenRouter then fetches the frame from
     there instead of getting it as base64 (some video providers only take real URLs).
-    model: an OpenRouter video model instead of the default (for tests).
+    model, prompt: an OpenRouter video model and motion prompt instead of the defaults (for tests).
     """
     import io
 
@@ -292,7 +292,7 @@ def to_moving_reel(src, dst, seed, key, timeout=900, provider="atlas", public=No
                 with open(frame_file, "wb") as f:
                     f.write(buf.getvalue())
                 image_url = f"{public[1]}/{frame}"
-            data = animator.animate(buf.getvalue(), key, timeout, image_url, model)
+            data = animator.animate(buf.getvalue(), key, timeout, image_url, model, prompt)
         else:
             data = animator.animate(buf.getvalue(), key, timeout)
         with open(clip, "wb") as f:

@@ -57,7 +57,7 @@ def _run(body, headers, deadline):
     raise RuntimeError("OpenRouter timed out")
 
 
-def animate(jpeg, key, timeout=900, image_url=None, model=None):
+def animate(jpeg, key, timeout=900, image_url=None, model=None, prompt=None):
     """The frame goes in as base64 first: some providers (Kling via AtlasCloud) cannot fetch it
     from our server. If that fails, the public image_url is tried. Failed jobs cost nothing."""
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "SpaceAge42"}
@@ -67,7 +67,7 @@ def animate(jpeg, key, timeout=900, image_url=None, model=None):
     for url in sources:
         body = {
             "model": model or MODEL,
-            "prompt": PROMPT,
+            "prompt": prompt or PROMPT,
             "duration": SECONDS,
             "aspect_ratio": "9:16",
             "frame_images": [{"type": "image_url", "image_url": {"url": url}, "frame_type": "first_frame"}],

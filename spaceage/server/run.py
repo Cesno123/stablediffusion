@@ -168,7 +168,7 @@ def test_index():
     return f"Test-Seite: {PUBLIC_URL}/tests/ ({len(clips)} Videos)"
 
 
-def test_videos(image=None, models=TEST_MODELS):
+def test_videos(image=None, models=TEST_MODELS, prompts=None):
     """Animate one queued image with several OpenRouter models for comparison. Nothing is posted,
     nothing leaves the queue, the post counter stays; the clips land in WWW/tests/ for the phone."""
     key = os.environ.get("OPENROUTER_API_KEY", "").strip()
@@ -188,14 +188,19 @@ def test_videos(image=None, models=TEST_MODELS):
     os.makedirs(folder, exist_ok=True)
     stamp = f"{dt.datetime.now():%Y%m%d-%H%M%S}"
     lines = [f"Test mit {name}:"]
+    texts = [p.strip() for p in (prompts or "").split("|") if p.strip()] or [None]  # None = the usual prompt
     for model in [m.strip() for m in models.split(",") if m.strip()]:
-        out = f"{stamp}-{model.split('/')[-1]}.mp4"
-        try:
-            pq.to_moving_reel(src, os.path.join(folder, out), zlib.crc32(name.encode()), key, timeout=900,
-                              provider="openrouter", public=(WWW, PUBLIC_URL) if PUBLIC_URL else None, model=model)
-            lines.append(f"  {model}: {PUBLIC_URL}/tests/{out}")
-        except Exception as e:  # noqa: BLE001 - one failing model must not stop the others
-            lines.append(f"  {model}: fehlgeschlagen ({e})")
+        for k, text in enumerate(texts, 1):
+            tag = f"-p{k}" if len(texts) > 1 else ""
+            out = f"{stamp}-{model.split('/')[-1]}{tag}.mp4"
+            label = f"{model}{f' (Prompt {k})' if tag else ''}"
+            try:
+                pq.to_moving_reel(src, os.path.join(folder, out), zlib.crc32(name.encode()), key, timeout=900,
+                                  provider="openrouter", public=(WWW, PUBLIC_URL) if PUBLIC_URL else None,
+                                  model=model, prompt=text)
+                lines.append(f"  {label}: {PUBLIC_URL}/tests/{out}")
+            except Exception as e:  # noqa: BLE001 - one failing model must not stop the others
+                lines.append(f"  {label}: fehlgeschlagen ({e})")
     lines.append(test_index())
     return "\n".join(lines)
 
@@ -265,13 +270,14 @@ def main():
     ap.add_argument("--test-video", action="store_true", help="compare video models on one image; posts nothing")
     ap.add_argument("--image", help="queue file for --test-video (default: a random one)")
     ap.add_argument("--models", default=TEST_MODELS, help="comma separated OpenRouter models for --test-video")
+    ap.add_argument("--prompts", help="for --test-video: motion prompts separated by | (each model gets each)")
     ap.add_argument("--test-index", action="store_true", help="only rebuild the page listing the test clips")
     args = ap.parse_args()
     if args.prepare:
         log(prepare())
         return
     if args.test_video:
-        log(test_videos(args.image, args.models))
+        log(test_videos(args.image, args.models, args.prompts))
         return
     if args.test_index:
         log(test_index())
