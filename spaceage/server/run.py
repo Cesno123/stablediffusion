@@ -149,6 +149,25 @@ def prepare():
 TEST_MODELS = "tbc/mischief-1,kwaivgi/kling-v3.0-std,kwaivgi/kling-video-o1"
 
 
+def test_index():
+    """WWW/tests/index.html: every test clip as a player, newest first, so one link shows them all."""
+    import html as _html
+
+    folder = os.path.join(WWW, "tests")
+    os.makedirs(folder, exist_ok=True)
+    clips = sorted((f for f in os.listdir(folder) if f.endswith(".mp4")), reverse=True)
+    items = "".join(
+        f'<p>{_html.escape(f[:15])} &middot; <b>{_html.escape(f[16:-4])}</b></p>'
+        f'<video src="{_html.escape(f)}" controls playsinline loop preload="metadata" '
+        f'style="width:100%;max-width:420px"></video>' for f in clips)
+    page = ('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
+            '<title>SpaceAge Video-Tests</title><body style="font-family:sans-serif;background:#111;color:#eee;'
+            f'padding:16px;max-width:460px;margin:auto"><h2>Video-Tests</h2>{items or "<p>Noch keine Tests.</p>"}')
+    with open(os.path.join(folder, "index.html"), "w") as f:
+        f.write(page)
+    return f"Test-Seite: {PUBLIC_URL}/tests/ ({len(clips)} Videos)"
+
+
 def test_videos(image=None, models=TEST_MODELS):
     """Animate one queued image with several OpenRouter models for comparison. Nothing is posted,
     nothing leaves the queue, the post counter stays; the clips land in WWW/tests/ for the phone."""
@@ -177,6 +196,7 @@ def test_videos(image=None, models=TEST_MODELS):
             lines.append(f"  {model}: {PUBLIC_URL}/tests/{out}")
         except Exception as e:  # noqa: BLE001 - one failing model must not stop the others
             lines.append(f"  {model}: fehlgeschlagen ({e})")
+    lines.append(test_index())
     return "\n".join(lines)
 
 
@@ -245,12 +265,16 @@ def main():
     ap.add_argument("--test-video", action="store_true", help="compare video models on one image; posts nothing")
     ap.add_argument("--image", help="queue file for --test-video (default: a random one)")
     ap.add_argument("--models", default=TEST_MODELS, help="comma separated OpenRouter models for --test-video")
+    ap.add_argument("--test-index", action="store_true", help="only rebuild the page listing the test clips")
     args = ap.parse_args()
     if args.prepare:
         log(prepare())
         return
     if args.test_video:
         log(test_videos(args.image, args.models))
+        return
+    if args.test_index:
+        log(test_index())
         return
     try:
         if args.check:
