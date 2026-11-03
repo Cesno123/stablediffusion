@@ -6,8 +6,8 @@ URL every 10 seconds until the status is "completed" and downloads the first of 
 unsigned_urls (they need the API key too). The frame is sent as a base64 data URL; if
 that fails, image_url (a public address of the frame) is tried. A 402 means the balance
 is empty.
-The model is SPACEAGE_OPENROUTER_VIDEO_MODEL, by default TBC Mischief 1 (image-to-video,
-3 or 5 seconds). If the model refuses the 9:16 aspect ratio, the request is repeated
+The model is SPACEAGE_OPENROUTER_VIDEO_MODEL, by default Kling Video O1 (image-to-video,
+5 or 10 seconds). If the model refuses the 9:16 aspect ratio, the request is repeated
 without it; the reel is cropped to 9:16 afterwards anyway.
 """
 
@@ -18,7 +18,7 @@ import time
 import requests
 
 API = os.environ.get("OPENROUTER_API_URL", "https://openrouter.ai/api/v1")
-MODEL = os.environ.get("SPACEAGE_OPENROUTER_VIDEO_MODEL", "tbc/mischief-1")
+MODEL = os.environ.get("SPACEAGE_OPENROUTER_VIDEO_MODEL", "kwaivgi/kling-video-o1")
 SECONDS = 5
 PROMPT = ("Very slow, smooth camera push-in. The scene stays almost still: all objects keep their exact shape, "
           "rigid, no deformation; only light and atmosphere move very subtly. Preserve the original art style, "

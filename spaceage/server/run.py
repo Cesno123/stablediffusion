@@ -146,7 +146,7 @@ def prepare():
     return f"Vorbereitung: {label}-Video aus {name} fertig fuer Post Nr. {number}"
 
 
-TEST_MODELS = "tbc/mischief-1,kwaivgi/kling-v3.0-std,kwaivgi/kling-video-o1"
+TEST_MODELS = "kwaivgi/kling-video-o1,kwaivgi/kling-v3.0-std"
 
 
 def test_index():
