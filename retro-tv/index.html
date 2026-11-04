@@ -134,6 +134,10 @@
     <div class="chips" id="langs"></div>
     <h3>QUELLEN</h3>
     <div class="checks" id="sources"></div>
+    <label class="checks" style="margin-top:10px;align-items:center">Dailymotion-Player:
+      <select id="dmplayer" class="plain" style="margin-top:0">
+        <option value="geo">Variante A (neu)</option><option value="classic">Variante B (klassisch)</option>
+      </select></label>
     <label class="checks" style="margin-top:10px;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="strict" style="flex:none"> Nur Sendungen mit passender Jahreszahl (sonst auch ohne Jahresangabe)</label>
     <div class="keyrow">
       <input type="text" id="ytkey" placeholder="YouTube-API-Schlüssel hier einfügen" autocomplete="off" spellcheck="false">
@@ -208,7 +212,7 @@ const store = {
 const state = {
   decade: store.get("decade", "80"), chan: store.get("chan", 0), lang: store.get("lang", "de"),
   sources: { yt: true, mt: true, ia: true, dm: true, pt: true, eu: true, wc: true, ...store.get("sources3", {}) },
-  strict: store.get("strict", true), ytkey: store.get("ytkey", ""),
+  strict: store.get("strict", true), dmPlayer: store.get("dmPlayer", "geo"), ytkey: store.get("ytkey", ""),
   on: false, live: true, pIndex: 0, items: [], playingKey: null, loadToken: 0,
 };
 const favs = () => store.get("favs", []);
@@ -289,10 +293,16 @@ async function searchArchive(terms, d) {
   }));
 }
 async function searchDailymotion(term) {
-  const url = "https://api.dailymotion.com/videos?fields=id,title,duration,description&limit=50&search=" +
-    encodeURIComponent(term) + (state.lang === "de" ? "&languages=de" : "");
+  const url = "https://api.dailymotion.com/videos?fields=id,title,duration,description,allow_embed,private,status,geoblocking" +
+    "&limit=50&search=" + encodeURIComponent(term) + (state.lang === "de" ? "&languages=de" : "");
   const j = await getJson(url);
-  return (j.list || []).map(x => ({ src: "dm", id: x.id, title: x.title, desc: x.description || "", duration: x.duration }));
+  // Nur Videos, die laut Dailymotion eingebettet werden dürfen und in Deutschland laufen.
+  const blockedDe = g => { if (!Array.isArray(g) || !g.length) return false;
+    const mode = String(g[0]).toLowerCase(), list = g.slice(1).map(c => String(c).toLowerCase());
+    return mode === "deny" ? list.includes("de") : mode === "allow" && list.length ? !list.includes("de") : false; };
+  return (j.list || [])
+    .filter(x => x.allow_embed !== false && x.private !== true && (!x.status || x.status === "published") && !blockedDe(x.geoblocking))
+    .map(x => ({ src: "dm", id: x.id, title: x.title, desc: x.description || "", duration: x.duration }));
 }
 async function searchYouTube(term, d) {
   term = term + " " + YT_HINT[d.id];
@@ -378,7 +388,7 @@ async function collect(ch, d) {
 
 async function loadChannel(force) {
   const ch = CHANNELS[state.chan], d = dec();
-  const cacheKey = "c-" + [d.id, state.chan, state.lang, state.strict, Object.keys(state.sources).filter(k => state.sources[k]).join(""), !!state.ytkey].join("-");
+  const cacheKey = "c2-" + [d.id, state.chan, state.lang, state.strict, Object.keys(state.sources).filter(k => state.sources[k]).join(""), !!state.ytkey].join("-");
   const token = ++state.loadToken;
   state.loading = true;
   let data = !force && !ch.fav && store.get(cacheKey, null);
@@ -442,7 +452,9 @@ async function play(it, offset, key) {
       f.src = it.src === "yt"
         ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(it.id)}?autoplay=1&start=${start}&rel=0&origin=${encodeURIComponent(location.origin)}`
         : it.src === "dm"
-        ? `https://geo.dailymotion.com/player.html?video=${encodeURIComponent(it.id)}&autoplay=1&startTime=${start}`
+        ? (state.dmPlayer === "classic"
+            ? `https://www.dailymotion.com/embed/video/${encodeURIComponent(it.id)}?autoplay=1&start=${start}`
+            : `https://geo.dailymotion.com/player.html?video=${encodeURIComponent(it.id)}&autoplay=1&startTime=${start}`)
         : it.embed + (it.embed.includes("?") ? "&" : "?") + `autoplay=1&start=${start}s&title=0&warningTitle=0`;
       $("player").appendChild(f); $("osd").hidden = true; return;
     }
@@ -534,6 +546,8 @@ function renderControls() {
   $("sources").innerHTML = SOURCES.map(s => `<label><input type="checkbox" data-s="${s.id}" ${state.sources[s.id] ? "checked" : ""}> ${s.label}</label>`).join("");
 }
 $("sources").onchange = e => { const s = e.target.dataset.s; if (!s) return; state.sources[s] = e.target.checked; store.set("sources3", state.sources); switchTo(); };
+$("dmplayer").value = state.dmPlayer;
+$("dmplayer").onchange = e => { state.dmPlayer = e.target.value; store.set("dmPlayer", state.dmPlayer); state.playingKey = null; refresh(); };
 $("strict").checked = state.strict;
 $("strict").onchange = e => { state.strict = e.target.checked; store.set("strict", state.strict); switchTo(); };
 $("ytkey").value = state.ytkey;
