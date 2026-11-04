@@ -32,6 +32,8 @@
             #00c000 0 57.1%,#c000c0 0 71.4%,#c00000 0 85.7%,#0000c0 0 100%); }
   #osd.bars span { background: #000c; padding: 10px 14px; }
   #osd[hidden] { display: none; }
+  #badge { position: absolute; top: 10px; right: 12px; z-index: 3; font: 12px system-ui, sans-serif;
+           background: #000b; color: #fff; padding: 4px 9px; border-radius: 999px; text-decoration: none; }
   .plate { display: flex; justify-content: space-between; align-items: center; margin: 14px 4px; }
   .plate small { display: block; letter-spacing: 3px; font-size: 12px; color: #ccc; }
   .plate small + small { color: #888; letter-spacing: 2px; }
@@ -89,6 +91,7 @@
     <div class="bezel">
       <div id="screen">
         <div id="player"></div>
+        <a id="badge" target="_blank" rel="noopener" hidden></a>
         <div id="osd">Jahrzehnt und Kanal wählen, dann AN tippen</div>
       </div>
     </div>
@@ -343,11 +346,17 @@ function osd(text, bars) {
   $("osd").hidden = false; $("osd").className = bars ? "bars" : "";
   $("osd").innerHTML = bars ? `<span>${esc(text).replace(/\n/g, "<br>")}</span>` : esc(text).replace(/\n/g, "<br>");
 }
-function clearPlayer() { $("player").innerHTML = ""; }
+function clearPlayer() { $("player").innerHTML = ""; $("badge").hidden = true; }
 
+function origin(it) {
+  return it.src === "yt" ? "https://www.youtube.com/watch?v=" + it.id
+       : it.src === "dm" ? "https://www.dailymotion.com/video/" + it.id
+       : it.src === "ia" ? "https://archive.org/details/" + it.id : it.url;
+}
 async function play(it, offset, key) {
   state.playingKey = key;
   clearPlayer(); osd("Einstellen …");
+  const b = $("badge"); b.hidden = false; b.href = origin(it); b.textContent = srcName[it.src] + " ↗";
   const start = Math.max(0, Math.floor(offset));
   try {
     if (it.src === "yt" || it.src === "dm") {
@@ -355,7 +364,7 @@ async function play(it, offset, key) {
       f.allow = "autoplay; fullscreen; encrypted-media"; f.allowFullscreen = true;
       f.src = it.src === "yt"
         ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(it.id)}?autoplay=1&start=${start}&rel=0`
-        : `https://www.dailymotion.com/embed/video/${encodeURIComponent(it.id)}?autoplay=1&start=${start}`;
+        : `https://geo.dailymotion.com/player.html?video=${encodeURIComponent(it.id)}&autoplay=1&startTime=${start}`;
       $("player").appendChild(f); $("osd").hidden = true; return;
     }
     let url = it.url;
@@ -409,6 +418,7 @@ function refresh() {
     const parts = [c.it.year || "Jahr unbekannt", srcName[c.it.src]];
     if (c.start) parts.unshift(`${hhmm(c.start)} – ${hhmm(c.start + c.it.duration)}`);
     if (!state.live) parts.unshift("Eigene Auswahl");
+    if (c.it.src === "dm" || c.it.src === "yt") parts.push("Bild bleibt leer? ⏭ drücken oder Quelle abwählen");
     $("meta").textContent = parts.join(" · ");
     $("prog").max = c.it.duration; $("prog").value = state.live ? c.offset : 0;
     $("star").classList.toggle("on", favs().some(f => f.src === c.it.src && f.id === c.it.id));
