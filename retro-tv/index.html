@@ -276,7 +276,7 @@ const CACHE_HOURS = 24;
 /* ============================================================ */
 
 const $ = id => document.getElementById(id);
-const VERSION = "v12 · 04.11. 19:40";   // bei jeder Änderung hochzählen – zeigt, ob die neue Fassung geladen ist
+const VERSION = "v13 · 04.11. 19:50";   // bei jeder Änderung hochzählen – zeigt, ob die neue Fassung geladen ist
 const store = {
   get(k, d) { try { const v = localStorage.getItem("rk2-" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("rk2-" + k, JSON.stringify(v)); } catch (e) {} },
