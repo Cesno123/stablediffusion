@@ -103,6 +103,22 @@
   #tvstart:focus { outline: 6px solid var(--accent); outline-offset: -12px; }
   body.tv #screen:focus { outline: none; }
   #tvkey { display: block; opacity: .7; margin-top: .3vw; }
+  #tvmenu { position: fixed; inset: 3vh 3vw; z-index: 30; background: #15120f; color: var(--text);
+    border: 2px solid var(--line); border-radius: 1.2vw; padding: 1.6vw 2vw; font: 1.6vw/1.35 system-ui, sans-serif;
+    display: flex; flex-direction: column; gap: 1vw; }
+  #tvmenu[hidden] { display: none; }
+  .tvm-head { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); }
+  .tvm-head b { color: var(--accent); font: 700 2.4vw "Courier New", monospace; letter-spacing: .4vw; }
+  .tvm-cols { display: grid; grid-template-columns: 2fr 1fr; gap: 2vw; min-height: 0; flex: 1; }
+  .tvm-left, .tvm-right { min-height: 0; overflow: hidden; }
+  #tvmenu h4 { margin: .9vw 0 .5vw; font-size: 1.1vw; letter-spacing: .25vw; color: var(--muted); font-weight: 500; }
+  .tvm-items { display: flex; flex-wrap: wrap; gap: .6vw; }
+  .tvm-btn { background: var(--panel); color: var(--text); border: .2vw solid var(--line); border-radius: 99px;
+    padding: .5vw 1.2vw; font: inherit; cursor: pointer; }
+  .tvm-btn.sel { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .tvm-btn:focus { outline: none; background: var(--accent); color: #1b1408; border-color: #fff; transform: scale(1.08); }
+  #tvm-prog div { padding: .5vw 0; border-bottom: 1px solid var(--line); }
+  #tvm-prog .t { color: var(--accent); margin-right: .8vw; font-variant-numeric: tabular-nums; }
   #tvinfo { position: fixed; z-index: 15; left: 3vw; bottom: 5vh; max-width: 70vw; background: #000c; color: #fff;
     padding: 1.4vw 2vw; border-left: 6px solid var(--accent); font: 2vw/1.35 system-ui, sans-serif; }
   #tvinfo b { color: var(--accent); font: 700 3.4vw "Courier New", monospace; margin-right: 1vw; }
@@ -114,7 +130,19 @@
 </head>
 <body>
 <div id="tvinfo" hidden></div>
-<div id="tvhelp" hidden>▲▼ Kanal · ◀▶ Jahrzehnt · OK Programm · ⏩⏪ Sendung · ⏯ Live<span id="tvkey"></span></div>
+<div id="tvmenu" hidden>
+  <div class="tvm-head"><b>MENÜ</b><span>◀ ▲ ▼ ▶ auswählen · OK bestätigen · Zurück schließt</span></div>
+  <div class="tvm-cols">
+    <div class="tvm-left">
+      <h4>JAHRZEHNT</h4><div class="tvm-items" id="tvm-dec"></div>
+      <h4>KANAL</h4><div class="tvm-items" id="tvm-chan"></div>
+      <h4>SPRACHE</h4><div class="tvm-items" id="tvm-lang"></div>
+      <h4>SENDUNG</h4><div class="tvm-items" id="tvm-act"></div>
+    </div>
+    <div class="tvm-right"><h4>PROGRAMM</h4><div id="tvm-prog"></div></div>
+  </div>
+</div>
+<div id="tvhelp" hidden>OK Menü · ▲▼ Kanal · ◀▶ Jahrzehnt · ⏩⏪ Sendung · ⏯ Live<span id="tvkey"></span></div>
 <div class="wrap">
   <header><h1>RÖHRENKISTE</h1><span id="clock">--:--</span></header>
 
@@ -731,7 +759,7 @@ $("star").onclick = () => {
   store.set("favs", f); refresh();
 };
 $("screen").onclick = e => {
-  if (document.body.classList.contains("tv") && state.on && e.target.id !== "tvstart") { toggleGuide(); tvInfo(); return; }
+  if (document.body.classList.contains("tv") && state.on && e.target.id !== "tvstart") { openMenu(); return; }
   const v = $("player").querySelector("video"); if (v && v.paused) v.play().catch(() => {});
 };
 /* ---------- TV-Modus ----------
@@ -756,8 +784,65 @@ function tvInfo(extra) {
 }
 /* Silk auf dem Fire TV schickt die OK-Taste oft nicht als Tastendruck, sondern
    „klickt“ das ausgewählte Element. Darum: ein großer, vorausgewählter Knopf. */
-let lastToggle = 0;   // Silk löst bei OK teils Taste UND Klick aus – nur einmal umschalten
-function toggleGuide() { if (Date.now() - lastToggle < 500) return; lastToggle = Date.now(); document.body.classList.toggle("guide"); }
+/* ---------- TV-Menü (OK-Taste) ----------
+   Navigation selbst gesteuert: Pfeil = nächster Knopf in dieser Richtung auf dem Bildschirm. */
+let lastOk = 0;   // Silk löst bei OK teils Taste UND Klick aus – nur einmal reagieren
+const menuOpen = () => !$("tvmenu").hidden;
+function tvBtn(label, sel, fn) {
+  const b = document.createElement("button"); b.className = "tvm-btn" + (sel ? " sel" : ""); b.textContent = label;
+  b.onclick = e => { e.stopPropagation(); if (Date.now() - lastOk < 400) return; lastOk = Date.now(); fn(); };
+  return b;
+}
+function buildMenu() {
+  const put = (id, list) => { $(id).replaceChildren(...list); };
+  put("tvm-dec", DECADES.map(d => tvBtn(d.label, d.id === state.decade, () => {
+    state.decade = d.id; store.set("decade", d.id); renderControls(); switchTo(); buildMenu(); focusSel("tvm-chan"); })));
+  put("tvm-chan", CHANNELS.map((c, i) => tvBtn(`${i + 1} ${c.name}`, i === state.chan, () => { setChan(i); closeMenu(); })));
+  put("tvm-lang", LANGS.map(l => tvBtn(l.label, l.id === state.lang, () => {
+    state.lang = l.id; store.set("lang", l.id); renderControls(); switchTo(); buildMenu(); focusSel("tvm-lang"); })));
+  put("tvm-act", [
+    tvBtn("● Live", false, () => { state.live = true; state.playingKey = null; refresh(); closeMenu(); }),
+    tvBtn("⏮ Vorherige", false, () => { step(-1); closeMenu(); }),
+    tvBtn("⏭ Nächste", false, () => { step(1); closeMenu(); }),
+    tvBtn("☆ Merken", false, () => { $("star").click(); closeMenu(); }),
+    tvBtn("↻ Neu suchen", false, () => { switchTo(true); closeMenu(); }),
+    tvBtn("✕ Schließen", false, closeMenu),
+    tvBtn("TV-Modus beenden", false, () => { store.set("tvmode", false); leaveTv(); }),
+  ]);
+  const c = current(), L = state.items, rows = [];
+  if (c) {
+    let t = c.start;
+    for (let k = 0; k < Math.min(8, L.length); k++) {
+      const it = L[(c.i + k) % L.length];
+      rows.push(`<div><span class="t">${t ? hhmm(t) : k ? "" : "jetzt"}</span>${esc(it.title)}</div>`);
+      if (t) t += it.duration;
+    }
+  }
+  $("tvm-prog").innerHTML = rows.join("") || (state.loading ? "Suche läuft …" : "Sendepause");
+}
+function focusSel(id) { const b = $(id).querySelector(".sel") || $(id).querySelector(".tvm-btn"); b && b.focus(); }
+function openMenu() {
+  if (Date.now() - lastOk < 400) return; lastOk = Date.now();
+  buildMenu(); $("tvmenu").hidden = false; $("tvinfo").hidden = true; focusSel("tvm-chan");
+}
+function closeMenu() { $("tvmenu").hidden = true; $("screen").focus(); tvInfo(); }
+function menuMove(dir) {
+  const all = [...$("tvmenu").querySelectorAll(".tvm-btn")], cur = document.activeElement;
+  if (!all.includes(cur)) { focusSel("tvm-chan"); return; }
+  const r0 = cur.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;
+  let best = null, bestScore = Infinity;
+  for (const b of all) {
+    if (b === cur) continue;
+    const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, dx = x - cx, dy = y - cy;
+    const main = dir === "left" ? -dx : dir === "right" ? dx : dir === "up" ? -dy : dy;
+    const side = dir === "left" || dir === "right" ? Math.abs(dy) : Math.abs(dx);
+    if (main <= 2) continue;
+    if ((dir === "left" || dir === "right") && Math.abs(dy) > r0.height * 0.8) continue;   // in der Zeile bleiben
+    const score = main + side * (dir === "left" || dir === "right" ? 4 : 0.6);
+    if (score < bestScore) { bestScore = score; best = b; }
+  }
+  if (best) best.focus();
+}
 function tvTurnOn() {
   state.on = true; $("tvstart").hidden = true; goFull();
   $("screen").tabIndex = 0; $("screen").focus();
@@ -769,7 +854,7 @@ function enterTv() {
   else { $("screen").tabIndex = 0; $("screen").focus(); }
 }
 $("tvstart").onclick = e => { e.stopPropagation(); tvTurnOn(); };
-function leaveTv() { $("tvstart").hidden = true; document.body.classList.remove("tv", "guide"); $("tvinfo").hidden = $("tvhelp").hidden = true; }
+function leaveTv() { $("tvstart").hidden = true; $("tvmenu").hidden = true; document.body.classList.remove("tv", "guide"); $("tvinfo").hidden = $("tvhelp").hidden = true; }
 $("tvtoggle").onclick = () => { store.set("tvmode", true); enterTv(); };
 function setDecade(n) {
   const i = DECADES.findIndex(d => d.id === state.decade);
@@ -784,6 +869,13 @@ document.addEventListener("keydown", e => {
   const k = e.key, code = e.keyCode;
   if (tv) $("tvkey").textContent = `Taste empfangen: ${k || "?"} (${code})`;
   if (tv && e.target.id === "tvstart" && (k === "Enter" || code === 23)) return;   // Klick erledigt das
+  if (tv && menuOpen()) {
+    const dir = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" }[k];
+    if (dir) { e.preventDefault(); menuMove(dir); }
+    else if (k === "Escape" || k === "Backspace" || k === "GoBack" || k === "BrowserBack") { e.preventDefault(); closeMenu(); }
+    else if ((k === "Enter" || code === 23) && !document.activeElement.classList.contains("tvm-btn")) { e.preventDefault(); focusSel("tvm-chan"); }
+    return;   // OK auf einem Menüknopf: der Browser löst dessen Klick aus
+  }
   let handled = true;
   if (k === "ArrowUp" || k === "ChannelUp" || k === "PageUp") setChan(state.chan + 1);
   else if (k === "ArrowDown" || k === "ChannelDown" || k === "PageDown") setChan(state.chan - 1);
@@ -793,12 +885,8 @@ document.addEventListener("keydown", e => {
   else if (k === "MediaRewind" || k === "MediaTrackPrevious" || code === 227) step(-1);
   else if (k === "MediaPlayPause" || code === 179) { state.live = true; state.playingKey = null; refresh(); }
   else if (tv && (k === "Enter" || code === 23)) {
-    if (!state.on) tvTurnOn();
-    else toggleGuide();
+    if (!state.on) tvTurnOn(); else openMenu();
   }
-  else if (tv && (k === "Escape" || k === "Backspace" || k === "GoBack") && document.body.classList.contains("guide"))
-    document.body.classList.remove("guide");
-  else if (tv && k === "Escape") { store.set("tvmode", false); leaveTv(); }
   else handled = false;
   if (handled) { e.preventDefault(); if (tv) setTimeout(() => tvInfo(), 50); }
 });
