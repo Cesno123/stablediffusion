@@ -52,6 +52,9 @@
   .keys .power { color: #b0281c; }
   .keys .power.on { color: #1d7a2c; }
   .keys .live { background: linear-gradient(#f3d77a, #d9b04a); }
+  .keys .castbtn { grid-column: 1 / -1; background: linear-gradient(#5d7fd6, #3c5bb0); color: #fff; }
+  .keys .castbtn.on { background: linear-gradient(#5fd07a, #2f9a4c); }
+  .castmsg { margin: 10px 4px 0; color: #ddd; font-size: 14px; }
   .keys .star.on { background: linear-gradient(#e2574a, #b33024); color: #fff; }
   .keys button:focus-visible, .chip:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
@@ -116,7 +119,9 @@
       <button id="live" class="live wide" title="Zurück zum laufenden Programm">LIVE</button>
       <button id="reloadKey" class="wide" title="Sendungen neu suchen">NEU SUCHEN</button>
       <button id="star" class="star wide" title="Sendung merken">☆ MERKEN</button>
+      <button id="cast" class="castbtn" title="Auf den Fernseher übertragen">📡 AUF DEN FERNSEHER</button>
     </div>
+    <p id="castmsg" class="castmsg" hidden></p>
   </div>
 
   <section id="now">
@@ -157,6 +162,11 @@
   <p id="status"></p>
 </div>
 
+<script>
+/* Google Cast: wird aufgerufen, sobald Chrome das Übertragen-Modul geladen hat. */
+window.__onGCastApiAvailable = ok => { if (!ok) return; if (typeof initCast === "function") initCast(); else window.__castPending = true; };
+</script>
+<script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" async></script>
 <script>
 /* ======================= EINSTELLUNGEN =======================
    Kanäle = Suchbegriffe ("|" trennt). Die Suche läuft pro Jahrzehnt.
@@ -401,7 +411,8 @@ async function loadChannel(force) {
   }
   if (token !== state.loadToken) return;          // inzwischen umgeschaltet
   state.loading = false;
-  state.items = shuffled(data.items, +d.id * 100 + state.chan + 1);
+  state.all = shuffled(data.items, +d.id * 100 + state.chan + 1);
+  applyView();
   state.pIndex = 0; state.playingKey = null;
   $("status").textContent = `${ch.name} · ${d.label}: ${data.items.length} Sendungen (${data.note})`;
   refresh();
@@ -439,6 +450,7 @@ function origin(it) {
 }
 async function play(it, offset, key) {
   state.playingKey = key;
+  if (state.casting) return castPlay(it, offset, key);
   clearPlayer(); osd("Einstellen …");
   const b = $("badge"); b.hidden = false; b.href = origin(it); b.textContent = srcName[it.src] + " ↗";
   const start = Math.max(0, Math.floor(offset));
@@ -458,14 +470,7 @@ async function play(it, offset, key) {
         : it.embed + (it.embed.includes("?") ? "&" : "?") + `autoplay=1&start=${start}s&title=0&warningTitle=0`;
       $("player").appendChild(f); $("osd").hidden = true; return;
     }
-    let url = it.url;
-    if (it.src === "ia") {
-      const m = await getJson("https://archive.org/metadata/" + encodeURIComponent(it.id));
-      const files = (m.files || []).filter(f => /\.(mp4|m4v|webm|ogv)$/i.test(f.name));
-      const f = files.find(f => /h\.264|mpeg4/i.test(f.format || "")) || files[0];
-      if (!f) throw new Error("keine abspielbare Datei");
-      url = "https://archive.org/download/" + encodeURIComponent(it.id) + "/" + f.name.split("/").map(encodeURIComponent).join("/");
-    }
+    const url = await mediaUrl(it);
     if (state.playingKey !== key) return;
     const v = document.createElement("video");
     v.autoplay = true; v.playsInline = true; v.controls = true;
@@ -484,6 +489,96 @@ async function play(it, offset, key) {
     console.warn(e); clearPlayer(); osd("Bildstörung\nSendung konnte nicht geladen werden. ⏭ für die nächste.", true);
   }
 }
+
+/* ---------- Übertragen auf den Fernseher (Chromecast / Google TV) ----------
+   Übertragbar sind nur Quellen mit direkter Videodatei. YouTube und Dailymotion
+   geben keine Datei heraus – solange übertragen wird, fallen sie aus dem Plan.   */
+const CASTABLE = new Set(["mt", "ia", "eu", "wc", "pt"]);
+const castable = it => CASTABLE.has(it.src) && !/\.ogv(\?|$)/i.test(it.url || "");
+function applyView() {
+  state.all = state.all || [];
+  state.items = state.casting ? state.all.filter(castable) : state.all;
+  state.pIndex = 0; state.playingKey = null;
+}
+async function mediaUrl(it) {
+  if (it.src === "ia") {
+    const m = await getJson("https://archive.org/metadata/" + encodeURIComponent(it.id));
+    const files = (m.files || []).filter(f => /\.(mp4|m4v|webm|ogv)$/i.test(f.name));
+    const f = files.find(f => /h\.264|mpeg4/i.test(f.format || "")) || files[0];
+    if (!f) throw new Error("keine abspielbare Datei");
+    return "https://archive.org/download/" + encodeURIComponent(it.id) + "/" + f.name.split("/").map(encodeURIComponent).join("/");
+  }
+  if (it.src === "pt") {   // PeerTube: Videodatei über die Schnittstelle des jeweiligen Servers
+    const host = new URL(it.embed).origin;
+    const v = await getJson(host + "/api/v1/videos/" + encodeURIComponent(it.id));
+    const f = (v.files || [])[0] || ((v.streamingPlaylists || [])[0]?.files || [])[0];
+    if (f?.fileUrl) return f.fileUrl;
+    if (v.streamingPlaylists?.[0]?.playlistUrl) return v.streamingPlaylists[0].playlistUrl;
+    throw new Error("keine Datei");
+  }
+  return it.url;
+}
+const mimeOf = u => /\.m3u8/i.test(u) ? "application/x-mpegurl" : /\.webm/i.test(u) ? "video/webm" : "video/mp4";
+let castReady = false;
+function initCast() {
+  try {
+    const ctx = cast.framework.CastContext.getInstance();
+    ctx.setOptions({ receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+                     autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED });
+    ctx.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED, e => {
+      const S = cast.framework.SessionState;
+      if (e.sessionState === S.SESSION_STARTED || e.sessionState === S.SESSION_RESUMED) setCasting(true);
+      if (e.sessionState === S.SESSION_ENDED) setCasting(false);
+    });
+    castReady = true;
+  } catch (e) { console.warn("Cast nicht verfügbar", e); }
+}
+function castMsg(t) { $("castmsg").hidden = !t; $("castmsg").textContent = t || ""; }
+function setCasting(on) {
+  if (state.casting === on) return;
+  state.casting = on; clearPlayer(); applyView();
+  $("cast").classList.toggle("on", on);
+  $("cast").textContent = on ? "📡 ÜBERTRAGUNG BEENDEN" : "📡 AUF DEN FERNSEHER";
+  const skipped = state.all.length - state.items.length;
+  castMsg(on ? "Läuft auf dem Fernseher. Kanal- und Sendungstasten steuern jetzt den Fernseher." +
+               (skipped ? ` ${skipped} Sendungen von YouTube/Dailymotion sind ausgeblendet, weil sie sich nicht direkt übertragen lassen.` : "")
+             : "");
+  refresh();
+}
+async function castPlay(it, offset, key) {
+  clearPlayer(); osd(`📡 Auf dem Fernseher
+${it.title}`);
+  try {
+    const url = await mediaUrl(it);
+    if (state.playingKey !== key) return;
+    const mi = new chrome.cast.media.MediaInfo(url, mimeOf(url));
+    mi.metadata = new chrome.cast.media.GenericMediaMetadata();
+    mi.metadata.title = it.title;
+    mi.metadata.subtitle = `${CHANNELS[state.chan].name} · ${it.year || ""} · Röhrenkiste`;
+    const req = new chrome.cast.media.LoadRequest(mi);
+    req.currentTime = Math.max(0, Math.floor(offset)); req.autoplay = true;
+    await cast.framework.CastContext.getInstance().getCurrentSession().loadMedia(req);
+  } catch (e) {
+    console.warn("Übertragen fehlgeschlagen", e);
+    osd(`📡 Bildstörung
+„${it.title}“ ließ sich nicht übertragen. ⏭ für die nächste.`, true);
+  }
+}
+$("cast").onclick = async () => {
+  if (state.casting) { cast.framework.CastContext.getInstance().endCurrentSession(true); return; }
+  if (castReady) {
+    state.on = true;
+    try { await cast.framework.CastContext.getInstance().requestSession(); }
+    catch (e) { if (e !== "cancel") castMsg("Kein Fernseher verbunden. Handy und Fernseher müssen im selben WLAN sein."); }
+    return;
+  }
+  const v = $("player").querySelector("video");
+  if (v && v.remote) { v.remote.prompt().catch(() => castMsg("Kein Fernseher gefunden.")); return; }
+  const c = current();
+  castMsg(c && (c.it.src === "yt" || c.it.src === "dm")
+    ? "Diese Sendung läuft über einen fremden Player. Tippe oben rechts im Bild auf das Quellen-Schild und übertrage dort aus der App."
+    : "Übertragen klappt nur in Chrome (Android oder Computer) mit einem Chromecast oder Google-TV-Gerät im selben WLAN.");
+};
 
 function current() {
   if (!state.items.length) return null;
@@ -576,7 +671,7 @@ async function saveKey() {
 $("ytsave").onclick = saveKey;
 $("ytkey").onkeydown = e => { if (e.key === "Enter") saveKey(); };
 
-function switchTo(force) { state.live = true; state.items = []; state.playingKey = null; refresh(); loadChannel(force); }
+function switchTo(force) { state.live = true; state.items = []; state.all = []; state.playingKey = null; refresh(); loadChannel(force); }
 function setChan(i) { state.chan = (i + CHANNELS.length) % CHANNELS.length; store.set("chan", state.chan); renderControls(); switchTo(); }
 function step(n) { const c = current(); if (!c) return; state.live = false; state.pIndex = c.i + n; state.playingKey = null; refresh(); }
 
@@ -610,6 +705,7 @@ setInterval(() => {
 
 renderControls();
 switchTo();
+if (window.__castPending) initCast();
 </script>
 </body>
 </html>
