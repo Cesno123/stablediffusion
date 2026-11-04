@@ -177,7 +177,7 @@ const SOURCES = [
   { id: "yt", label: "YouTube (Schlüssel nötig)" },
   { id: "mt", label: "ARD/ZDF-Mediatheken" },
   { id: "ia", label: "Internet Archive" },
-  { id: "dm", label: "Dailymotion" },
+  { id: "dm", label: "Dailymotion (Wiedergabe oft gesperrt)" },
 ];
 /* Suchwort fürs Jahrzehnt bei YouTube, z. B. "Tatort 80er" */
 const YT_HINT = { "70": "70er", "80": "80er", "90": "90er", "00": "2000er", "10": "2010er" };
@@ -194,7 +194,7 @@ const store = {
 };
 const state = {
   decade: store.get("decade", "80"), chan: store.get("chan", 0), lang: store.get("lang", "de"),
-  sources: store.get("sources", { mt: true, ia: true, dm: true, yt: true }),
+  sources: store.get("sources2", { mt: true, ia: true, dm: false, yt: true }),
   strict: store.get("strict", true), ytkey: store.get("ytkey", ""),
   on: false, live: true, pIndex: 0, items: [], playingKey: null, loadToken: 0,
 };
@@ -468,7 +468,7 @@ function renderControls() {
   chips($("langs"), LANGS, l => l.id === state.lang, l => { state.lang = l.id; store.set("lang", l.id); switchTo(); });
   $("sources").innerHTML = SOURCES.map(s => `<label><input type="checkbox" data-s="${s.id}" ${state.sources[s.id] ? "checked" : ""}> ${s.label}</label>`).join("");
 }
-$("sources").onchange = e => { const s = e.target.dataset.s; if (!s) return; state.sources[s] = e.target.checked; store.set("sources", state.sources); switchTo(); };
+$("sources").onchange = e => { const s = e.target.dataset.s; if (!s) return; state.sources[s] = e.target.checked; store.set("sources2", state.sources); switchTo(); };
 $("strict").checked = state.strict;
 $("strict").onchange = e => { state.strict = e.target.checked; store.set("strict", state.strict); switchTo(); };
 $("ytkey").value = state.ytkey;
