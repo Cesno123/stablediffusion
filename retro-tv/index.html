@@ -79,6 +79,12 @@
   tr.cur td { background: #2c251d; }
   details summary { cursor: pointer; font-weight: 700; font-size: 18px; }
   #status { color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .keyrow { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .keyrow input { margin-top: 0; min-width: 0; flex: 1; }
+  .keyrow .plain { margin-top: 0; white-space: nowrap; }
+  .keymsg { margin: 8px 0 0; font-weight: 600; }
+  .keymsg.good { color: var(--on); }
+  .keymsg.bad { color: #ff7a6b; }
   .plain { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
            padding: 9px 14px; font: inherit; cursor: pointer; margin-top: 8px; }
 </style>
@@ -129,7 +135,11 @@
     <h3>QUELLEN</h3>
     <div class="checks" id="sources"></div>
     <label class="checks" style="margin-top:10px;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="strict" style="flex:none"> Nur Sendungen mit passender Jahreszahl (sonst auch ohne Jahresangabe)</label>
-    <input type="text" id="ytkey" placeholder="Eigener YouTube-API-Schlüssel (optional)" autocomplete="off">
+    <div class="keyrow">
+      <input type="text" id="ytkey" placeholder="YouTube-API-Schlüssel hier einfügen" autocomplete="off" spellcheck="false">
+      <button id="ytsave" class="plain">Speichern &amp; prüfen</button>
+    </div>
+    <p id="ytmsg" class="keymsg"></p>
     <p class="hint">Der Schlüssel bleibt nur in diesem Browser gespeichert. Ohne Schlüssel wird YouTube übersprungen.</p>
   </div>
 
@@ -472,7 +482,30 @@ $("sources").onchange = e => { const s = e.target.dataset.s; if (!s) return; sta
 $("strict").checked = state.strict;
 $("strict").onchange = e => { state.strict = e.target.checked; store.set("strict", state.strict); switchTo(); };
 $("ytkey").value = state.ytkey;
-$("ytkey").onchange = e => { state.ytkey = e.target.value.trim(); store.set("ytkey", state.ytkey); switchTo(); };
+function ytMsg(text, cls) { $("ytmsg").textContent = text; $("ytmsg").className = "keymsg " + (cls || ""); }
+if (state.ytkey) ytMsg("✓ Schlüssel gespeichert – YouTube ist aktiv.", "good");
+/* Prüft den Schlüssel mit einer Abfrage, die nur 1 Einheit Kontingent kostet. */
+async function saveKey() {
+  const k = $("ytkey").value.trim();
+  if (!k) { state.ytkey = ""; store.set("ytkey", ""); ytMsg("Schlüssel entfernt – YouTube wird übersprungen."); switchTo(); return; }
+  ytMsg("Prüfe Schlüssel …");
+  try {
+    await getJson("https://www.googleapis.com/youtube/v3/videos?part=id&id=jNQXAC9IVRw&key=" + encodeURIComponent(k));
+    state.ytkey = k; store.set("ytkey", k);
+    if (!state.sources.yt) { state.sources.yt = true; store.set("sources2", state.sources); renderControls(); }
+    ytMsg("✓ Schlüssel funktioniert und ist gespeichert – YouTube ist aktiv.", "good");
+    switchTo(true);
+  } catch (e) {
+    const r = e.reason || "";
+    ytMsg(/quota/i.test(r) ? "Schlüssel ist gültig, aber das Tageskontingent ist aufgebraucht. Morgen wieder."
+        : /referer|blocked|forbidden|ipRefererBlocked/i.test(r) ? "Schlüssel ist für diese Seite gesperrt. In der Google Cloud Console bei „Websites“ https://raw.githack.com/* eintragen."
+        : /accessNotConfigured|disabled/i.test(r) ? "„YouTube Data API v3“ ist für dieses Projekt nicht aktiviert. In der Google Cloud Console unter „APIs & Dienste → Bibliothek“ aktivieren."
+        : e.status === 400 ? "Schlüssel ungültig. Bitte vollständig kopieren (beginnt meist mit „AIza“)."
+        : "Prüfung fehlgeschlagen (" + (e.status || "keine Verbindung") + (r ? ", " + r : "") + ").", "bad");
+  }
+}
+$("ytsave").onclick = saveKey;
+$("ytkey").onkeydown = e => { if (e.key === "Enter") saveKey(); };
 
 function switchTo(force) { state.live = true; state.items = []; state.playingKey = null; refresh(); loadChannel(force); }
 function setChan(i) { state.chan = (i + CHANNELS.length) % CHANNELS.length; store.set("chan", state.chan); renderControls(); switchTo(); }
