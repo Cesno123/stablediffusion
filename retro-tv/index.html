@@ -6,300 +6,484 @@
 <title>Röhrenkiste</title>
 <style>
   :root {
-    --bg: #101418; --panel: #1b232b; --line: #33414f;
-    --text: #e8e2d0; --muted: #9aa5ae; --accent: #e8a33d; --live: #d9483b;
+    --bg: #15120f; --panel: #221d18; --line: #3a322a; --text: #ece3d3; --muted: #a39684;
+    --accent: #e3a548; --on: #7fe08a; --led: #ff3b2f; --tv: #2b2e33; --key: #d9d6cf; --keytext: #222;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
-         font: 16px/1.4 "Courier New", ui-monospace, monospace; }
-  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px;
-           background: var(--panel); border-bottom: 2px solid var(--accent); }
-  header h1 { font-size: 20px; margin: 0; letter-spacing: 2px; color: var(--accent); }
-  #clock { margin-left: auto; font-size: 18px; }
-  .bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; }
-  button { background: var(--panel); color: var(--text); border: 2px solid var(--line);
-           font: inherit; padding: 8px 14px; cursor: pointer; }
-  button:active { border-color: var(--accent); }
-  #chnum { font-size: 28px; min-width: 70px; text-align: center; }
-  #chname { color: var(--accent); }
-  .live { color: var(--live); font-weight: bold; }
-  #screen { position: relative; background: #000; aspect-ratio: 16/9; width: 100%;
-            max-width: 960px; margin: 0 auto; overflow: hidden; }
-  #screen video, #screen iframe { width: 100%; height: 100%; border: 0; display: block; }
-  #testbild { position: absolute; inset: 0; display: none; place-items: center; text-align: center;
-              background: repeating-linear-gradient(90deg,#c0c0c0 0 12.5%,#c0c000 0 25%,#00c0c0 0 37.5%,
-              #00c000 0 50%,#c000c0 0 62.5%,#c00000 0 75%,#0000c0 0 87.5%,#000 0 100%); }
-  #testbild div { background: #000c; padding: 12px 18px; max-width: 85%; }
-  main { max-width: 960px; margin: 0 auto; padding: 0 16px 40px; }
-  #info h2 { margin: 14px 0 4px; font-size: 20px; color: var(--accent); }
-  #info p { margin: 4px 0; color: var(--muted); }
-  progress { width: 100%; height: 10px; accent-color: var(--accent); }
-  h3 { border-top: 1px solid var(--line); padding-top: 12px; color: var(--accent); }
+         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 12px 16px 60px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; padding: 8px 0 14px; }
+  header h1 { margin: 0; font: 700 30px/1 "Courier New", monospace; letter-spacing: 6px; color: var(--accent); }
+  #clock { font: 22px "Courier New", monospace; color: var(--muted); }
+
+  .tv { background: var(--tv); border-radius: 22px; padding: 18px; box-shadow: 0 8px 30px #0008; }
+  .bezel { background: #b9bcc0; border-radius: 18px; padding: 8px; }
+  #screen { position: relative; background: #000; border-radius: 26px / 20px; aspect-ratio: 4/3;
+            overflow: hidden; }
+  #screen video, #screen iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
+            object-fit: contain; background: #000; }
+  #screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+            background: repeating-linear-gradient(0deg, #0000 0 2px, #0000001f 2px 3px);
+            box-shadow: inset 0 0 60px #000a; }
+  #osd { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; z-index: 2;
+         padding: 20px; font: 20px/1.4 "Courier New", monospace; color: var(--on); background: #000; }
+  #osd.bars { color: #fff; background: linear-gradient(90deg,#c0c0c0 0 14.3%,#c0c000 0 28.6%,#00c0c0 0 42.9%,
+            #00c000 0 57.1%,#c000c0 0 71.4%,#c00000 0 85.7%,#0000c0 0 100%); }
+  #osd.bars span { background: #000c; padding: 10px 14px; }
+  #osd[hidden] { display: none; }
+  .plate { display: flex; justify-content: space-between; align-items: center; margin: 14px 4px; }
+  .plate small { display: block; letter-spacing: 3px; font-size: 12px; color: #ccc; }
+  .plate small + small { color: #888; letter-spacing: 2px; }
+  #led { background: #1a0705; color: var(--led); font: 30px "Courier New", monospace; padding: 4px 14px;
+         border-radius: 6px; min-width: 96px; text-align: right; text-shadow: 0 0 8px #ff3b2f88; }
+  #led.live::before { content: "● "; font-size: 16px; vertical-align: middle; }
+  .grille { height: 26px; border-radius: 6px; margin: 0 4px 14px;
+            background: repeating-linear-gradient(90deg, #111 0 4px, #3a3d42 4px 7px); }
+  .keys { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; background: #111; padding: 8px;
+          border-radius: 10px; }
+  .keys button { background: linear-gradient(#f2f0ec, var(--key)); color: var(--keytext); border: 0;
+          border-radius: 6px; padding: 14px 4px; font: 700 18px system-ui, sans-serif; cursor: pointer;
+          box-shadow: 0 3px 0 #777; }
+  .keys button:active { transform: translateY(2px); box-shadow: 0 1px 0 #777; }
+  .keys .wide { grid-column: span 2; }
+  .keys .power { color: #b0281c; }
+  .keys .power.on { color: #1d7a2c; }
+  .keys .live { background: linear-gradient(#f3d77a, #d9b04a); }
+  .keys .star.on { background: linear-gradient(#e2574a, #b33024); color: #fff; }
+  .keys button:focus-visible, .chip:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  #now h2 { margin: 18px 0 2px; font-size: 22px; }
+  #now p { margin: 2px 0; color: var(--muted); }
+  progress { width: 100%; height: 8px; accent-color: var(--accent); margin-top: 6px; }
+
+  .box { border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; margin-top: 18px; }
+  .box h3 { margin: 14px 0 8px; font-size: 13px; letter-spacing: 3px; color: var(--muted); font-weight: 500; }
+  .box h3:first-child { margin-top: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 999px;
+          padding: 9px 16px; font: inherit; cursor: pointer; }
+  .chip.on { background: var(--accent); color: #1b1408; border-color: var(--accent); font-weight: 700; }
+  .checks { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+  .checks label { display: flex; gap: 8px; align-items: center; }
+  .checks input { width: 20px; height: 20px; accent-color: #6b8cff; }
+  input[type=text] { width: 100%; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+          border-radius: 8px; padding: 9px; font: inherit; margin-top: 6px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
   table { width: 100%; border-collapse: collapse; }
-  td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  td.t { white-space: nowrap; color: var(--accent); width: 80px; }
-  tr.ch { cursor: pointer; }
-  tr.ch.on td { background: #2a3540; }
-  #status { color: var(--muted); font-size: 13px; }
+  td { padding: 7px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.t { white-space: nowrap; color: var(--accent); width: 62px; font-variant-numeric: tabular-nums; }
+  td.s { color: var(--muted); font-size: 12px; white-space: nowrap; text-align: right; }
+  tr.cur td { background: #2c251d; }
+  details summary { cursor: pointer; font-weight: 700; font-size: 18px; }
+  #status { color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .plain { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+           padding: 9px 14px; font: inherit; cursor: pointer; margin-top: 8px; }
 </style>
 </head>
 <body>
-<header>
-  <h1>RÖHRENKISTE</h1>
-  <span id="clock">--:--</span>
-</header>
+<div class="wrap">
+  <header><h1>RÖHRENKISTE</h1><span id="clock">--:--</span></header>
 
-<div class="bar">
-  <button id="down" aria-label="Kanal runter">▼</button>
-  <span id="chnum">01</span>
-  <button id="up" aria-label="Kanal hoch">▲</button>
-  <span class="live">● LIVE</span>
-  <span id="chname"></span>
-</div>
+  <div class="tv">
+    <div class="bezel">
+      <div id="screen">
+        <div id="player"></div>
+        <div id="osd">Jahrzehnt und Kanal wählen, dann AN tippen</div>
+      </div>
+    </div>
+    <div class="plate">
+      <div><small>STEREO COLOR</small><small>66 cm · PAL</small></div>
+      <div id="led">01</div>
+    </div>
+    <div class="grille"></div>
+    <div class="keys">
+      <button id="prev" title="Vorherige Sendung">⏮</button>
+      <button id="next" title="Nächste Sendung">⏭</button>
+      <button id="chdown" title="Kanal runter">CH−</button>
+      <button id="power" class="power" title="Einschalten">AN</button>
+      <button id="chup" title="Kanal hoch">CH+</button>
+      <button id="full" title="Vollbild">⛶</button>
+      <button id="live" class="live wide" title="Zurück zum laufenden Programm">LIVE</button>
+      <button id="reloadKey" class="wide" title="Sendungen neu suchen">NEU SUCHEN</button>
+      <button id="star" class="star wide" title="Sendung merken">☆ MERKEN</button>
+    </div>
+  </div>
 
-<div id="screen">
-  <div id="player"></div>
-  <div id="testbild"><div id="testtext">Sendepause</div></div>
-</div>
-
-<main>
-  <section id="info">
-    <h2 id="title">–</h2>
-    <p id="meta"></p>
+  <section id="now">
+    <h2 id="title">Kein Programm</h2>
+    <p id="meta">Bereit</p>
     <progress id="prog" value="0" max="1"></progress>
-    <p id="desc"></p>
   </section>
 
-  <h3>Gleich im Anschluss</h3>
-  <table id="next"></table>
+  <div class="box">
+    <h3>JAHRZEHNT</h3>
+    <div class="chips" id="decades"></div>
+    <h3>KANAL</h3>
+    <div class="chips" id="chans"></div>
+    <h3>SPRACHE</h3>
+    <div class="chips" id="langs"></div>
+    <h3>QUELLEN</h3>
+    <div class="checks" id="sources"></div>
+    <label class="checks" style="margin-top:10px;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="strict" style="flex:none"> Nur Sendungen mit passender Jahreszahl (sonst auch ohne Jahresangabe)</label>
+    <input type="text" id="ytkey" placeholder="Eigener YouTube-API-Schlüssel (optional)" autocomplete="off">
+    <p class="hint">Ohne Schlüssel wird YouTube übersprungen. Ein Schlüssel ist kostenlos über die Google Cloud Console erhältlich.</p>
+  </div>
 
-  <h3>Programmübersicht</h3>
-  <table id="guide"></table>
+  <div class="box">
+    <details open>
+      <summary>Programm dieses Kanals</summary>
+      <table id="guide"></table>
+    </details>
+  </div>
 
   <p id="status"></p>
-  <button id="reload">Sendungen neu laden</button>
-</main>
+</div>
 
-<!-- Optional: von build_channels.py erzeugt. Fehlt die Datei, lädt die Seite selbst. -->
-<script src="channels.js" onerror="void 0"></script>
 <script>
-/* ===================== KANÄLE – HIER ANPASSEN =====================
-   Jeder Kanal = eine Suche in den öffentlich-rechtlichen Mediatheken
-   (über die Suchmaschine mediathekviewweb.de).
-   query:   Suchbegriffe (Thema oder Titel). "|" = mehrere Suchen kombiniert.
-   minMin:  nur Sendungen ab dieser Länge (Minuten) – filtert Trailer/Schnipsel.
-   items:   alternativ feste Liste: [{title, url, duration (Sek.), year, desc}]
-            url = .mp4-Link ODER "yt:VIDEO_ID" für ein YouTube-Video.
-   Die Suchbegriffe unten sind Startpunkte, keine geprüfte Auswahl.     */
-const CHANNEL_DEFS = [
-  { name: "ARD Retro",          query: "ARD Retro|Retro",               minMin: 5  },
-  { name: "Zeitgeschichte",     query: "Zeitreise|Damals|Archivschätze", minMin: 10 },
-  { name: "DDR-Fernsehen",      query: "DDR-Fernsehen|DFF|Ostalgie",      minMin: 10 },
-  { name: "Krimi-Klassiker",    query: "Stahlnetz|Der Kommissar|Polizeiruf 110", minMin: 40 },
-  { name: "Kinderprogramm",     query: "Sandmännchen|Augsburger Puppenkiste|Löwenzahn", minMin: 5 },
+/* ======================= EINSTELLUNGEN =======================
+   Kanäle = Suchbegriffe ("|" trennt). Die Suche läuft pro Jahrzehnt.
+   Viele Kanäle passen nur zu bestimmten Jahrzehnten (Privatfernsehen ab 1984,
+   VIVA ab 1993, DDR bis 1990) – leere Kanäle zeigen „Sendepause“.            */
+const DECADES = [
+  { id: "70", label: "70er", from: 1970, to: 1979 },
+  { id: "80", label: "80er", from: 1980, to: 1989 },
+  { id: "90", label: "90er", from: 1990, to: 1999 },
+  { id: "00", label: "00er", from: 2000, to: 2009 },
+  { id: "10", label: "10er", from: 2010, to: 2015 },
 ];
-/* ================================================================== */
+const CHANNELS = [
+  { name: "Hitparade & Musik", q: "ZDF Hitparade|Formel Eins|Musikladen|Disco Ilja Richter|Peters Pop Show|Bravo TV|Top of the Pops" },
+  { name: "Krimi",             q: "Tatort|Derrick|Der Alte|Polizeiruf 110|Ein Fall für zwei|SOKO 5113|Schimanski|Der Fahnder" },
+  { name: "Familienserien",    q: "Lindenstraße|Schwarzwaldklinik|Traumschiff|Diese Drombuschs|Ein Herz und eine Seele|Forsthaus Falkenau|Marienhof|Gute Zeiten schlechte Zeiten" },
+  { name: "Samstagabend-Show", q: "Wetten dass|Dalli Dalli|Am laufenden Band|Der große Preis|Verstehen Sie Spaß|Geld oder Liebe|Herzblatt|Schlag den Raab" },
+  { name: "Comedy",            q: "Loriot|Otto Show|Klimbim|Harald Schmidt Show|RTL Samstag Nacht|Switch|Sketchup|Ladykracher" },
+  { name: "Kinder-TV",         q: "Sesamstraße|Sendung mit der Maus|Löwenzahn|Pumuckl|Augsburger Puppenkiste|Siebenstein|Hallo Spencer|Tigerenten Club" },
+  { name: "Nachrichten",       q: "Tagesschau|Tagesthemen|heute journal|Aktuelle Kamera|RTL aktuell|Tagesschau vom" },
+  { name: "Werbung & Ansagen", q: "Werbung|Werbeblock|Fernsehwerbung|Programmansage|Sendeschluss|Mainzelmännchen" },
+  { name: "Sport",             q: "Sportschau|aktuelle Sportstudio|ran Sat.1|Bundesliga Zusammenfassung|Formel 1 RTL|Boris Becker Wimbledon" },
+  { name: "DDR-Fernsehen",     q: "DDR Fernsehen|Ein Kessel Buntes|Aktuelle Kamera|Sandmännchen DDR|Rund DDR|Das Spielhaus" },
+  { name: "Zeitgeschichte",    q: "Dokumentation Deutschland|Mauerfall|Wiedervereinigung|Deutscher Herbst|Reportage Zeitgeschichte" },
+  { name: "Privatfernsehen",   q: "RTL plus|Tutti Frutti|Glücksrad|Der Preis ist heiß|Explosiv|Arabella|Hans Meiser|Bärbel Schäfer" },
+  { name: "Musiksender",       q: "VIVA|VIVA Zwei|MTV Germany|Interaktiv VIVA|Wah Wah|MTV Hot" },
+  { name: "VHS-Mitschnitte",   q: "VHS Mitschnitt|TV Mitschnitt|Fernsehmitschnitt|Werbepause VHS" },
+  { name: "Gemerkt",           fav: true },
+];
+const LANGS = [ { id: "de", label: "Deutsch" }, { id: "all", label: "Alle Sprachen" } ];
+const SOURCES = [
+  { id: "mt", label: "ARD/ZDF-Mediatheken" },
+  { id: "ia", label: "Internet Archive" },
+  { id: "dm", label: "Dailymotion" },
+  { id: "yt", label: "YouTube (Schlüssel nötig)" },
+];
+const DEFAULT_MIN = 30;            // geschätzte Länge, wenn eine Quelle keine Dauer liefert
+const EPOCH = Date.UTC(2020, 0, 1) / 1000;
+const CACHE_HOURS = 24;
+/* ============================================================ */
 
-const API = "https://mediathekviewweb.de/api/query";
-const CACHE_KEY = "roehrenkiste-v1";
-const EPOCH = Date.UTC(2020, 0, 1) / 1000;   // fester Startpunkt aller Sendepläne
 const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("rk2-" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("rk2-" + k, JSON.stringify(v)); } catch (e) {} },
+};
+const state = {
+  decade: store.get("decade", "80"), chan: store.get("chan", 0), lang: store.get("lang", "de"),
+  sources: store.get("sources", { mt: true, ia: true, dm: true, yt: true }),
+  strict: store.get("strict", true), ytkey: store.get("ytkey", ""),
+  on: false, live: true, pIndex: 0, items: [], playingKey: null, loadToken: 0,
+};
+const favs = () => store.get("favs", []);
 
-let channels = [];      // [{name, items:[{title,url,duration,year,desc}]}]
-let current = 0;
-let playingKey = null;
-
-/* ---------- Sendungen laden ---------- */
-async function searchMediathek(q, minMin) {
-  const body = {
-    queries: [{ fields: ["topic", "title"], query: q }],
-    sortBy: "timestamp", sortOrder: "asc", future: false,
-    duration_min: minMin * 60, offset: 0, size: 200,
-  };
-  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain" },
-                               body: JSON.stringify(body) });
-  const j = await r.json();
-  if (j.err) throw new Error(String(j.err));
-  return j.result.results.map(x => ({
-    title: (x.topic && x.topic !== x.title ? x.topic + ": " : "") + x.title,
-    url: (x.url_video_hd || x.url_video || "").replace(/^http:/, "https:"),
-    duration: x.duration,
-    year: x.timestamp ? new Date(x.timestamp * 1000).getFullYear() : "",
-    desc: (x.channel || "") + " · " + (x.description || ""),
-  })).filter(x => x.url && x.duration > 0 && !/\.m3u8/.test(x.url));
-}
-
-async function loadFromApi() {
-  const out = [];
-  for (const def of CHANNEL_DEFS) {
-    if (def.items) { out.push({ name: def.name, items: def.items }); continue; }
-    const seen = new Set(), items = [];
-    for (const q of def.query.split("|")) {
-      try {
-        for (const it of await searchMediathek(q.trim(), def.minMin || 0))
-          if (!seen.has(it.url)) { seen.add(it.url); items.push(it); }
-      } catch (e) { console.warn("Suche fehlgeschlagen:", q, e); }
-    }
-    out.push({ name: def.name, items });
-  }
-  return out;
-}
-
-async function loadChannels(force) {
-  if (!force) {
-    try {
-      const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-      if (c && Date.now() - c.at < 24 * 3600e3 && c.channels.some(ch => ch.items.length))
-        return [c.channels, "aus Zwischenspeicher (" + new Date(c.at).toLocaleString("de-DE") + ")"];
-    } catch (e) {}
-  }
-  try {
-    const ch = await loadFromApi();
-    if (ch.some(c => c.items.length)) {
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), channels: ch })); } catch (e) {}
-      return [ch, "live aus den Mediatheken geladen"];
-    }
-  } catch (e) { console.warn(e); }
-  if (window.CHANNELS) return [window.CHANNELS, "aus channels.js"];
-  return [CHANNEL_DEFS.map(d => ({ name: d.name, items: d.items || [] })),
-          "Keine Sendungen gefunden. Läuft build_channels.py, oder blockiert der Browser die Mediathek-Suche?"];
-}
-
-/* ---------- Sendeplan: "Was läuft gerade?" ----------
-   Jeder Kanal ist eine Endlosschleife seiner Sendungen in fester, gemischter
-   Reihenfolge. Aus (jetzt − EPOCH) modulo Schleifenlänge folgt Sendung + Sekunde.
-   Dadurch sieht jedes Gerät zur selben Zeit dasselbe – ohne Server.          */
-function shuffled(items, seed) {
-  const a = items.slice();
-  let s = seed * 9301 + 49297;
-  for (let i = a.length - 1; i > 0; i--) {
-    s = (s * 9301 + 49297) % 233280;
-    const j = Math.floor(s / 233280 * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function scheduleAt(ch, idx, t) {
-  const list = ch._order || (ch._order = shuffled(ch.items, idx + 1));
-  if (!list.length) return null;
-  const total = list.reduce((s, x) => s + x.duration, 0);
-  let pos = ((t - EPOCH) % total + total) % total;
-  let i = 0;
-  while (pos >= list[i].duration) { pos -= list[i].duration; i++; }
-  return { list, i, offset: pos, startedAt: t - pos };
-}
-
-function upcoming(ch, idx, t, n) {
-  const s = scheduleAt(ch, idx, t);
-  if (!s) return [];
-  const out = [];
-  let start = s.startedAt;
-  for (let k = 0; k < n; k++) {
-    const it = s.list[(s.i + k) % s.list.length];
-    out.push({ it, start });
-    start += it.duration;
-  }
-  return out;
-}
-
-/* ---------- Abspielen ---------- */
+/* ---------- Hilfsfunktionen ---------- */
 const now = () => Date.now() / 1000;
 const hhmm = t => new Date(t * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-const mmss = s => { s = Math.floor(s); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const dec = () => DECADES.find(d => d.id === state.decade) || DECADES[1];
+const srcName = { mt: "Mediathek", ia: "Internet Archive", dm: "Dailymotion", yt: "YouTube" };
 
-function testbild(text, keepKey) {
-  $("player").innerHTML = "";
-  $("testtext").textContent = text;
-  $("testbild").style.display = "grid";
-  if (!keepKey) playingKey = null;   // keepKey: kaputte Sendung nicht jede Sekunde neu laden
+function yearsIn(text) { return (String(text).match(/\b(19[5-9]\d|20[0-2]\d)\b/g) || []).map(Number); }
+/* Jahr eines Treffers: echtes Jahr (Archive) oder Jahreszahl im Titel/Text.
+   Ergebnis: Jahr innerhalb des Jahrzehnts, null (unbekannt) oder false (passt nicht). */
+function fitYear(item, d) {
+  if (item.year) return item.year >= d.from && item.year <= d.to ? item.year : false;
+  const ys = yearsIn(item.title + " " + (item.desc || "").slice(0, 300));
+  if (!ys.length) return null;
+  const hit = ys.find(y => y >= d.from && y <= d.to);
+  return hit || false;
+}
+function parseIso(d) {   // PT1H2M3S → Sekunden
+  const m = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(d || ""); if (!m) return 0;
+  return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);
+}
+function parseRuntime(r) {  // "00:23:45", "23:45", "23 min", "1380"
+  if (!r) return 0; r = String(Array.isArray(r) ? r[0] : r);
+  if (/^\d+(:\d+){1,2}$/.test(r.trim())) return r.trim().split(":").reduce((a, b) => a * 60 + +b, 0);
+  const m = /(\d+)\s*(min|minutes|minuten)/i.exec(r); if (m) return +m[1] * 60;
+  return /^\d+(\.\d+)?$/.test(r.trim()) ? Math.round(+r) : 0;
+}
+async function getJson(url, opt) {
+  const r = await fetch(url, opt); if (!r.ok) throw new Error(r.status + " " + url.split("?")[0]);
+  return r.json();
 }
 
-function tune() {
-  const ch = channels[current];
-  $("chnum").textContent = String(current + 1).padStart(2, "0");
-  $("chname").textContent = ch ? ch.name : "";
-  const s = ch && scheduleAt(ch, current, now());
-  if (!s) { testbild("Sendepause – auf diesem Kanal wurden keine Sendungen gefunden."); renderInfo(); return; }
-  const it = s.list[s.i];
-  const key = current + "|" + it.url + "|" + s.startedAt;
-  if (key !== playingKey) {
-    playingKey = key;
-    $("testbild").style.display = "none";
-    const start = Math.floor(s.offset);
-    if (it.url.startsWith("yt:")) {
-      $("player").innerHTML = `<iframe allow="autoplay; fullscreen" allowfullscreen
-        src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(it.url.slice(3))}?autoplay=1&start=${start}"></iframe>`;
-    } else {
-      const v = document.createElement("video");
-      v.controls = true; v.autoplay = true; v.playsInline = true;
-      v.src = it.url + "#t=" + start;
-      v.onerror = () => testbild("Bildstörung – diese Sendung ist nicht mehr abrufbar (evtl. depubliziert). Weiter mit der nächsten Sendung oder anderem Kanal.", true);
-      v.onended = () => { playingKey = null; tune(); };
-      $("player").innerHTML = ""; $("player").appendChild(v);
-      v.play().catch(() => {});   // Autoplay mit Ton blockiert? Dann einmal auf Play tippen.
+/* ---------- Quellen ---------- */
+async function searchMediathek(term) {
+  const j = await getJson("https://mediathekviewweb.de/api/query", { method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ queries: [{ fields: ["topic", "title"], query: term }], sortBy: "timestamp",
+      sortOrder: "asc", future: false, duration_min: 120, offset: 0, size: 100 }) });
+  return (j.result?.results || []).map(x => ({
+    src: "mt", id: x.id || x.url_video, title: (x.topic && x.topic !== x.title ? x.topic + ": " : "") + x.title,
+    desc: (x.channel || "") + " · " + (x.description || ""), duration: x.duration,
+    url: (x.url_video_hd || x.url_video || "").replace(/^http:/, "https:"),
+  })).filter(x => x.url && !/\.m3u8/.test(x.url));
+}
+async function searchArchive(terms, d) {
+  const q = "(" + terms.map(t => `"${t.replace(/"/g, "")}"`).join(" OR ") + ")" +
+    ` AND mediatype:movies AND year:[${d.from} TO ${d.to}]` +
+    (state.lang === "de" ? " AND (language:ger OR language:German OR language:deu OR language:Deutsch)" : "");
+  const url = "https://archive.org/advancedsearch.php?q=" + encodeURIComponent(q) +
+    "&fl[]=identifier&fl[]=title&fl[]=year&fl[]=runtime&fl[]=description&rows=150&output=json";
+  const j = await getJson(url);
+  return (j.response?.docs || []).map(x => ({
+    src: "ia", id: x.identifier, title: Array.isArray(x.title) ? x.title[0] : x.title,
+    desc: String(Array.isArray(x.description) ? x.description[0] : x.description || "").replace(/<[^>]+>/g, ""),
+    year: +x.year || 0, duration: parseRuntime(x.runtime),
+  }));
+}
+async function searchDailymotion(term) {
+  const url = "https://api.dailymotion.com/videos?fields=id,title,duration,description&limit=50&search=" +
+    encodeURIComponent(term) + (state.lang === "de" ? "&languages=de" : "");
+  const j = await getJson(url);
+  return (j.list || []).map(x => ({ src: "dm", id: x.id, title: x.title, desc: x.description || "", duration: x.duration }));
+}
+async function searchYouTube(term) {
+  const k = encodeURIComponent(state.ytkey);
+  const s = await getJson("https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true" +
+    "&maxResults=50&q=" + encodeURIComponent(term) + (state.lang === "de" ? "&relevanceLanguage=de" : "") + "&key=" + k);
+  const ids = (s.items || []).map(i => i.id.videoId).filter(Boolean);
+  if (!ids.length) return [];
+  const v = await getJson("https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=" + ids.join(",") + "&key=" + k);
+  return (v.items || []).map(x => ({ src: "yt", id: x.id, title: x.snippet.title,
+    desc: x.snippet.description || "", duration: parseIso(x.contentDetails.duration) }));
+}
+
+async function collect(ch, d) {
+  if (ch.fav) return { items: favs(), note: "deine gemerkten Sendungen" };
+  const terms = ch.q.split("|").map(s => s.trim()).filter(Boolean);
+  const jobs = [], failed = new Set();
+  const run = (src, p) => jobs.push(p.catch(e => { console.warn(src, e); failed.add(srcName[src]); return []; }));
+  if (state.sources.ia) run("ia", searchArchive(terms, d));
+  for (const t of terms) {
+    if (state.sources.mt) run("mt", searchMediathek(t));
+    if (state.sources.dm) run("dm", searchDailymotion(t));
+  }
+  if (state.sources.yt && state.ytkey) for (const t of terms.slice(0, 4)) run("yt", searchYouTube(t));
+  const all = (await Promise.all(jobs)).flat();
+
+  const seen = new Set(), matched = [], unknown = [];
+  for (const it of all) {
+    const key = it.src + ":" + it.id; if (seen.has(key)) continue; seen.add(key);
+    if (it.duration && it.duration < 60) continue;           // Schnipsel aussortieren
+    const y = fitYear(it, d);
+    if (y === false) continue;
+    if (y) matched.push({ ...it, year: y }); else unknown.push(it);
+  }
+  let items = matched, note = `${matched.length} mit passender Jahreszahl`;
+  if (!state.strict || matched.length < 5) {
+    items = matched.concat(unknown);
+    note += `, ${unknown.length} ohne Jahresangabe` + (state.strict ? " (ergänzt, weil zu wenig Treffer)" : "");
+  }
+  for (const it of items) { it.est = !it.duration; it.duration = it.duration || DEFAULT_MIN * 60; }
+  if (failed.size) note += ` · nicht erreichbar: ${[...failed].join(", ")}`;
+  if (state.sources.yt && !state.ytkey) note += " · YouTube übersprungen (kein Schlüssel)";
+  return { items, note };
+}
+
+async function loadChannel(force) {
+  const ch = CHANNELS[state.chan], d = dec();
+  const cacheKey = "c-" + [d.id, state.chan, state.lang, state.strict, Object.keys(state.sources).filter(k => state.sources[k]).join(""), !!state.ytkey].join("-");
+  const token = ++state.loadToken;
+  state.loading = true;
+  let data = !force && !ch.fav && store.get(cacheKey, null);
+  if (data && Date.now() - data.at > CACHE_HOURS * 3600e3) data = null;
+  if (!data) {
+    $("status").textContent = `Suche „${ch.name}“ in den ${d.label}n …`;
+    const r = await collect(ch, d);
+    data = { at: Date.now(), ...r };
+    if (!ch.fav && r.items.length) store.set(cacheKey, data);
+  }
+  if (token !== state.loadToken) return;          // inzwischen umgeschaltet
+  state.loading = false;
+  state.items = shuffled(data.items, +d.id * 100 + state.chan + 1);
+  state.pIndex = 0; state.playingKey = null;
+  $("status").textContent = `${ch.name} · ${d.label}: ${data.items.length} Sendungen (${data.note})`;
+  refresh();
+}
+
+/* ---------- Sendeplan ----------
+   Endlosschleife in fester Reihenfolge; die Uhr bestimmt Sendung + Sekunde.
+   Bei geschätzter Dauer kann eine Sendung früher enden – dann läuft bis zum
+   nächsten Sendeplatz ein Pausenbild, wie früher im Fernsehen.               */
+function shuffled(items, seed) {
+  const a = items.slice(); let s = seed;
+  for (let i = a.length - 1; i > 0; i--) { s = (s * 9301 + 49297) % 233280; const j = Math.floor(s / 233280 * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function liveAt(t) {
+  const L = state.items; if (!L.length) return null;
+  const total = L.reduce((s, x) => s + x.duration, 0);
+  let pos = ((t - EPOCH) % total + total) % total, i = 0;
+  while (pos >= L[i].duration) { pos -= L[i].duration; i++; }
+  return { i, offset: pos, start: t - pos };
+}
+
+/* ---------- Bildschirm ---------- */
+function osd(text, bars) {
+  $("osd").hidden = false; $("osd").className = bars ? "bars" : "";
+  $("osd").innerHTML = bars ? `<span>${esc(text).replace(/\n/g, "<br>")}</span>` : esc(text).replace(/\n/g, "<br>");
+}
+function clearPlayer() { $("player").innerHTML = ""; }
+
+async function play(it, offset, key) {
+  state.playingKey = key;
+  clearPlayer(); osd("Einstellen …");
+  const start = Math.max(0, Math.floor(offset));
+  try {
+    if (it.src === "yt" || it.src === "dm") {
+      const f = document.createElement("iframe");
+      f.allow = "autoplay; fullscreen; encrypted-media"; f.allowFullscreen = true;
+      f.src = it.src === "yt"
+        ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(it.id)}?autoplay=1&start=${start}&rel=0`
+        : `https://www.dailymotion.com/embed/video/${encodeURIComponent(it.id)}?autoplay=1&start=${start}`;
+      $("player").appendChild(f); $("osd").hidden = true; return;
     }
+    let url = it.url;
+    if (it.src === "ia") {
+      const m = await getJson("https://archive.org/metadata/" + encodeURIComponent(it.id));
+      const files = (m.files || []).filter(f => /\.(mp4|m4v|webm|ogv)$/i.test(f.name));
+      const f = files.find(f => /h\.264|mpeg4/i.test(f.format || "")) || files[0];
+      if (!f) throw new Error("keine abspielbare Datei");
+      url = "https://archive.org/download/" + encodeURIComponent(it.id) + "/" + f.name.split("/").map(encodeURIComponent).join("/");
+    }
+    if (state.playingKey !== key) return;
+    const v = document.createElement("video");
+    v.autoplay = true; v.playsInline = true; v.controls = true;
+    v.src = url + "#t=" + start;
+    v.onplaying = () => { $("osd").hidden = true; };
+    v.onerror = () => { clearPlayer(); osd("Bildstörung\nDiese Sendung ist nicht mehr abrufbar. ⏭ für die nächste.", true); };
+    v.onended = () => {
+      clearPlayer();
+      if (!state.live) { step(1); return; }
+      const s = liveAt(now()); const nx = s && state.items[(s.i + 1) % state.items.length];
+      osd(`Gleich im Anschluss\n${nx ? nx.title : ""}\num ${s ? hhmm(s.start + state.items[s.i].duration) : ""}`, true);
+    };
+    $("player").appendChild(v);
+    v.play().catch(() => osd("Tippe auf das Bild, um den Ton zu starten"));
+  } catch (e) {
+    console.warn(e); clearPlayer(); osd("Bildstörung\nSendung konnte nicht geladen werden. ⏭ für die nächste.", true);
   }
-  renderInfo();
 }
 
-function renderInfo() {
-  const ch = channels[current];
-  const t = now();
-  const s = ch && scheduleAt(ch, current, t);
-  if (s) {
-    const it = s.list[s.i];
-    $("title").textContent = it.title;
-    $("meta").textContent = `${hhmm(s.startedAt)} – ${hhmm(s.startedAt + it.duration)} · ${it.year || ""}`;
-    $("desc").textContent = (it.desc || "").slice(0, 400);
-    $("prog").max = it.duration; $("prog").value = s.offset;
-    $("next").innerHTML = upcoming(ch, current, t, 5).slice(1)
-      .map(u => `<tr><td class="t">${hhmm(u.start)}</td><td>${esc(u.it.title)}</td></tr>`).join("");
-  } else {
-    $("title").textContent = "–"; $("meta").textContent = ""; $("desc").textContent = "";
-    $("next").innerHTML = "";
+function current() {
+  if (!state.items.length) return null;
+  if (state.live) { const s = liveAt(now()); return { it: state.items[s.i], i: s.i, start: s.start, offset: s.offset, key: "L" + s.i + "@" + s.start }; }
+  const i = ((state.pIndex % state.items.length) + state.items.length) % state.items.length;
+  return { it: state.items[i], i, start: null, offset: 0, key: "P" + i };
+}
+
+function refresh() {
+  $("led").textContent = String(state.chan + 1).padStart(2, "0");
+  $("led").classList.toggle("live", state.on && state.live);
+  $("power").textContent = state.on ? "AUS" : "AN"; $("power").classList.toggle("on", state.on);
+  const c = current();
+  if (!state.on) { clearPlayer(); osd("Jahrzehnt und Kanal wählen, dann AN tippen"); state.playingKey = null; }
+  else if (!c && state.loading) { if (state.playingKey !== "load") { clearPlayer(); state.playingKey = "load";
+      osd(`Suche läuft …\n${CHANNELS[state.chan].name} · ${dec().label}`); } }
+  else if (!c) { if (state.playingKey !== "none") { clearPlayer(); state.playingKey = "none";
+      osd(`Sendepause\nAuf „${CHANNELS[state.chan].name}“ wurde für die ${dec().label} nichts gefunden.`, true); } }
+  else if (c.key !== state.playingKey) play(c.it, c.offset, c.key);
+
+  if (c) {
+    $("title").textContent = c.it.title;
+    const parts = [c.it.year || "Jahr unbekannt", srcName[c.it.src]];
+    if (c.start) parts.unshift(`${hhmm(c.start)} – ${hhmm(c.start + c.it.duration)}`);
+    if (!state.live) parts.unshift("Eigene Auswahl");
+    $("meta").textContent = parts.join(" · ");
+    $("prog").max = c.it.duration; $("prog").value = state.live ? c.offset : 0;
+    $("star").classList.toggle("on", favs().some(f => f.src === c.it.src && f.id === c.it.id));
+  } else { $("title").textContent = "Kein Programm"; $("meta").textContent = state.on ? "Sendepause" : "Bereit"; $("prog").value = 0; }
+  renderGuide(c);
+}
+
+function renderGuide(c) {
+  const L = state.items;
+  if (!L.length) { $("guide").innerHTML = `<tr><td>Noch nichts gefunden.</td></tr>`; return; }
+  let t = c && c.start ? c.start : null, rows = [];
+  for (let k = 0; k < Math.min(10, L.length); k++) {
+    const i = ((c ? c.i : 0) + k) % L.length, it = L[i];
+    rows.push(`<tr class="${k === 0 ? "cur" : ""}"><td class="t">${t ? hhmm(t) : k === 0 ? "jetzt" : ""}</td>
+      <td>${esc(it.title)}<br><small style="color:var(--muted)">${it.year || "Jahr ?"}${it.est ? " · Länge geschätzt" : ""}</small></td>
+      <td class="s">${srcName[it.src]}</td></tr>`);
+    if (t) t += it.duration;
   }
-  $("guide").innerHTML = channels.map((c, i) => {
-    const u = upcoming(c, i, t, 2);
-    return `<tr class="ch ${i === current ? "on" : ""}" data-i="${i}">
-      <td class="t">${String(i + 1).padStart(2, "0")}</td><td><b>${esc(c.name)}</b><br>
-      ${u[0] ? "Jetzt: " + esc(u[0].it.title) : "<i>Sendepause</i>"}
-      ${u[1] ? "<br>" + hhmm(u[1].start) + ": " + esc(u[1].it.title) : ""}</td></tr>`;
-  }).join("");
+  $("guide").innerHTML = rows.join("");
 }
 
-function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
-
-function setChannel(i) {
-  current = (i + channels.length) % channels.length;
-  try { localStorage.setItem(CACHE_KEY + "-ch", current); } catch (e) {}
-  playingKey = null; tune();
+/* ---------- Bedienung ---------- */
+function chips(el, list, isOn, onPick) {
+  el.innerHTML = "";
+  list.forEach((x, i) => {
+    const b = document.createElement("button"); b.className = "chip" + (isOn(x, i) ? " on" : "");
+    b.textContent = x.label; b.onclick = () => { onPick(x, i); renderControls(); }; el.appendChild(b);
+  });
 }
+function renderControls() {
+  chips($("decades"), DECADES, d => d.id === state.decade, d => { state.decade = d.id; store.set("decade", d.id); switchTo(); });
+  chips($("chans"), CHANNELS.map((c, i) => ({ label: `${i + 1} ${c.name}` })), (_, i) => i === state.chan, (_, i) => setChan(i));
+  chips($("langs"), LANGS, l => l.id === state.lang, l => { state.lang = l.id; store.set("lang", l.id); switchTo(); });
+  $("sources").innerHTML = SOURCES.map(s => `<label><input type="checkbox" data-s="${s.id}" ${state.sources[s.id] ? "checked" : ""}> ${s.label}</label>`).join("");
+}
+$("sources").onchange = e => { const s = e.target.dataset.s; if (!s) return; state.sources[s] = e.target.checked; store.set("sources", state.sources); switchTo(); };
+$("strict").checked = state.strict;
+$("strict").onchange = e => { state.strict = e.target.checked; store.set("strict", state.strict); switchTo(); };
+$("ytkey").value = state.ytkey;
+$("ytkey").onchange = e => { state.ytkey = e.target.value.trim(); store.set("ytkey", state.ytkey); switchTo(); };
 
-$("up").onclick = () => setChannel(current + 1);
-$("down").onclick = () => setChannel(current - 1);
-$("guide").onclick = e => { const r = e.target.closest("tr.ch"); if (r) setChannel(+r.dataset.i); };
-$("reload").onclick = () => start(true);
+function switchTo(force) { state.live = true; state.items = []; state.playingKey = null; refresh(); loadChannel(force); }
+function setChan(i) { state.chan = (i + CHANNELS.length) % CHANNELS.length; store.set("chan", state.chan); renderControls(); switchTo(); }
+function step(n) { const c = current(); if (!c) return; state.live = false; state.pIndex = c.i + n; state.playingKey = null; refresh(); }
+
+$("power").onclick = () => { state.on = !state.on; state.playingKey = null; refresh(); };
+$("chup").onclick = () => setChan(state.chan + 1);
+$("chdown").onclick = () => setChan(state.chan - 1);
+$("next").onclick = () => step(1);
+$("prev").onclick = () => step(-1);
+$("live").onclick = () => { state.live = true; state.playingKey = null; refresh(); };
+$("reloadKey").onclick = () => switchTo(true);
+$("full").onclick = () => { const s = $("screen"); (s.requestFullscreen || s.webkitRequestFullscreen || (() => {})).call(s); };
+$("star").onclick = () => {
+  const c = current(); if (!c) return;
+  let f = favs(); const i = f.findIndex(x => x.src === c.it.src && x.id === c.it.id);
+  if (i >= 0) f.splice(i, 1); else f.push(c.it);
+  store.set("favs", f); refresh();
+};
+$("screen").onclick = e => { const v = $("player").querySelector("video"); if (v && v.paused) v.play().catch(() => {}); };
 document.addEventListener("keydown", e => {
-  if (e.key === "ArrowUp") setChannel(current + 1);
-  if (e.key === "ArrowDown") setChannel(current - 1);
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowUp") setChan(state.chan + 1);
+  if (e.key === "ArrowDown") setChan(state.chan - 1);
+  if (e.key === "ArrowRight") step(1);
+  if (e.key === "ArrowLeft") step(-1);
 });
+
 setInterval(() => {
   $("clock").textContent = new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-  if (channels.length) tune();
+  if (state.on || state.items.length) refresh();
 }, 1000);
 
-async function start(force) {
-  testbild("Einen Moment – das Programm wird geladen …");
-  $("status").textContent = "Lade Sendungen …";
-  const [ch, how] = await loadChannels(force);
-  channels = ch;
-  const count = ch.reduce((s, c) => s + c.items.length, 0);
-  $("status").textContent = `${count} Sendungen in ${ch.length} Kanälen – ${how}`;
-  try { current = Math.min(+localStorage.getItem(CACHE_KEY + "-ch") || 0, ch.length - 1); } catch (e) {}
-  playingKey = null; tune();
-}
-start(false);
+renderControls();
+switchTo();
 </script>
 </body>
 </html>

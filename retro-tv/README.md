@@ -1,23 +1,23 @@
-# Röhrenkiste – privates Retro-Fernsehen
+# Röhrenkiste – privates Retro-Fernsehen 1970–2015
 
-Ein „Live“-Fernsehprogramm aus alten Sendungen der öffentlich-rechtlichen Mediatheken
-(ARD, ZDF, MDR, rbb …), gefunden über die Suchmaschine mediathekviewweb.de.
-Kein Server und keine eigenen Videos – die Seite rechnet nur aus, was gerade „läuft“.
+Fernsehen wie früher: Jahrzehnt (70er–10er) und Kanal wählen, AN tippen, und es läuft,
+was laut Sendeplan „gerade gesendet wird“. Kein Server, keine eigenen Videos – die Seite
+sucht in ARD/ZDF-Mediatheken, Internet Archive, Dailymotion und (mit eigenem Schlüssel)
+YouTube und spielt die Treffer nach Uhrzeit ab.
 
-## Starten
-- **PC:** `index.html` im Browser öffnen.
-- **Handy:** Ordner z. B. auf GitHub Pages / Netlify Drop legen und die Adresse öffnen.
+**Öffnen:** https://raw.githack.com/Cesno123/stablediffusion/ccr-1ce6e63a-5dn7fu/retro-tv/index.html
 
-Bleibt die Seite beim Testbild „keine Sendungen gefunden“, blockiert der Browser die
-direkte Mediathek-Suche. Dann einmal am PC `python3 build_channels.py` ausführen.
-Das erzeugt `channels.js`, das die Seite automatisch nutzt.
+## Bedienung
+- **AN/AUS** schaltet ein (Handys erlauben Ton erst nach einem Tipp).
+- **CH− / CH+** Kanal, **⏮ / ⏭** eigene Auswahl blättern, **LIVE** zurück zum Sendeplan.
+- **☆ MERKEN** legt die Sendung in Kanal 15 „Gemerkt“.
+- **NEU SUCHEN** ignoriert den 24-Stunden-Zwischenspeicher.
 
-## Kanäle ändern
-Oben in `index.html` (und gleich in `build_channels.py`) steht `CHANNEL_DEFS`.
-Jeder Kanal ist eine Suche, z. B. `{ name: "Krimi", query: "Stahlnetz|Der Kommissar", minMin: 40 }`.
-Eigene Videos gehen auch: `items: [{title, url: "...mp4" oder "yt:VIDEO_ID", duration: Sekunden}]`.
+## Anpassen
+Oben im Skript von `index.html`: `DECADES` (Jahrzehnte) und `CHANNELS` (Suchbegriffe, mit `|` getrennt).
 
 ## Grenzen
-- Die Suchbegriffe sind Startpunkte und noch nicht gegen die echten Daten geprüft.
-- „Jahr“ ist das Jahr der Mediathek-Veröffentlichung, nicht das Produktionsjahr.
-- Depublizierte Sendungen zeigen das Testbild „Bildstörung“; dann „Sendungen neu laden“.
+- Jahrzehnt-Zuordnung: Internet Archive liefert ein Jahr; bei den anderen Quellen wird eine
+  Jahreszahl im Titel/Text gesucht. Treffer ohne Jahreszahl können danebenliegen.
+- Fehlt eine Dauer, werden 30 Minuten angenommen; endet die Sendung früher, kommt ein Pausenbild.
+- Viele Uploads auf Archive/Dailymotion/YouTube stammen nicht von den Rechteinhabern.
