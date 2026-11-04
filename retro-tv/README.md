@@ -5,7 +5,22 @@ was laut Sendeplan „gerade gesendet wird“. Kein Server, keine eigenen Videos
 sucht in ARD/ZDF-Mediatheken, Internet Archive, Dailymotion und (mit eigenem Schlüssel)
 YouTube und spielt die Treffer nach Uhrzeit ab.
 
-**Öffnen:** https://raw.githack.com/Cesno123/stablediffusion/ccr-1ce6e63a-5dn7fu/retro-tv/index.html
+**Quellen:** YouTube (eigener Schlüssel), ARD/ZDF-Mediatheken, Internet Archive, Dailymotion,
+PeerTube, Europeana/EUscreen, Wikimedia Commons.
+
+## Auf Netlify einrichten (empfohlen)
+1. app.netlify.com → **Add new project → Import an existing project → GitHub**.
+2. Repo `Cesno123/stablediffusion` wählen.
+3. **Branch:** `ccr-1ce6e63a-5dn7fu` · **Base directory:** `retro-tv` · Build command leer lassen.
+4. **Deploy**. Danach unter *Project configuration → Change project name* z. B. `roehrenkiste`.
+5. YouTube-Schlüssel in der Google Cloud Console auf `https://DEINNAME.netlify.app/*` beschränken.
+
+Netlify stellt zusätzlich `netlify/functions/proxy.mjs` bereit: Blockiert der Browser eine
+Quellen-Suche (CORS), läuft sie darüber. Der Proxy leitet nur an die Such-Schnittstellen der
+obigen Quellen weiter.
+
+Ohne Netlify geht es auch: https://raw.githack.com/Cesno123/stablediffusion/ccr-1ce6e63a-5dn7fu/retro-tv/index.html
+(ohne Proxy, und Dailymotion zeigt dort „Forbidden“).
 
 ## Bedienung
 - **AN/AUS** schaltet ein (Handys erlauben Ton erst nach einem Tipp).

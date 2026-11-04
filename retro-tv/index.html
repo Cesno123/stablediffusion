@@ -187,7 +187,10 @@ const SOURCES = [
   { id: "yt", label: "YouTube (Schlüssel nötig)" },
   { id: "mt", label: "ARD/ZDF-Mediatheken" },
   { id: "ia", label: "Internet Archive" },
-  { id: "dm", label: "Dailymotion (Wiedergabe oft gesperrt)" },
+  { id: "dm", label: "Dailymotion" },
+  { id: "pt", label: "PeerTube" },
+  { id: "eu", label: "Europeana / EUscreen" },
+  { id: "wc", label: "Wikimedia Commons" },
 ];
 /* Suchwort fürs Jahrzehnt bei YouTube, z. B. "Tatort 80er" */
 const YT_HINT = { "70": "70er", "80": "80er", "90": "90er", "00": "2000er", "10": "2010er" };
@@ -204,7 +207,7 @@ const store = {
 };
 const state = {
   decade: store.get("decade", "80"), chan: store.get("chan", 0), lang: store.get("lang", "de"),
-  sources: store.get("sources2", { mt: true, ia: true, dm: false, yt: true }),
+  sources: { yt: true, mt: true, ia: true, dm: true, pt: true, eu: true, wc: true, ...store.get("sources3", {}) },
   strict: store.get("strict", true), ytkey: store.get("ytkey", ""),
   on: false, live: true, pIndex: 0, items: [], playingKey: null, loadToken: 0,
 };
@@ -215,7 +218,8 @@ const now = () => Date.now() / 1000;
 const hhmm = t => new Date(t * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const dec = () => DECADES.find(d => d.id === state.decade) || DECADES[1];
-const srcName = { mt: "Mediathek", ia: "Internet Archive", dm: "Dailymotion", yt: "YouTube" };
+const srcName = { mt: "Mediathek", ia: "Internet Archive", dm: "Dailymotion", yt: "YouTube",
+                  pt: "PeerTube", eu: "Europeana", wc: "Wikimedia Commons" };
 
 function yearsIn(text) { return (String(text).match(/\b(19[5-9]\d|20[0-2]\d)\b/g) || []).map(Number); }
 /* Jahr eines Treffers: echtes Jahr (Archive) oder Jahreszahl im Titel/Text.
@@ -237,8 +241,21 @@ function parseRuntime(r) {  // "00:23:45", "23:45", "23 min", "1380"
   const m = /(\d+)\s*(min|minutes|minuten)/i.exec(r); if (m) return +m[1] * 60;
   return /^\d+(\.\d+)?$/.test(r.trim()) ? Math.round(+r) : 0;
 }
+/* Blockiert der Browser eine Quelle (CORS), läuft die Abfrage über den kleinen
+   Netlify-Proxy (netlify/functions/proxy.mjs). Ohne Netlify gibt es den nicht. */
+const PROXY = "/.netlify/functions/proxy?url=";
+let proxyState = "unknown";   // unknown | ok | none
+async function fetchSmart(url, opt) {
+  try { return await fetch(url, opt); }
+  catch (e) {
+    if (proxyState === "none" || location.protocol === "file:") throw e;
+    const r = await fetch(PROXY + encodeURIComponent(url), opt);
+    if (r.status === 404 && proxyState === "unknown") { proxyState = "none"; throw e; }
+    proxyState = "ok"; return r;
+  }
+}
 async function getJson(url, opt) {
-  const r = await fetch(url, opt);
+  const r = await fetchSmart(url, opt);
   if (!r.ok) {
     let why = ""; try { why = (await r.json()).error?.errors?.[0]?.reason || ""; } catch (e) {}
     const err = new Error(r.status + " " + url.split("?")[0]); err.status = r.status; err.reason = why; throw err;
@@ -289,6 +306,35 @@ async function searchYouTube(term, d) {
     desc: x.snippet.description || "", duration: parseIso(x.contentDetails.duration) }));
 }
 
+async function searchPeerTube(term) {   // Suche über alle PeerTube-Server (Sepia Search)
+  const j = await getJson("https://sepiasearch.org/api/v1/search/videos?count=50&sort=-match&search=" +
+    encodeURIComponent(term) + (state.lang === "de" ? "&languageOneOf=de" : ""));
+  return (j.data || []).map(x => ({ src: "pt", id: x.uuid, title: x.name, desc: x.description || "",
+    duration: x.duration, embed: x.embedUrl, url: x.url,
+    year: x.originallyPublishedAt ? new Date(x.originallyPublishedAt).getFullYear() : 0 }));
+}
+async function searchEuropeana(terms, d) {   // europäische TV-Archive, u. a. EUscreen
+  const q = terms.map(t => `"${t.replace(/"/g, "")}"`).join(" OR ");
+  const j = await getJson("https://api.europeana.eu/record/v2/search.json?wskey=api2demo&rows=100&media=true&profile=rich" +
+    "&qf=TYPE:VIDEO&qf=" + encodeURIComponent(`YEAR:[${d.from} TO ${d.to}]`) + "&query=" + encodeURIComponent(q) +
+    (state.lang === "de" ? "&qf=LANGUAGE:de" : ""));
+  return (j.items || []).map(x => ({ src: "eu", id: x.id, title: (x.title || [""])[0], desc: (x.dcDescription || [""])[0],
+    year: +((x.year || [])[0]) || 0, duration: 0, url: (x.edmIsShownBy || [""])[0], page: x.guid }))
+    .filter(x => /\.(mp4|m4v|webm|ogv)(\?|$)/i.test(x.url));
+}
+async function searchCommons(term) {
+  const j = await getJson("https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*" +
+    "&generator=search&gsrnamespace=6&gsrlimit=40&gsrsearch=" + encodeURIComponent(term + " filetype:video") +
+    "&prop=imageinfo&iiprop=url|size|extmetadata");
+  return Object.values(j.query?.pages || {}).map(p => {
+    const ii = (p.imageinfo || [])[0] || {}, em = ii.extmetadata || {};
+    const y = yearsIn((em.DateTimeOriginal?.value || "").replace(/<[^>]+>/g, ""))[0] || 0;
+    return { src: "wc", id: p.title, title: p.title.replace(/^File:|\.[a-z0-9]+$/gi, ""),
+      desc: (em.ImageDescription?.value || "").replace(/<[^>]+>/g, ""), year: y,
+      duration: Math.round(ii.duration || 0), url: ii.url, page: ii.descriptionurl };
+  }).filter(x => x.url);
+}
+
 async function collect(ch, d) {
   if (ch.fav) return { items: favs(), note: "deine gemerkten Sendungen" };
   const terms = ch.q.split("|").map(s => s.trim()).filter(Boolean);
@@ -301,9 +347,12 @@ async function collect(ch, d) {
     return [];
   }));
   if (state.sources.ia) run("ia", searchArchive(terms, d));
+  if (state.sources.eu) run("eu", searchEuropeana(terms, d));
   for (const t of terms) {
     if (state.sources.mt) run("mt", searchMediathek(t));
     if (state.sources.dm) run("dm", searchDailymotion(t));
+    if (state.sources.pt) run("pt", searchPeerTube(t));
+    if (state.sources.wc) run("wc", searchCommons(t));
   }
   if (state.sources.yt && state.ytkey) for (const t of terms.slice(0, YT_TERMS)) run("yt", searchYouTube(t, d));
   const all = (await Promise.all(jobs)).flat();
@@ -375,7 +424,8 @@ function clearPlayer() { $("player").innerHTML = ""; $("badge").hidden = true; }
 function origin(it) {
   return it.src === "yt" ? "https://www.youtube.com/watch?v=" + it.id
        : it.src === "dm" ? "https://www.dailymotion.com/video/" + it.id
-       : it.src === "ia" ? "https://archive.org/details/" + it.id : it.url;
+       : it.src === "ia" ? "https://archive.org/details/" + it.id
+       : it.page || it.url;
 }
 async function play(it, offset, key) {
   state.playingKey = key;
@@ -383,12 +433,17 @@ async function play(it, offset, key) {
   const b = $("badge"); b.hidden = false; b.href = origin(it); b.textContent = srcName[it.src] + " ↗";
   const start = Math.max(0, Math.floor(offset));
   try {
-    if (it.src === "yt" || it.src === "dm") {
+    if (it.src === "yt" || it.src === "dm" || it.src === "pt") {
       const f = document.createElement("iframe");
-      f.allow = "autoplay; fullscreen; encrypted-media"; f.allowFullscreen = true;
+      f.allow = "autoplay; fullscreen; encrypted-media; picture-in-picture"; f.allowFullscreen = true;
+      /* Fremde Player verlangen zu wissen, auf welcher Seite sie laufen. Fehlt diese
+         Angabe (Referrer), antworten YouTube und Dailymotion mit Fehler/„Forbidden“. */
+      f.referrerPolicy = "strict-origin-when-cross-origin";
       f.src = it.src === "yt"
-        ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(it.id)}?autoplay=1&start=${start}&rel=0`
-        : `https://geo.dailymotion.com/player.html?video=${encodeURIComponent(it.id)}&autoplay=1&startTime=${start}`;
+        ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(it.id)}?autoplay=1&start=${start}&rel=0&origin=${encodeURIComponent(location.origin)}`
+        : it.src === "dm"
+        ? `https://geo.dailymotion.com/player.html?video=${encodeURIComponent(it.id)}&autoplay=1&startTime=${start}`
+        : it.embed + (it.embed.includes("?") ? "&" : "?") + `autoplay=1&start=${start}s&title=0&warningTitle=0`;
       $("player").appendChild(f); $("osd").hidden = true; return;
     }
     let url = it.url;
@@ -442,7 +497,7 @@ function refresh() {
     const parts = [c.it.year || "Jahr unbekannt", srcName[c.it.src]];
     if (c.start) parts.unshift(`${hhmm(c.start)} – ${hhmm(c.start + c.it.duration)}`);
     if (!state.live) parts.unshift("Eigene Auswahl");
-    if (c.it.src === "dm" || c.it.src === "yt") parts.push("Bild bleibt leer? ⏭ drücken oder Quelle abwählen");
+    if (c.it.src === "dm" || c.it.src === "yt" || c.it.src === "pt") parts.push("Bild bleibt leer? ⏭ drücken oder Quelle abwählen");
     $("meta").textContent = parts.join(" · ");
     $("prog").max = c.it.duration; $("prog").value = state.live ? c.offset : 0;
     $("star").classList.toggle("on", favs().some(f => f.src === c.it.src && f.id === c.it.id));
@@ -478,7 +533,7 @@ function renderControls() {
   chips($("langs"), LANGS, l => l.id === state.lang, l => { state.lang = l.id; store.set("lang", l.id); switchTo(); });
   $("sources").innerHTML = SOURCES.map(s => `<label><input type="checkbox" data-s="${s.id}" ${state.sources[s.id] ? "checked" : ""}> ${s.label}</label>`).join("");
 }
-$("sources").onchange = e => { const s = e.target.dataset.s; if (!s) return; state.sources[s] = e.target.checked; store.set("sources2", state.sources); switchTo(); };
+$("sources").onchange = e => { const s = e.target.dataset.s; if (!s) return; state.sources[s] = e.target.checked; store.set("sources3", state.sources); switchTo(); };
 $("strict").checked = state.strict;
 $("strict").onchange = e => { state.strict = e.target.checked; store.set("strict", state.strict); switchTo(); };
 $("ytkey").value = state.ytkey;
@@ -492,13 +547,13 @@ async function saveKey() {
   try {
     await getJson("https://www.googleapis.com/youtube/v3/videos?part=id&id=jNQXAC9IVRw&key=" + encodeURIComponent(k));
     state.ytkey = k; store.set("ytkey", k);
-    if (!state.sources.yt) { state.sources.yt = true; store.set("sources2", state.sources); renderControls(); }
+    if (!state.sources.yt) { state.sources.yt = true; store.set("sources3", state.sources); renderControls(); }
     ytMsg("✓ Schlüssel funktioniert und ist gespeichert – YouTube ist aktiv.", "good");
     switchTo(true);
   } catch (e) {
     const r = e.reason || "";
     ytMsg(/quota/i.test(r) ? "Schlüssel ist gültig, aber das Tageskontingent ist aufgebraucht. Morgen wieder."
-        : /referer|blocked|forbidden|ipRefererBlocked/i.test(r) ? "Schlüssel ist für diese Seite gesperrt. In der Google Cloud Console bei „Websites“ https://raw.githack.com/* eintragen."
+        : /referer|blocked|forbidden|ipRefererBlocked/i.test(r) ? "Schlüssel ist für diese Seite gesperrt. In der Google Cloud Console bei „Websites“ " + location.origin + "/* eintragen."
         : /accessNotConfigured|disabled/i.test(r) ? "„YouTube Data API v3“ ist für dieses Projekt nicht aktiviert. In der Google Cloud Console unter „APIs & Dienste → Bibliothek“ aktivieren."
         : e.status === 400 ? "Schlüssel ungültig. Bitte vollständig kopieren (beginnt meist mit „AIza“)."
         : "Prüfung fehlgeschlagen (" + (e.status || "keine Verbindung") + (r ? ", " + r : "") + ").", "bad");

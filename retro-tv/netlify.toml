@@ -1,0 +1,10 @@
+# Netlify: Basisverzeichnis beim Einrichten auf "retro-tv" setzen, sonst nichts.
+[build]
+  publish = "."
+  functions = "netlify/functions"
+  command = ""
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Referrer-Policy = "strict-origin-when-cross-origin"
