@@ -144,12 +144,13 @@
       <h4>JAHRZEHNT</h4><div class="tvm-items" id="tvm-dec"></div>
       <h4>KANAL</h4><div class="tvm-items" id="tvm-chan"></div>
       <h4>SPRACHE</h4><div class="tvm-items" id="tvm-lang"></div>
+      <h4>BILD <span id="tvm-pos"></span></h4><div class="tvm-items" id="tvm-seek"></div>
       <h4>SENDUNG</h4><div class="tvm-items" id="tvm-act"></div>
     </div>
     <div class="tvm-right"><h4>PROGRAMM</h4><div id="tvm-prog"></div></div>
   </div>
 </div>
-<div id="tvhelp" hidden>OK oder Klick ins Bild = Menü · ▲▼ Kanal · ◀▶ Jahrzehnt · ⏩⏪ Sendung · ⏯ Live<span id="tvkey"></span></div>
+<div id="tvhelp" hidden>OK oder Klick ins Bild = Menü · ▲▼ Kanal · ◀▶ Jahrzehnt · ⏩⏪ spulen · ⏯ Pause<span id="tvkey"></span></div>
 <div class="wrap">
   <header><h1>RÖHRENKISTE</h1><span id="clock">--:--</span></header>
 
@@ -536,13 +537,15 @@ async function play(it, offset, key) {
          Angabe (Referrer), antworten YouTube und Dailymotion mit Fehler/„Forbidden“. */
       f.referrerPolicy = "strict-origin-when-cross-origin";
       f.src = it.src === "yt"
-        ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(it.id)}?autoplay=1&start=${start}&rel=0&origin=${encodeURIComponent(location.origin)}`
+        ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(it.id)}?autoplay=1&start=${start}&rel=0&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`
         : it.src === "dm"
         ? (state.dmPlayer === "classic"
             ? `https://www.dailymotion.com/embed/video/${encodeURIComponent(it.id)}?autoplay=1&start=${start}`
             : `https://geo.dailymotion.com/player.html?video=${encodeURIComponent(it.id)}&autoplay=1&startTime=${start}`)
         : it.embed + (it.embed.includes("?") ? "&" : "?") + `autoplay=1&start=${start}s&title=0&warningTitle=0`;
       f.tabIndex = -1;
+      if (it.src === "yt") { ytTime = start; ytState = 1;
+        f.onload = () => f.contentWindow.postMessage(JSON.stringify({ event: "listening", id: 1 }), "*"); }
       $("player").appendChild(f); $("osd").hidden = true;
       setTimeout(() => { if (document.activeElement === f) { f.blur(); window.focus(); } }, 1500);
       return;
@@ -785,6 +788,7 @@ function tvInfo(extra) {
   const c = current(), el = $("tvinfo");
   el.innerHTML = `<b>${String(state.chan + 1).padStart(2, "0")}</b>${esc(CHANNELS[state.chan].name)} · ${dec().label}` +
     (c ? `<br>${esc(c.it.title)}<br><small>${c.start ? hhmm(c.start) + " – " + hhmm(c.start + c.it.duration) + " · " : ""}${c.it.year || ""} · ${srcName[c.it.src]}</small>` : "") +
+    (posText() ? `<br><small>${esc(posText())}</small>` : "") +
     (extra ? `<br><small>${esc(extra)}</small>` : "");
   el.hidden = false; $("tvhelp").hidden = false;
   clearTimeout(tvInfoTimer);
@@ -796,9 +800,9 @@ function tvInfo(extra) {
    Navigation selbst gesteuert: Pfeil = nächster Knopf in dieser Richtung auf dem Bildschirm. */
 let lastOk = 0;   // Silk löst bei OK teils Taste UND Klick aus – nur einmal reagieren
 const menuOpen = () => !$("tvmenu").hidden;
-function tvBtn(label, sel, fn) {
+function tvBtn(label, sel, fn, repeat) {
   const b = document.createElement("button"); b.className = "tvm-btn" + (sel ? " sel" : ""); b.textContent = label;
-  b.onclick = e => { e.stopPropagation(); if (Date.now() - lastOk < 400) return; lastOk = Date.now(); fn(); };
+  b.onclick = e => { e.stopPropagation(); if (Date.now() - lastOk < (repeat ? 150 : 400)) return; lastOk = Date.now(); fn(); };
   return b;
 }
 function buildMenu() {
@@ -808,6 +812,11 @@ function buildMenu() {
   put("tvm-chan", CHANNELS.map((c, i) => tvBtn(`${i + 1} ${c.name}`, i === state.chan, () => { setChan(i); closeMenu(); })));
   put("tvm-lang", LANGS.map(l => tvBtn(l.label, l.id === state.lang, () => {
     state.lang = l.id; store.set("lang", l.id); renderControls(); switchTo(); buildMenu(); focusSel("tvm-lang"); })));
+  const seekBtn = (label, sec) => tvBtn(label, false, () => { seek(sec); showPos(); }, true);
+  put("tvm-seek", [seekBtn("⏪ 5 Min", -300), seekBtn("⏪ 30 s", -30),
+    tvBtn("⏯ Pause / Weiter", false, () => { togglePause(); showPos(); }, true),
+    seekBtn("30 s ⏩", 30), seekBtn("5 Min ⏩", 300)]);
+  showPos();
   put("tvm-act", [
     tvBtn("● Live", false, () => { state.live = true; state.playingKey = null; refresh(); closeMenu(); }),
     tvBtn("⏮ Vorherige", false, () => { step(-1); closeMenu(); }),
@@ -828,6 +837,39 @@ function buildMenu() {
   }
   $("tvm-prog").innerHTML = rows.join("") || (state.loading ? "Suche läuft …" : "Sendepause");
 }
+/* ---------- Spulen & Pause (eigener Player oder YouTube per postMessage) ---------- */
+let ytTime = 0, ytState = -1;
+window.addEventListener("message", e => {
+  if (!/youtube/.test(e.origin)) return;
+  try { const d = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+    if (d && d.info) { if (typeof d.info.currentTime === "number") ytTime = d.info.currentTime;
+                       if (typeof d.info.playerState === "number") ytState = d.info.playerState; } } catch (err) {}
+});
+const activeVideo = () => $("player").querySelector("video");
+const ytFrame = () => { const f = $("player").querySelector("iframe"); return f && /youtube/.test(f.src) ? f : null; };
+function ytCmd(func, args) { const f = ytFrame(); f && f.contentWindow.postMessage(JSON.stringify({ event: "command", func, args: args || [] }), "*"); }
+const clock = t => { t = Math.max(0, Math.floor(t || 0)); const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s2 = t % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s2).padStart(2, "0"); };
+function seek(sec) {
+  const v = activeVideo();
+  if (v) { v.currentTime = Math.max(0, Math.min((v.duration || 1e9) - 2, v.currentTime + sec)); return true; }
+  if (ytFrame()) { ytTime = Math.max(0, ytTime + sec); ytCmd("seekTo", [ytTime, true]); return true; }
+  tvInfo("Spulen geht bei dieser Quelle nicht (Dailymotion/PeerTube)."); return false;
+}
+function togglePause() {
+  const v = activeVideo();
+  if (v) { v.paused ? v.play().catch(() => {}) : v.pause(); return; }
+  if (ytFrame()) { const playing = ytState === 1; ytCmd(playing ? "pauseVideo" : "playVideo"); ytState = playing ? 2 : 1; }
+}
+function posText() {
+  const v = activeVideo();
+  if (v) return `${clock(v.currentTime)} / ${clock(v.duration)}${v.paused ? " · Pause" : ""}`;
+  if (ytFrame()) return `${clock(ytTime)}${ytState === 2 ? " · Pause" : ""}`;
+  return "";
+}
+function showPos() { const el = $("tvm-pos"); if (el) el.textContent = posText() ? "· " + posText() : ""; }
+setInterval(() => { if (menuOpen()) showPos(); }, 1000);
+
 function focusSel(id) { const b = $(id).querySelector(".sel") || $(id).querySelector(".tvm-btn"); b && b.focus(); }
 function openMenu() {
   if (Date.now() - lastOk < 400) return; lastOk = Date.now();
@@ -893,9 +935,11 @@ document.addEventListener("keydown", e => {
   else if (k === "ArrowDown" || k === "ChannelDown" || k === "PageDown") setChan(state.chan - 1);
   else if (k === "ArrowRight") tv ? setDecade(1) : step(1);
   else if (k === "ArrowLeft") tv ? setDecade(-1) : step(-1);
-  else if (k === "MediaFastForward" || k === "MediaTrackNext" || code === 228) step(1);
-  else if (k === "MediaRewind" || k === "MediaTrackPrevious" || code === 227) step(-1);
-  else if (k === "MediaPlayPause" || code === 179) { state.live = true; state.playingKey = null; refresh(); }
+  else if (k === "MediaFastForward" || code === 228) tv ? seek(30) : step(1);
+  else if (k === "MediaRewind" || code === 227) tv ? seek(-30) : step(-1);
+  else if (k === "MediaTrackNext") step(1);
+  else if (k === "MediaTrackPrevious") step(-1);
+  else if (k === "MediaPlayPause" || code === 179) togglePause();
   else if (tv && (k === "Enter" || code === 23)) {
     if (!state.on) tvTurnOn(); else openMenu();
   }
