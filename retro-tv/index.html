@@ -130,7 +130,7 @@
     <div class="checks" id="sources"></div>
     <label class="checks" style="margin-top:10px;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="strict" style="flex:none"> Nur Sendungen mit passender Jahreszahl (sonst auch ohne Jahresangabe)</label>
     <input type="text" id="ytkey" placeholder="Eigener YouTube-API-Schlüssel (optional)" autocomplete="off">
-    <p class="hint">Ohne Schlüssel wird YouTube übersprungen. Ein Schlüssel ist kostenlos über die Google Cloud Console erhältlich.</p>
+    <p class="hint">Der Schlüssel bleibt nur in diesem Browser gespeichert. Ohne Schlüssel wird YouTube übersprungen.</p>
   </div>
 
   <div class="box">
@@ -174,11 +174,14 @@ const CHANNELS = [
 ];
 const LANGS = [ { id: "de", label: "Deutsch" }, { id: "all", label: "Alle Sprachen" } ];
 const SOURCES = [
+  { id: "yt", label: "YouTube (Schlüssel nötig)" },
   { id: "mt", label: "ARD/ZDF-Mediatheken" },
   { id: "ia", label: "Internet Archive" },
   { id: "dm", label: "Dailymotion" },
-  { id: "yt", label: "YouTube (Schlüssel nötig)" },
 ];
+/* Suchwort fürs Jahrzehnt bei YouTube, z. B. "Tatort 80er" */
+const YT_HINT = { "70": "70er", "80": "80er", "90": "90er", "00": "2000er", "10": "2010er" };
+const YT_TERMS = 4;   // Suchen pro Kanal: je 100 von 10.000 Einheiten Tageskontingent
 const DEFAULT_MIN = 30;            // geschätzte Länge, wenn eine Quelle keine Dauer liefert
 const EPOCH = Date.UTC(2020, 0, 1) / 1000;
 const CACHE_HOURS = 24;
@@ -225,7 +228,11 @@ function parseRuntime(r) {  // "00:23:45", "23:45", "23 min", "1380"
   return /^\d+(\.\d+)?$/.test(r.trim()) ? Math.round(+r) : 0;
 }
 async function getJson(url, opt) {
-  const r = await fetch(url, opt); if (!r.ok) throw new Error(r.status + " " + url.split("?")[0]);
+  const r = await fetch(url, opt);
+  if (!r.ok) {
+    let why = ""; try { why = (await r.json()).error?.errors?.[0]?.reason || ""; } catch (e) {}
+    const err = new Error(r.status + " " + url.split("?")[0]); err.status = r.status; err.reason = why; throw err;
+  }
   return r.json();
 }
 
@@ -260,7 +267,8 @@ async function searchDailymotion(term) {
   const j = await getJson(url);
   return (j.list || []).map(x => ({ src: "dm", id: x.id, title: x.title, desc: x.description || "", duration: x.duration }));
 }
-async function searchYouTube(term) {
+async function searchYouTube(term, d) {
+  term = term + " " + YT_HINT[d.id];
   const k = encodeURIComponent(state.ytkey);
   const s = await getJson("https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true" +
     "&maxResults=50&q=" + encodeURIComponent(term) + (state.lang === "de" ? "&relevanceLanguage=de" : "") + "&key=" + k);
@@ -275,13 +283,19 @@ async function collect(ch, d) {
   if (ch.fav) return { items: favs(), note: "deine gemerkten Sendungen" };
   const terms = ch.q.split("|").map(s => s.trim()).filter(Boolean);
   const jobs = [], failed = new Set();
-  const run = (src, p) => jobs.push(p.catch(e => { console.warn(src, e); failed.add(srcName[src]); return []; }));
+  const run = (src, p) => jobs.push(p.catch(e => {
+    console.warn(src, e);
+    if (src === "yt" && /quota/i.test(e.reason)) failed.add("YouTube (Tageskontingent aufgebraucht, morgen wieder)");
+    else if (src === "yt" && (e.status === 400 || e.status === 403)) failed.add("YouTube (Schlüssel ungültig oder für diese Seite gesperrt)");
+    else failed.add(srcName[src]);
+    return [];
+  }));
   if (state.sources.ia) run("ia", searchArchive(terms, d));
   for (const t of terms) {
     if (state.sources.mt) run("mt", searchMediathek(t));
     if (state.sources.dm) run("dm", searchDailymotion(t));
   }
-  if (state.sources.yt && state.ytkey) for (const t of terms.slice(0, 4)) run("yt", searchYouTube(t));
+  if (state.sources.yt && state.ytkey) for (const t of terms.slice(0, YT_TERMS)) run("yt", searchYouTube(t, d));
   const all = (await Promise.all(jobs)).flat();
 
   const seen = new Set(), matched = [], unknown = [];
