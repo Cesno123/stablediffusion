@@ -141,7 +141,7 @@
     <div class="checks" id="sources"></div>
     <label class="checks" style="margin-top:10px;align-items:center">Dailymotion-Player:
       <select id="dmplayer" class="plain" style="margin-top:0">
-        <option value="geo">Variante A (neu)</option><option value="classic">Variante B (klassisch)</option>
+        <option value="classic">Variante B (klassisch, empfohlen)</option><option value="geo">Variante A (neu)</option>
       </select></label>
     <label class="checks" style="margin-top:10px;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="strict" style="flex:none"> Nur Sendungen mit passender Jahreszahl (sonst auch ohne Jahresangabe)</label>
     <div class="keyrow">
@@ -222,7 +222,7 @@ const store = {
 const state = {
   decade: store.get("decade", "80"), chan: store.get("chan", 0), lang: store.get("lang", "de"),
   sources: { yt: true, mt: true, ia: true, dm: true, pt: true, eu: true, wc: true, ...store.get("sources3", {}) },
-  strict: store.get("strict", true), dmPlayer: store.get("dmPlayer", "geo"), ytkey: store.get("ytkey", ""),
+  strict: store.get("strict", true), dmPlayer: store.get("dmPlayer", "classic"), ytkey: store.get("ytkey", ""),
   on: false, live: true, pIndex: 0, items: [], playingKey: null, loadToken: 0,
 };
 const favs = () => store.get("favs", []);
