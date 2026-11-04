@@ -148,7 +148,7 @@
     <div class="tvm-right"><h4>PROGRAMM</h4><div id="tvm-prog"></div></div>
   </div>
 </div>
-<div id="tvhelp" hidden>☰ Menü oben links · ▲▼ Kanal · ◀▶ Jahrzehnt · ⏩⏪ spulen · ⏯ Pause<span id="tvkey"></span></div>
+<div id="tvhelp" hidden>☰ Menü (Taste ≡ oder Knopf oben links) · ▲▼ Kanal · ◀▶ Jahrzehnt · ⏩⏪ spulen · ⏯ Pause<span id="tvkey"></span></div>
 <div class="wrap">
   <header><h1>RÖHRENKISTE</h1><span id="clock">--:--</span></header>
 
@@ -916,8 +916,10 @@ document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
   const tv = document.body.classList.contains("tv");
   const k = e.key, code = e.keyCode;
-  if (tv) $("tvkey").textContent = `Taste empfangen: ${k || "?"} (${code})`;
+  if (tv) { $("tvkey").textContent = `Taste empfangen: ${k || "?"} (${code})`; tvInfo(); }
   if (tv && e.target.id === "tvstart" && (k === "Enter" || code === 23)) return;   // Klick erledigt das
+  const isMenuKey = k === "ContextMenu" || k === "Menu" || code === 93 || code === 82;
+  if (tv && isMenuKey) { e.preventDefault(); menuOpen() ? closeMenu() : (state.on ? openMenu() : tvTurnOn()); return; }
   if (tv && menuOpen()) {
     const dir = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" }[k];
     if (dir) { e.preventDefault(); menuMove(dir); }
