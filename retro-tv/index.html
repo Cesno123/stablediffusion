@@ -98,8 +98,6 @@
   body.tv #osd { font-size: 3vw; }
   body.tv.guide #guidewrap { display: block !important; position: fixed; z-index: 20; right: 3vw; top: 3vh;
     bottom: 3vh; width: 46vw; overflow: auto; background: #15120fee; font-size: 1.6vw; }
-  #tvclick { display: none; }
-  body.tv #tvclick { display: block; position: absolute; inset: 0; z-index: 4; cursor: pointer; }
   #tvmenubtn { position: fixed; z-index: 16; left: 2vw; top: 3vh; font: 700 1.6vw system-ui, sans-serif;
     background: #000a; color: #fff; border: .2vw solid #fff6; border-radius: 99px; padding: .5vw 1.4vw; cursor: pointer; display: none; }
   body.tv #tvmenubtn:not([hidden]) { display: block; }
@@ -125,10 +123,10 @@
   .tvm-btn:focus { outline: none; background: var(--accent); color: #1b1408; border-color: #fff; transform: scale(1.08); }
   #tvm-prog div { padding: .5vw 0; border-bottom: 1px solid var(--line); }
   #tvm-prog .t { color: var(--accent); margin-right: .8vw; font-variant-numeric: tabular-nums; }
-  #tvinfo { position: fixed; z-index: 15; left: 3vw; bottom: 5vh; max-width: 70vw; background: #000c; color: #fff;
+  #tvinfo { position: fixed; z-index: 15; left: 2vw; top: 11vh; pointer-events: none; max-width: 70vw; background: #000c; color: #fff;
     padding: 1.4vw 2vw; border-left: 6px solid var(--accent); font: 2vw/1.35 system-ui, sans-serif; }
   #tvinfo b { color: var(--accent); font: 700 3.4vw "Courier New", monospace; margin-right: 1vw; }
-  #tvhelp { position: fixed; z-index: 15; right: 3vw; bottom: 5vh; color: #fffa; background: #0009;
+  #tvhelp { position: fixed; z-index: 15; left: 50%; transform: translateX(-50%); top: 3vh; pointer-events: none; color: #fffa; background: #0009;
     padding: .6vw 1.2vw; font: 1.3vw system-ui, sans-serif; }
   .plain { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
            padding: 9px 14px; font: inherit; cursor: pointer; margin-top: 8px; }
@@ -150,7 +148,7 @@
     <div class="tvm-right"><h4>PROGRAMM</h4><div id="tvm-prog"></div></div>
   </div>
 </div>
-<div id="tvhelp" hidden>OK oder Klick ins Bild = Menü · ▲▼ Kanal · ◀▶ Jahrzehnt · ⏩⏪ spulen · ⏯ Pause<span id="tvkey"></span></div>
+<div id="tvhelp" hidden>☰ Menü oben links · ▲▼ Kanal · ◀▶ Jahrzehnt · ⏩⏪ spulen · ⏯ Pause<span id="tvkey"></span></div>
 <div class="wrap">
   <header><h1>RÖHRENKISTE</h1><span id="clock">--:--</span></header>
 
@@ -159,7 +157,6 @@
       <div id="screen">
         <div id="player"></div>
         <a id="badge" target="_blank" rel="noopener" hidden></a>
-        <div id="tvclick" title="Menü"></div>
         <button id="tvstart" hidden>▶&nbsp; OK drücken zum Einschalten</button>
         <div id="osd">Jahrzehnt und Kanal wählen, dann AN tippen</div>
       </div>
@@ -553,7 +550,7 @@ async function play(it, offset, key) {
     const url = await mediaUrl(it);
     if (state.playingKey !== key) return;
     const v = document.createElement("video");
-    v.autoplay = true; v.playsInline = true; v.controls = !document.body.classList.contains("tv");
+    v.autoplay = true; v.playsInline = true; v.controls = true;
     v.src = url + "#t=" + start;
     v.onplaying = () => { $("osd").hidden = true; };
     v.onerror = () => { clearPlayer(); osd("Bildstörung\nDiese Sendung ist nicht mehr abrufbar. ⏭ für die nächste.", true); };
@@ -770,7 +767,6 @@ $("star").onclick = () => {
   store.set("favs", f); refresh();
 };
 $("screen").onclick = e => {
-  if (document.body.classList.contains("tv") && state.on && e.target.id !== "tvstart") { openMenu(); return; }
   const v = $("player").querySelector("video"); if (v && v.paused) v.play().catch(() => {});
 };
 /* ---------- TV-Modus ----------
@@ -904,9 +900,8 @@ function enterTv() {
   else { $("screen").tabIndex = 0; $("screen").focus(); }
 }
 $("tvstart").onclick = e => { e.stopPropagation(); tvTurnOn(); };
-/* Silk zeigt oft einen Mauszeiger: Klicks würden sonst im Videoplayer (Pause) oder
-   im YouTube-Fenster landen. Die Fläche über dem Bild fängt sie ab. */
-$("tvclick").onclick = e => { e.stopPropagation(); state.on ? openMenu() : tvTurnOn(); };
+/* Silk zeigt oft einen Mauszeiger: Klicks ins Bild bedienen den Player (Spulen, Pause),
+   ins Menü geht es über den Knopf „☰ Menü“ oben links. */
 $("tvmenubtn").onclick = e => { e.stopPropagation(); state.on ? openMenu() : tvTurnOn(); };
 function leaveTv() { $("tvstart").hidden = true; $("tvmenu").hidden = true; document.body.classList.remove("tv", "guide"); $("tvinfo").hidden = $("tvhelp").hidden = true; }
 $("tvtoggle").onclick = () => { store.set("tvmode", true); enterTv(); };
