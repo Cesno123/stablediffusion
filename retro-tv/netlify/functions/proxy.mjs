@@ -12,12 +12,21 @@ const CORS = {
 
 export default async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+  const ytKey = process.env.YOUTUBE_API_KEY || "";
+  // Abfrage der Seite: Ist ein YouTube-Schlüssel in Netlify hinterlegt? (Der Schlüssel selbst bleibt geheim.)
+  if (new URL(req.url).searchParams.get("check")) {
+    return new Response(JSON.stringify({ yt: !!ytKey }), { headers: { ...CORS, "content-type": "application/json" } });
+  }
   let target;
   try { target = new URL(new URL(req.url).searchParams.get("url")); } catch {
     return new Response("url fehlt", { status: 400, headers: CORS });
   }
   if (target.protocol !== "https:" || !ALLOWED.has(target.hostname)) {
     return new Response("Ziel nicht erlaubt", { status: 403, headers: CORS });
+  }
+  if (target.hostname === "www.googleapis.com" && !target.searchParams.get("key")) {
+    if (!ytKey) return new Response("kein YouTube-Schlüssel hinterlegt", { status: 403, headers: CORS });
+    target.searchParams.set("key", ytKey);
   }
   const init = { method: req.method, headers: { "user-agent": "roehrenkiste/1.0" } };
   if (req.method === "POST") {

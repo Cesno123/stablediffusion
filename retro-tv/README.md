@@ -36,3 +36,13 @@ Oben im Skript von `index.html`: `DECADES` (Jahrzehnte) und `CHANNELS` (Suchbegr
   Jahreszahl im Titel/Text gesucht. Treffer ohne Jahreszahl können danebenliegen.
 - Fehlt eine Dauer, werden 30 Minuten angenommen; endet die Sendung früher, kommt ein Pausenbild.
 - Viele Uploads auf Archive/Dailymotion/YouTube stammen nicht von den Rechteinhabern.
+
+## Fire TV / Fernseher-Browser
+Seite im Browser des Fernsehers öffnen (z. B. Silk auf Fire TV). Der TV-Modus startet dort
+automatisch (sonst Knopf „TV-Modus“ unten auf der Seite oder `?tv=1` an die Adresse hängen).
+Fernbedienung: ▲▼ Kanal · ◀▶ Jahrzehnt · OK einschalten / Programmübersicht · ⏩⏪ Sendung · ⏯ zurück zu Live.
+
+## YouTube-Schlüssel für alle Geräte
+In Netlify unter *Project configuration → Environment variables* die Variable `YOUTUBE_API_KEY`
+mit dem Schlüssel anlegen und neu deployen. Der Proxy hängt ihn an YouTube-Abfragen an;
+der Schlüssel erscheint nie im Browser oder im Repo. Ein im Browser eingetragener Schlüssel hat Vorrang.

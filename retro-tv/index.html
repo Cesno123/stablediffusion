@@ -88,11 +88,28 @@
   .keymsg { margin: 8px 0 0; font-weight: 600; }
   .keymsg.good { color: var(--on); }
   .keymsg.bad { color: #ff7a6b; }
+  /* ---- TV-Modus: nur Bild, Bedienung mit der Fernbedienung ---- */
+  body.tv { overflow: hidden; background: #000; }
+  body.tv header, body.tv .plate, body.tv .grille, body.tv .keys, body.tv #now, body.tv .box,
+  body.tv #status, body.tv #tvtoggle, body.tv #castmsg { display: none !important; }
+  body.tv .tv, body.tv .bezel { padding: 0; background: #000; border-radius: 0; box-shadow: none; }
+  body.tv #screen { position: fixed; inset: 0; aspect-ratio: auto; border-radius: 0; }
+  body.tv #screen::after { border-radius: 0; }
+  body.tv #osd { font-size: 3vw; }
+  body.tv.guide #guidewrap { display: block !important; position: fixed; z-index: 20; right: 3vw; top: 3vh;
+    bottom: 3vh; width: 46vw; overflow: auto; background: #15120fee; font-size: 1.6vw; }
+  #tvinfo { position: fixed; z-index: 15; left: 3vw; bottom: 5vh; max-width: 70vw; background: #000c; color: #fff;
+    padding: 1.4vw 2vw; border-left: 6px solid var(--accent); font: 2vw/1.35 system-ui, sans-serif; }
+  #tvinfo b { color: var(--accent); font: 700 3.4vw "Courier New", monospace; margin-right: 1vw; }
+  #tvhelp { position: fixed; z-index: 15; right: 3vw; bottom: 5vh; color: #fffa; background: #0009;
+    padding: .6vw 1.2vw; font: 1.3vw system-ui, sans-serif; }
   .plain { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
            padding: 9px 14px; font: inherit; cursor: pointer; margin-top: 8px; }
 </style>
 </head>
 <body>
+<div id="tvinfo" hidden></div>
+<div id="tvhelp" hidden>▲▼ Kanal · ◀▶ Jahrzehnt · OK Programm · ⏩⏪ Sendung · ⏯ Live</div>
 <div class="wrap">
   <header><h1>RÖHRENKISTE</h1><span id="clock">--:--</span></header>
 
@@ -152,14 +169,15 @@
     <p class="hint">Der Schlüssel bleibt nur in diesem Browser gespeichert. Ohne Schlüssel wird YouTube übersprungen.</p>
   </div>
 
-  <div class="box">
-    <details open>
+  <div class="box" id="guidewrap">
+    <details open id="guidebox">
       <summary>Programm dieses Kanals</summary>
       <table id="guide"></table>
     </details>
   </div>
 
   <p id="status"></p>
+  <button id="tvtoggle" class="plain">TV-Modus (für Fire TV / Fernseher-Browser)</button>
 </div>
 
 <script>
@@ -314,14 +332,28 @@ async function searchDailymotion(term) {
     .filter(x => x.allow_embed !== false && x.private !== true && (!x.status || x.status === "published") && !blockedDe(x.geoblocking))
     .map(x => ({ src: "dm", id: x.id, title: x.title, desc: x.description || "", duration: x.duration }));
 }
+/* Eigener Schlüssel im Browser – oder der in Netlify hinterlegte (YOUTUBE_API_KEY),
+   dann hängt der Proxy ihn an und kein Gerät muss ihn kennen. */
+let serverKey = false;
+const haveYt = () => !!state.ytkey || serverKey;
+function ytGet(url) {
+  return state.ytkey ? getJson(url + "&key=" + encodeURIComponent(state.ytkey)) : getJson(PROXY + encodeURIComponent(url));
+}
+async function checkServerKey() {
+  if (location.protocol === "file:") return;
+  try {
+    const ctl = new AbortController(); setTimeout(() => ctl.abort(), 4000);
+    const r = await fetch(PROXY.replace("?url=", "?check=1"), { signal: ctl.signal });
+    serverKey = r.ok && !!(await r.json()).yt;
+  } catch (e) {}
+}
 async function searchYouTube(term, d) {
   term = term + " " + YT_HINT[d.id];
-  const k = encodeURIComponent(state.ytkey);
-  const s = await getJson("https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true" +
-    "&maxResults=50&q=" + encodeURIComponent(term) + (state.lang === "de" ? "&relevanceLanguage=de" : "") + "&key=" + k);
+  const s = await ytGet("https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true" +
+    "&maxResults=50&q=" + encodeURIComponent(term) + (state.lang === "de" ? "&relevanceLanguage=de" : ""));
   const ids = (s.items || []).map(i => i.id.videoId).filter(Boolean);
   if (!ids.length) return [];
-  const v = await getJson("https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=" + ids.join(",") + "&key=" + k);
+  const v = await ytGet("https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=" + ids.join(","));
   return (v.items || []).map(x => ({ src: "yt", id: x.id, title: x.snippet.title,
     desc: x.snippet.description || "", duration: parseIso(x.contentDetails.duration) }));
 }
@@ -374,7 +406,7 @@ async function collect(ch, d) {
     if (state.sources.pt) run("pt", searchPeerTube(t));
     if (state.sources.wc) run("wc", searchCommons(t));
   }
-  if (state.sources.yt && state.ytkey) for (const t of terms.slice(0, YT_TERMS)) run("yt", searchYouTube(t, d));
+  if (state.sources.yt && haveYt()) for (const t of terms.slice(0, YT_TERMS)) run("yt", searchYouTube(t, d));
   const all = (await Promise.all(jobs)).flat();
 
   const seen = new Set(), matched = [], unknown = [];
@@ -392,13 +424,13 @@ async function collect(ch, d) {
   }
   for (const it of items) { it.est = !it.duration; it.duration = it.duration || DEFAULT_MIN * 60; }
   if (failed.size) note += ` · nicht erreichbar: ${[...failed].join(", ")}`;
-  if (state.sources.yt && !state.ytkey) note += " · YouTube übersprungen (kein Schlüssel)";
+  if (state.sources.yt && !haveYt()) note += " · YouTube übersprungen (kein Schlüssel)";
   return { items, note };
 }
 
 async function loadChannel(force) {
   const ch = CHANNELS[state.chan], d = dec();
-  const cacheKey = "c2-" + [d.id, state.chan, state.lang, state.strict, Object.keys(state.sources).filter(k => state.sources[k]).join(""), !!state.ytkey].join("-");
+  const cacheKey = "c2-" + [d.id, state.chan, state.lang, state.strict, Object.keys(state.sources).filter(k => state.sources[k]).join(""), haveYt()].join("-");
   const token = ++state.loadToken;
   state.loading = true;
   let data = !force && !ch.fav && store.get(cacheKey, null);
@@ -468,7 +500,10 @@ async function play(it, offset, key) {
             ? `https://www.dailymotion.com/embed/video/${encodeURIComponent(it.id)}?autoplay=1&start=${start}`
             : `https://geo.dailymotion.com/player.html?video=${encodeURIComponent(it.id)}&autoplay=1&startTime=${start}`)
         : it.embed + (it.embed.includes("?") ? "&" : "?") + `autoplay=1&start=${start}s&title=0&warningTitle=0`;
-      $("player").appendChild(f); $("osd").hidden = true; return;
+      f.tabIndex = -1;
+      $("player").appendChild(f); $("osd").hidden = true;
+      setTimeout(() => { if (document.activeElement === f) { f.blur(); window.focus(); } }, 1500);
+      return;
     }
     const url = await mediaUrl(it);
     if (state.playingKey !== key) return;
@@ -690,12 +725,57 @@ $("star").onclick = () => {
   store.set("favs", f); refresh();
 };
 $("screen").onclick = e => { const v = $("player").querySelector("video"); if (v && v.paused) v.play().catch(() => {}); };
+/* ---------- TV-Modus ----------
+   Fire TV, Smart-TV-Browser oder ?tv=1 in der Adresse. Fernbedienung:
+   ▲▼ Kanal · ◀▶ Jahrzehnt · OK Ein/Programmübersicht · ⏩⏪ Sendung · ⏯ zurück zu Live */
+function isTv() {
+  const saved = store.get("tvmode", null);
+  if (/[?&]tv=1/.test(location.search)) return true;
+  if (saved !== null) return saved;
+  return /AFT|Silk|SmartTV|SMART-TV|Tizen|Web0S|webOS|BRAVIA|GoogleTV|Android TV|CrKey/i.test(navigator.userAgent);
+}
+let tvInfoTimer;
+function tvInfo(extra) {
+  if (!document.body.classList.contains("tv")) return;
+  const c = current(), el = $("tvinfo");
+  el.innerHTML = `<b>${String(state.chan + 1).padStart(2, "0")}</b>${esc(CHANNELS[state.chan].name)} · ${dec().label}` +
+    (c ? `<br>${esc(c.it.title)}<br><small>${c.start ? hhmm(c.start) + " – " + hhmm(c.start + c.it.duration) + " · " : ""}${c.it.year || ""} · ${srcName[c.it.src]}</small>` : "") +
+    (extra ? `<br><small>${esc(extra)}</small>` : "");
+  el.hidden = false; $("tvhelp").hidden = false;
+  clearTimeout(tvInfoTimer);
+  tvInfoTimer = setTimeout(() => { el.hidden = true; $("tvhelp").hidden = true; }, 6000);
+}
+function enterTv() { document.body.classList.add("tv"); tvInfo("OK drücken zum Einschalten"); }
+function leaveTv() { document.body.classList.remove("tv", "guide"); $("tvinfo").hidden = $("tvhelp").hidden = true; }
+$("tvtoggle").onclick = () => { store.set("tvmode", true); enterTv(); };
+function setDecade(n) {
+  const i = DECADES.findIndex(d => d.id === state.decade);
+  state.decade = DECADES[(i + n + DECADES.length) % DECADES.length].id; store.set("decade", state.decade);
+  renderControls(); switchTo();
+}
+function goFull() { const d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d)?.catch?.(() => {}); }
+
 document.addEventListener("keydown", e => {
-  if (e.target.tagName === "INPUT") return;
-  if (e.key === "ArrowUp") setChan(state.chan + 1);
-  if (e.key === "ArrowDown") setChan(state.chan - 1);
-  if (e.key === "ArrowRight") step(1);
-  if (e.key === "ArrowLeft") step(-1);
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  const tv = document.body.classList.contains("tv");
+  const k = e.key, code = e.keyCode;
+  let handled = true;
+  if (k === "ArrowUp" || k === "ChannelUp" || k === "PageUp") setChan(state.chan + 1);
+  else if (k === "ArrowDown" || k === "ChannelDown" || k === "PageDown") setChan(state.chan - 1);
+  else if (k === "ArrowRight") tv ? setDecade(1) : step(1);
+  else if (k === "ArrowLeft") tv ? setDecade(-1) : step(-1);
+  else if (k === "MediaFastForward" || k === "MediaTrackNext" || code === 228) step(1);
+  else if (k === "MediaRewind" || k === "MediaTrackPrevious" || code === 227) step(-1);
+  else if (k === "MediaPlayPause" || code === 179) { state.live = true; state.playingKey = null; refresh(); }
+  else if (tv && (k === "Enter" || code === 23)) {
+    if (!state.on) { state.on = true; goFull(); state.playingKey = null; refresh(); }
+    else document.body.classList.toggle("guide");
+  }
+  else if (tv && (k === "Escape" || k === "Backspace" || k === "GoBack") && document.body.classList.contains("guide"))
+    document.body.classList.remove("guide");
+  else if (tv && k === "Escape") { store.set("tvmode", false); leaveTv(); }
+  else handled = false;
+  if (handled) { e.preventDefault(); if (tv) setTimeout(() => tvInfo(), 50); }
 });
 
 setInterval(() => {
@@ -704,8 +784,13 @@ setInterval(() => {
 }, 1000);
 
 renderControls();
-switchTo();
 if (window.__castPending) initCast();
+(async () => {
+  await checkServerKey();
+  if (serverKey && !state.ytkey) ytMsg("✓ YouTube-Schlüssel ist in Netlify hinterlegt – gilt auf allen Geräten.", "good");
+  if (isTv()) enterTv();
+  switchTo();
+})();
 </script>
 </body>
 </html>
