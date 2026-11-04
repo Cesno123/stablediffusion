@@ -107,6 +107,7 @@
   #tvstart:focus { outline: 6px solid var(--accent); outline-offset: -12px; }
   body.tv #screen:focus { outline: none; }
   #tvkey { display: block; opacity: .7; margin-top: .3vw; }
+  #tvver { display: block; opacity: .5; font-size: .85em; }
   /* Menü: Größen richten sich nach Breite UND Höhe (Silk-Leiste kostet Höhe) */
   #tvmenu { --u: min(1.15vw, 1.95vh); position: fixed; inset: 2vh 2vw; z-index: 30; background: #15120f; color: var(--text);
     border: 2px solid var(--line); border-radius: calc(var(--u) * 1.2); padding: calc(var(--u) * 1.2) calc(var(--u) * 1.8);
@@ -150,7 +151,7 @@
     <div class="tvm-right"><h4>PROGRAMM</h4><div id="tvm-prog"></div></div>
   </div>
 </div>
-<div id="tvhelp" hidden>☰ Menü (Taste ≡ oder Knopf oben links) · ▲▼ Kanal · ◀▶ Jahrzehnt · ⏩⏪ spulen · ⏯ Pause<span id="tvkey"></span></div>
+<div id="tvhelp" hidden>☰ Menü (Taste ≡ oder Knopf oben links) · ▲▼ Kanal · ◀▶ Jahrzehnt · ⏩⏪ spulen · ⏯ Pause<span id="tvkey"></span><span id="tvver"></span></div>
 <div class="wrap">
   <header><h1>RÖHRENKISTE</h1><span id="clock">--:--</span></header>
 
@@ -275,6 +276,7 @@ const CACHE_HOURS = 24;
 /* ============================================================ */
 
 const $ = id => document.getElementById(id);
+const VERSION = "v12 · 04.11. 19:40";   // bei jeder Änderung hochzählen – zeigt, ob die neue Fassung geladen ist
 const store = {
   get(k, d) { try { const v = localStorage.getItem("rk2-" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("rk2-" + k, JSON.stringify(v)); } catch (e) {} },
@@ -906,6 +908,7 @@ $("tvstart").onclick = e => { e.stopPropagation(); tvTurnOn(); };
    ins Menü geht es über den Knopf „☰ Menü“ oben links. */
 $("tvmenubtn").onclick = e => { e.stopPropagation(); state.on ? openMenu() : tvTurnOn(); };
 function leaveTv() { $("tvstart").hidden = true; $("tvmenu").hidden = true; document.body.classList.remove("tv", "guide"); $("tvinfo").hidden = $("tvhelp").hidden = true; }
+$("tvver").textContent = "Version " + VERSION;
 $("tvtoggle").onclick = () => { store.set("tvmode", true); enterTv(); };
 function setDecade(n) {
   const i = DECADES.findIndex(d => d.id === state.decade);
