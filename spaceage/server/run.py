@@ -112,18 +112,18 @@ def prepared_src():
 
 
 def prepare():
-    """Run 15 minutes before a post: when that post is the 5th, 15th, 25th, ... animate an image with
-    OpenRouter (OPENROUTER_API_KEY) or Atlas Cloud (ATLAS_API_KEY) now (it takes a few minutes),
-    so the post can use the finished clip."""
+    """Run 15 minutes before a post: when that post is the 5th, 15th, 25th, ... animate an image now
+    (it takes a few minutes), so the post can use the finished clip. Atlas Cloud (ATLAS_API_KEY) is
+    tried first, so its prepaid balance gets used; when it fails or is empty, OpenRouter
+    (OPENROUTER_API_KEY). If both fail, the post stays a picture."""
     number = pq.posts_so_far() + 1
-    if os.environ.get("OPENROUTER_API_KEY", "").strip():  # OpenRouter first, Atlas Cloud otherwise
-        provider, key, label = "openrouter", os.environ["OPENROUTER_API_KEY"].strip(), "OpenRouter"
-    else:
-        provider, key, label = "atlas", os.environ.get("ATLAS_API_KEY", "").strip(), "Atlas"
+    providers = [(name, os.environ.get(var, "").strip(), label) for name, var, label in
+                 (("atlas", "ATLAS_API_KEY", "Atlas"), ("openrouter", "OPENROUTER_API_KEY", "OpenRouter"))]
+    providers = [p for p in providers if p[1]]
     if number % pq.ANIMATE_EVERY != pq.ANIMATE_AT:
         return f"Vorbereitung: Post Nr. {number} wird kein Video"
-    if not key:
-        return "Vorbereitung: weder OPENROUTER_API_KEY noch ATLAS_API_KEY, Post bleibt ein Bild"
+    if not providers:
+        return "Vorbereitung: weder ATLAS_API_KEY noch OPENROUTER_API_KEY, Post bleibt ein Bild"
     if pq.video_turn():
         return "Vorbereitung: ein eigenes Video ist dran"
     if prepared_src():
@@ -134,17 +134,25 @@ def prepare():
     src = random.choice(images)
     name = os.path.basename(src)
     os.makedirs(DATA, exist_ok=True)
-    try:
-        public = (WWW, PUBLIC_URL) if PUBLIC_URL and os.path.isdir(WWW) else None
-        pq.to_moving_reel(src, PREPARED_MP4, zlib.crc32(name.encode()), key, timeout=780,
-                          provider=provider, public=public)
-    except Exception as e:  # noqa: BLE001 - e.g. 402 balance empty: the post stays an image
-        drop_prepared()
-        return f"Vorbereitung: {label}-Video fehlgeschlagen ({e}), Post bleibt ein Bild"
-    with open(PREPARED_INFO, "w") as f:
-        json.dump({"src": name, "post": number}, f)
-    return f"Vorbereitung: {label}-Video aus {name} fertig fuer Post Nr. {number}"
-
+    public = (WWW, PUBLIC_URL) if PUBLIC_URL and os.path.isdir(WWW) else None
+    deadline = time.time() + 780  # the post follows 15 minutes after this run
+    failures = []
+    for provider, key, label in providers:
+        left = int(deadline - time.time())
+        if left < 120:
+            break
+        try:
+            pq.to_moving_reel(src, PREPARED_MP4, zlib.crc32(name.encode()), key, timeout=left,
+                              provider=provider, public=public)
+        except Exception as e:  # noqa: BLE001 - e.g. 402 balance empty: try the next provider
+            drop_prepared()
+            failures.append(f"{label}: {e}")
+            continue
+        with open(PREPARED_INFO, "w") as f:
+            json.dump({"src": name, "post": number}, f)
+        done = f"Vorbereitung: {label}-Video aus {name} fertig fuer Post Nr. {number}"
+        return done + (f" ({'; '.join(failures)})" if failures else "")
+    return f"Vorbereitung: Video fehlgeschlagen ({'; '.join(failures) or 'keine Zeit mehr'}), Post bleibt ein Bild"
 
 TEST_MODELS = "kwaivgi/kling-video-o1,kwaivgi/kling-v3.0-std"
 

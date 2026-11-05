@@ -14,7 +14,7 @@ import time
 import requests
 
 API = os.environ.get("ATLAS_API_URL", "https://api.atlascloud.ai/api/v1/model")
-MODEL = os.environ.get("SPACEAGE_VIDEO_MODEL", "kwaivgi/kling-v3.0-pro/image-to-video")
+MODEL = os.environ.get("SPACEAGE_VIDEO_MODEL", "kwaivgi/kling-video-o1/image-to-video")
 SECONDS = 5
 PROMPT = ("Very slow, smooth camera push-in. The scene stays almost still: all objects keep their exact shape, "
           "rigid, no deformation; only light and atmosphere move very subtly. Preserve the original art style, "
@@ -35,7 +35,13 @@ def _call(method, url, key, **kw):
 def animate(jpeg, key, timeout=900):
     image = "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()
     body = {"model": MODEL, "image": image, "duration": SECONDS, "sound": False, "prompt": PROMPT}
-    reply = _call("POST", f"{API}/generateVideo", key, json=body)
+    try:
+        reply = _call("POST", f"{API}/generateVideo", key, json=body)
+    except RuntimeError as e:  # a model without the sound switch (Kling O1) refuses it
+        if " 400:" not in str(e):
+            raise
+        body.pop("sound")
+        reply = _call("POST", f"{API}/generateVideo", key, json=body)
     job = (reply.get("data") or {}).get("id")
     if not job:
         raise RuntimeError(f"Atlas gave no prediction id: {str(reply)[:300]}")
