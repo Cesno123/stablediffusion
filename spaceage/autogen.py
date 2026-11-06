@@ -91,5 +91,56 @@ def main():
     sys.exit("no image could be generated")
 
 
+USED_FLUX = os.path.join(HERE, "posted", "used_flux.txt")
+
+
+def batch(count, which="comic"):
+    """Generate count new images into the queue right away (run.py --flux), whatever the queue holds.
+
+    which: "comic" (comic_prompts.py, each prompt once before any repeats) or "library" (a scene
+    from prompt_library.py in a random style, like the automatic images). Stops early when the
+    FLUX balance is empty. Returns a short report."""
+    from comic_prompts import COMIC
+
+    key = os.environ.get("BFL_API_KEY", "").strip()
+    if not key:
+        return "FLUX: BFL_API_KEY fehlt"
+    rng = random.Random()
+    used = set()
+    if os.path.exists(USED_FLUX):
+        with open(USED_FLUX) as f:
+            used = {line.strip() for line in f if line.strip()}
+    made, errors = [], []
+    for _ in range(count):
+        if which == "comic":
+            fresh = [c for c in COMIC if c[0] not in used] or list(COMIC)
+            title, prompt = rng.choice(fresh)
+            prompt += " Comic book art, printed on paper. Not a photo, not a 3D render, no text, no speech bubbles."
+        else:
+            title, scene = rng.choice(SCENES)
+            style, look = rng.choice(STYLES)
+            title = f"{title} {style}"
+            prompt = f"{scene} {look}. {STYLE_ENDING}"
+        try:
+            data = generate(prompt, MODEL, key, rng.randrange(2**31))
+        except RuntimeError as e:
+            errors.append(str(e)[:120])
+            if "402" in str(e) or "credit" in str(e).lower() or len(errors) >= 3:
+                break
+            continue
+        slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+        path = os.path.join(QUEUE, f"flux-{dt.datetime.utcnow():%Y%m%d-%H%M%S}-{slug}.jpg")
+        with open(path, "wb") as f:
+            f.write(add_grain(data, rng.randrange(2**31)))
+        os.makedirs(os.path.dirname(USED_FLUX), exist_ok=True)
+        with open(USED_FLUX, "a") as f:
+            f.write(title + "\n")
+        used.add(title)
+        made.append(os.path.basename(path))
+        print(f"  {len(made)}/{count}: {made[-1]}", flush=True)
+    report = f"FLUX: {len(made)} von {count} Bildern in die Warteschlange gelegt"
+    return report + (f" (Fehler: {'; '.join(errors)})" if errors else "")
+
+
 if __name__ == "__main__":
     main()
