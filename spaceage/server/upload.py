@@ -63,8 +63,9 @@ ITEM = """<div style="display:flex;gap:12px;align-items:center;margin:8px 0">{pr
 
 
 def queued():
+    """Queue files, newest upload first: new uploads and FLUX images are at the top of the page."""
     names = [n for n in os.listdir(QUEUE) if os.path.splitext(n)[1].lower() in IMAGES | VIDEOS]
-    return sorted(names, key=lambda n: (os.path.getmtime(os.path.join(QUEUE, n)), n))
+    return sorted(names, key=lambda n: (os.path.getmtime(os.path.join(QUEUE, n)), n), reverse=True)
 
 
 def safe_name(name):
