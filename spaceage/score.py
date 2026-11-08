@@ -693,6 +693,86 @@ def temple(c):
     c.add(drum, 0.3, 0.5)
 
 
+# ------------------------------------------------------- melodies: singable, new every time
+
+RHYTHMS = [  # note lengths in beats over eight beats (two bars of four); 0 = a rest of one beat
+    [2, 1, 1, 2, 2], [1.5, 0.5, 2, 1, 1, 2], [3, 1, 2, 2], [1, 1, 2, 1, 1, 2], [2, 2, 1, 1, 2],
+    [0, 1, 1, 2, 2, 2], [1.5, 0.5, 1, 1, 3, 1], [2, 1.5, 0.5, 4], [1, 2, 1, 2, 2], [0, 2, 1, 1, 1, 3],
+]
+CONTOURS = ["arch", "rise", "fall", "wave", "valley"]
+# lead instruments that suit each mood (a melody picks one at random)
+LEADS = {
+    "action": ["brass", "synth", "strings"], "heroic": ["brass", "strings", "flute"],
+    "eerie": ["theremin", "whistle", "bell"], "cosmic": ["flute", "strings", "synth", "bell", "whistle"],
+    "gentle": ["flute", "epiano", "bell", "whistle"], "neon": ["synth", "epiano", "reed"],
+    "retro": ["theremin", "vibes", "brass", "whistle"], "deep": ["flute", "theremin", "strings"],
+    "frontier": ["whistle", "reed", "flute"], "industry": ["brass", "synth"],
+    "sorrow": ["strings", "epiano", "flute"], "ancient": ["flute", "reed", "strings"],
+}
+
+
+def lead(kind, midi, n, rng):
+    """One melody note."""
+    t = np.arange(n) / SR
+    f = hz(midi)
+    vib = 1 + 0.008 * np.minimum(1, np.maximum(0, t - 0.25) / 0.4) * np.sin(2 * np.pi * rng.uniform(4.8, 5.8) * t)
+    env = np.minimum(1, t / 0.06) * np.minimum(1, np.maximum(0, (n / SR - t) / 0.15))
+    if kind == "flute":
+        phase = 2 * np.pi * np.cumsum(f * vib) / SR
+        breath = lowpass_noise(rng, n, 3000) * 0.06
+        return (np.sin(phase) + 0.15 * np.sin(2 * phase) + 0.05 * np.sin(3 * phase) + breath) * env
+    if kind == "whistle":
+        return np.sin(2 * np.pi * np.cumsum(f * vib) / SR) * env
+    if kind == "reed":
+        phase = 2 * np.pi * np.cumsum(f * vib) / SR
+        return resonant_lowpass(np.sign(np.sin(phase) + 0.3) * 0.5, 1800, 1.2) * env
+    if kind == "synth":
+        x = saw(f * vib, t, 5000)
+        return resonant_lowpass(x, 600 + 2400 * np.exp(-4 * t), 2.0) * env
+    if kind == "strings":
+        return ensemble([midi], n, "strings", 0.15, 0.2, rng)
+    if kind == "epiano":
+        return epiano(n, midi, 1.5)
+    if kind == "bell":
+        return bell(n, midi, 1.5)
+    if kind == "vibes":
+        return vibes(n, midi)
+    return voice(kind, midi, n, rng)  # brass, theremin
+
+
+def melody(c, seed):
+    """A short singable line: a fresh rhythm, contour and instrument per seed, chord tones on the strong
+    beats, steps in between, ending on the root or fifth so the reel loops."""
+    rng = np.random.default_rng(seed + 7919)
+    kind = str(rng.choice(LEADS.get(c.mood, ["flute", "strings"])))
+    rhythm = list(RHYTHMS[int(rng.integers(len(RHYTHMS)))])
+    contour = str(rng.choice(CONTOURS))
+    beat = c.seconds / 8
+    count = sum(1 for d in rhythm if d)
+    octave = 1 if kind in ("strings", "brass", "reed") else int(rng.choice([1, 2]))
+    deg = int(rng.choice([0, 2, 4]))
+    out = np.zeros(c.n)
+    pos, k = 0.0, 0
+    for d in rhythm:
+        if d == 0:  # a rest
+            pos += 1
+            continue
+        x = k / max(1, count - 1)
+        target = {"arch": 4 * (1 - abs(2 * x - 1)), "rise": 5 * x, "fall": 5 * (1 - x),
+                  "wave": 2 + 2 * np.sin(2 * np.pi * x), "valley": 4 * abs(2 * x - 1)}[contour]
+        if k == count - 1:
+            deg = int(rng.choice([0, 4, 7]))  # land on the root or fifth
+        else:
+            deg += int(np.clip(round(target) - deg, -2, 2)) + int(rng.choice([0, 0, 1, -1]))
+            if pos % 2 == 0 and deg % 2:  # strong beats prefer chord tones
+                deg += int(rng.choice([-1, 1]))
+        n = int(d * beat * SR * 0.97)
+        place(out, pos * beat * SR, lead(kind, c.note(deg, octave), n, rng))
+        pos += d
+        k += 1
+    return echo(out, beat * float(rng.choice([0.75, 1.5])), float(rng.uniform(0.15, 0.35))), kind
+
+
 # mood: list of (variant, recipe, scales, bars, lowest root, highest root, ambient fades).
 # Several clearly different variants per mood keep the music varied while it fits the picture.
 RECIPES = {
@@ -769,6 +849,22 @@ FITS = {
 }
 
 
+def _render(path, seconds, seed, mood, variant):
+    """Build one cue; it gets a new melody on top unless it is a soundscape, the machines or a cue
+    that already carries its own tune (horn, theremin, music box)."""
+    name, fn, scales, bars, low, high, ambient = variant
+    c = Cue(seconds, seed, scales, bars, low, high)
+    c.mood = mood
+    fn(c)
+    tune = ""
+    if name not in ("soundscape", "machines", "brass", "vibes", "music box"):
+        line, kind = melody(c, seed)
+        c.add(line, 0.28, float(c.rng.uniform(0.4, 0.65)))
+        tune = f", {kind} melody"
+    c.write(path, *((0.4, 0.6) if ambient else (0.02, 0.2)))
+    return f"{c.mode} on {c.root}{tune}"
+
+
 def cue(path, seconds, seed, mood, avoid=(), prefer=()):
     """Write a cue for a mood; returns (variant id, description).
 
@@ -783,24 +879,14 @@ def cue(path, seconds, seed, mood, avoid=(), prefer=()):
     if chosen:
         best = next((p for p in chosen if p not in avoid), chosen[0])
         mood, wanted = best.split(":")
-        name, fn, scales, bars, low, high, ambient = next(v for v in RECIPES[mood] if v[0].replace(" ", "_") == wanted)
-        c = Cue(seconds, seed, scales, bars, low, high)
-        c.mood = mood
-        fn(c)
-        c.write(path, *((0.4, 0.6) if ambient else (0.02, 0.2)))
-        return f"{mood}:{wanted}", f"{mood} cue '{name}' (chosen for the picture), {c.mode} on {c.root}"
+        variant = next(v for v in RECIPES[mood] if v[0].replace(" ", "_") == wanted)
+        return f"{mood}:{wanted}", f"{mood} cue '{variant[0]}' (chosen for the picture), " + \
+            _render(path, seconds, seed, mood, variant)
 
     def last_use(v):
         vid = f"{mood}:{v[0]}".replace(" ", "_")
         return max((i for i, a in enumerate(avoid) if a == vid), default=-1)
 
     unused = [v for v in RECIPES[mood] if last_use(v) < 0]
-    if unused:
-        name, fn, scales, bars, low, high, ambient = unused[int(rng.integers(len(unused)))]
-    else:
-        name, fn, scales, bars, low, high, ambient = min(RECIPES[mood], key=last_use)
-    c = Cue(seconds, seed, scales, bars, low, high)
-    c.mood = mood
-    fn(c)
-    c.write(path, *((0.4, 0.6) if ambient else (0.02, 0.2)))
-    return f"{mood}:{name}", f"{mood} cue '{name}', {c.mode} on {c.root}"
+    variant = unused[int(rng.integers(len(unused)))] if unused else min(RECIPES[mood], key=last_use)
+    return f"{mood}:{variant[0]}", f"{mood} cue '{variant[0]}', " + _render(path, seconds, seed, mood, variant)
