@@ -288,7 +288,7 @@ def pick(path, seconds, seed, history=None, mood=None, cues=()):
         recent = []
         if history and os.path.exists(history):
             with open(history) as f:
-                recent = f.read().split()[-(2 if cues else 6):]  # fit first: only the last 2 cues are avoided
+                recent = f.read().split()[-6:]
         variant, desc = cue(path, seconds, seed, mood, avoid=recent, prefer=cues)  # avoids the last six cues
         if history:
             os.makedirs(os.path.dirname(history), exist_ok=True)

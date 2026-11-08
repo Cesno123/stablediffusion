@@ -22,7 +22,7 @@ import sys
 import numpy as np
 from PIL import Image, ImageFilter
 
-from score import CONTOURS, FITS, LEAD_KINDS
+from score import CONTOURS, FITS, LEAD_KINDS, SOUNDS
 
 # mood -> trigger words (English prompt words and German caption words)
 WORDS = {
@@ -102,7 +102,9 @@ Look closely at what the picture shows: the main subject, what is happening, the
 the light and the feeling it leaves. Then choose from these cues the ones that fit, best first, and rate
 each from 1 (does not fit) to 10 (made for this picture). Each cue says which pictures it fits; a cue
 marked soundscape has no music, only the sound of the place. Give up to three cues; only include a cue
-rated below 8 if nothing fits better.
+rated below 8 if nothing fits better. If one of the soundscapes fits well, include it among the three.
+For a soundscape, also pick two to four sounds that belong to what the picture shows (for example rain for
+a wet street, lava for a volcano, wheels and wind for a rover in the desert, crowd for a busy market).
 Most cues also get a short melody on top. Choose the lead instrument whose sound suits this picture
 (flute: airy, pastoral, mystical; whistle: lonely, open land; reed: rustic, ancient, frontier; synth:
 technology, neon, 80s; strings: emotional, epic, sad; epiano: calm, warm, evening; bell: delicate, magic,
@@ -111,12 +113,14 @@ if a melody would spoil the scene, and the melody's shape: rise (hope, departure
 landing), arch (a journey), wave (drifting, dreamy), valley (tension that resolves).
 {catalog}
 Judge the content and the feeling, not the painting technique."""
-SCHEMA = {"type": "object", "additionalProperties": False, "required": ["cues", "lead", "contour", "reason"],
+SCHEMA = {"type": "object", "additionalProperties": False,
+          "required": ["cues", "lead", "contour", "sounds", "reason"],
           "properties": {"cues": {"type": "array", "items": {
                              "type": "object", "additionalProperties": False, "required": ["cue", "fit"],
                              "properties": {"cue": {"type": "string", "enum": list(FITS)}, "fit": {"type": "integer"}}}},
                          "lead": {"type": "string", "enum": LEAD_KINDS + ["none"]},
                          "contour": {"type": "string", "enum": CONTOURS},
+                         "sounds": {"type": "array", "items": {"type": "string", "enum": SOUNDS}},
                          "reason": {"type": "string", "description": "a few words on what the picture shows"}}}
 
 
@@ -149,10 +153,11 @@ def ask_claude(path):
         cues = [c["cue"] for c in good][:3]
         tune = [f"lead:{out['lead']}"] if out.get("lead") in LEAD_KINDS + ["none"] else []
         tune += [f"contour:{out['contour']}"] if out.get("contour") in CONTOURS else []
+        tune += [f"sound:{x}" for x in out.get("sounds", []) if x in SOUNDS][:4]
         if cues:
             scores = ", ".join(f"{c['cue']} {c.get('fit')}" for c in good[:3])
             return (cues[0].split(":")[0], f"claude: {str(out.get('reason', ''))[:80]} -> {scores}; "
-                    f"{out.get('lead')} {out.get('contour')}", cues + tune)
+                    f"{out.get('lead')} {out.get('contour')}; sounds {', '.join(out.get('sounds', []))}", cues + tune)
     except Exception as e:  # never let the soundtrack stop a post
         print(f"mood: claude failed ({type(e).__name__}: {e}), using words and colors", file=sys.stderr, flush=True)
     return None

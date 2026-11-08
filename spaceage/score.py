@@ -572,9 +572,114 @@ def boom(rng):
     return lowpass_noise(rng, n, rng.uniform(80, 200)) * np.exp(-2.5 * tt) * np.minimum(1, tt / 0.02)
 
 
+# ------------------------------------------ targeted sounds for a soundscape (chosen by Claude)
+
+def _sfx_pulses(c, period, make, jitter=0.2):
+    out = np.zeros(c.n)
+    t0 = c.rng.uniform(0, period)
+    while t0 < c.seconds:
+        place(out, t0 * SR, make())
+        t0 += period * c.rng.uniform(1 - jitter, 1 + jitter)
+    return out
+
+
+def _sound(c, name):
+    """(signal, gain) for one named sound effect."""
+    rng, t, n = c.rng, c.t, c.n
+    if name == "wind":
+        return wind(c, 600, 0.08, 0.6), 0.35
+    if name == "rain":
+        return noise_hit(rng, n, 0.95, 0.0) + 0.5 * lowpass_noise(rng, n, 3000), 0.18
+    if name == "thunder":
+        return events(c, 1, lambda r: lowpass_noise(r, int(4 * SR), 120) * np.exp(-0.9 * np.arange(int(4 * SR)) / SR)
+                      * np.minimum(1, np.arange(int(4 * SR)) / (0.15 * SR))), 0.5
+    if name == "waves":
+        return lowpass_noise(rng, n, 900) * (0.3 + 0.7 * np.sin(np.pi * ((t / 3.2) % 1)) ** 2), 0.35
+    if name == "stream":
+        return lowpass_noise(rng, n, 2500) * (0.8 + 0.2 * np.sin(2 * np.pi * 3.1 * t)), 0.15
+    if name == "lava":
+        bubbles = events(c, int(rng.integers(10, 18)), lambda r: chirp(r, r.uniform(60, 140), r.uniform(150, 300), 0.18, 12))
+        return bubbles + 0.5 * rumble(c, 80), 0.4
+    if name == "fire":
+        return events(c, int(rng.integers(25, 45)), lambda r: noise_hit(r, int(0.04 * SR), 0.9, 120)) \
+            + 0.4 * lowpass_noise(rng, n, 500), 0.2
+    if name == "engine":
+        f = hz(c.root - 24) * (1 + 0.02 * np.sin(2 * np.pi * 0.3 * t))
+        return resonant_lowpass(saw(f, t, 1200), 300, 1.5) * (0.8 + 0.2 * np.sin(2 * np.pi * 9 * t)), 0.35
+    if name == "thrusters":
+        return lowpass_noise(rng, n, 1500) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.2 * t)) + 0.4 * rumble(c, 90), 0.4
+    if name == "ship hum":
+        return (np.sin(2 * np.pi * hz(c.root - 24) * t) + 0.5 * np.sin(2 * np.pi * hz(c.root - 17) * t)) \
+            * (0.75 + 0.25 * np.sin(2 * np.pi * 0.5 * t)), 0.35
+    if name == "radio":
+        def burst(r):  # a few words of crackling voice
+            n = int(r.uniform(0.3, 0.9) * SR)
+            gate = 0.5 + 0.5 * np.sign(np.sin(2 * np.pi * r.uniform(4, 9) * np.arange(n) / SR))
+            return resonant_lowpass(r.normal(0, 1, n) * gate, 1800, 3.0)
+        chatter = events(c, int(rng.integers(3, 6)), burst)
+        return chatter + 0.3 * events(c, 2, lambda r: chirp(r, 1400, 1400, 0.12, 8)), 0.12
+    if name == "computers":
+        beep = lambda r: np.sin(2 * np.pi * r.choice([700, 900, 1200, 1500, 1800]) * np.arange(int(0.08 * SR)) / SR)  # noqa: E731
+        return events(c, int(rng.integers(8, 16)), beep) + 0.3 * np.sin(2 * np.pi * 120 * t), 0.08
+    if name == "crowd":
+        x = sum(resonant_lowpass(rng.normal(0, 1, n), rng.uniform(300, 900), 4.0) * (0.6 + 0.4 * np.sin(
+            2 * np.pi * rng.uniform(0.2, 0.7) * t + rng.uniform(0, 6))) for _ in range(3))
+        return x, 0.2
+    if name == "footsteps":
+        step = lambda: noise_hit(rng, int(0.12 * SR), 0.5, 35)  # noqa: E731
+        return _sfx_pulses(c, rng.uniform(0.45, 0.6), step, 0.08), 0.25
+    if name == "wheels":
+        return lowpass_noise(rng, n, 400) * (0.7 + 0.3 * np.sign(np.sin(2 * np.pi * 6 * t))) \
+            + 0.6 * _sfx_pulses(c, 0.35, lambda: noise_hit(rng, int(0.06 * SR), 0.4, 50), 0.4), 0.3
+    if name == "birds":
+        return events(c, int(rng.integers(4, 8)), lambda r: chirp(r, r.uniform(2000, 3500), r.uniform(3000, 5000),
+                                                                   r.uniform(0.08, 0.2), 12)), 0.1
+    if name == "insects":
+        return lowpass_noise(rng, n, 6000) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 30 * t))) \
+            * (0.6 + 0.4 * np.sin(2 * np.pi * 0.25 * t)), 0.05
+    if name == "creature":
+        return events(c, int(rng.integers(1, 3)), lambda r: resonant_lowpass(saw(
+            r.uniform(55, 90) * (1 + 0.3 * np.sin(np.pi * np.arange(int(1.6 * SR)) / int(1.6 * SR))),
+            np.arange(int(1.6 * SR)) / SR, 1500), 500, 4.0) * np.sin(np.pi * np.arange(int(1.6 * SR)) / int(1.6 * SR))), 0.3
+    if name == "creaks":
+        return events(c, 2, lambda r: resonant_lowpass(saw(r.uniform(60, 120) * (1 + 0.2 * np.sin(2 * np.pi * 6 * np.arange(
+            int(0.8 * SR)) / SR)), np.arange(int(0.8 * SR)) / SR, 1200), 500, 3.0) * np.sin(np.pi * np.arange(int(0.8 * SR))
+            / int(0.8 * SR))), 0.18
+    if name == "drips":
+        return echo(events(c, int(rng.integers(4, 8)), lambda r: chirp(r, r.uniform(1500, 2500), r.uniform(600, 900),
+                                                                        0.06, 40)), 0.35, 0.5), 0.15
+    if name == "alarm":
+        return np.sin(2 * np.pi * (600 + 250 * np.sin(2 * np.pi * 0.5 * t)) * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.25 * t)), 0.06
+    if name == "explosions":
+        return events(c, int(rng.integers(2, 4)), boom), 0.45
+    if name == "sonar":
+        ping = np.zeros(n)
+        place(ping, rng.uniform(0.5, 2) * SR, chirp(rng, 900, 900, 1.2, 4))
+        return echo(ping, 0.7, 0.55, repeats=6), 0.12
+    if name == "electricity":
+        zap = lambda r: resonant_lowpass(r.normal(0, 1, int(0.15 * SR)) * np.exp(-20 * np.arange(int(0.15 * SR)) / SR),
+                                         r.uniform(2000, 5000), 3.0)  # noqa: E731
+        return events(c, int(rng.integers(4, 9)), zap) + 0.2 * (np.sin(2 * np.pi * 100 * t) + 0.5 * np.sin(2 * np.pi * 300 * t)), 0.2
+    if name == "bubbles":
+        return events(c, int(rng.integers(8, 15)), lambda r: chirp(r, r.uniform(300, 700), r.uniform(900, 1800), 0.07, 30)), 0.12
+    return np.zeros(n), 0.0
+
+
+SOUNDS = ["wind", "rain", "thunder", "waves", "stream", "lava", "fire", "engine", "thrusters", "ship hum", "radio",
+          "computers", "crowd", "footsteps", "wheels", "birds", "insects", "creature", "creaks", "drips", "alarm",
+          "explosions", "sonar", "electricity", "bubbles"]
+
+
 def soundscape(c):
     """A pure sound environment for the picture's mood (c.mood): air, machines, water, signals."""
     rng, t, mood = c.rng, c.t, c.mood
+    chosen = [x for x in getattr(c, "sounds", []) if x in SOUNDS]
+    if chosen:  # the sounds Claude heard in the picture, over a quiet bed of air
+        c.add(lowpass_noise(rng, c.n, 400) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.06 * t)), 0.12, 0.5)
+        for x in chosen[:4]:
+            sig, gain = _sound(c, x)
+            c.add(sig, gain, float(rng.uniform(0.25, 0.75)))
+        return
     drone = np.sin(2 * np.pi * hz(c.root - 24) * t) + 0.4 * np.sin(2 * np.pi * hz(c.root - 12) * 1.003 * t)
     if mood == "action":  # a battle far away: rumble, distant blasts, an alarm sweeping
         c.add(rumble(c, 70), 0.5, 0.5)
@@ -853,18 +958,19 @@ FITS = {
 }
 
 
-def _render(path, seconds, seed, mood, variant, lead_kind=None, contour=None):
+def _render(path, seconds, seed, mood, variant, lead_kind=None, contour=None, sounds=()):
     """Build one cue; it gets a new melody on top unless it is a soundscape, the machines or a cue
     that already carries its own tune (horn, theremin, music box)."""
     name, fn, scales, bars, low, high, ambient = variant
     c = Cue(seconds, seed, scales, bars, low, high)
     c.mood = mood
+    c.sounds = list(sounds)
     fn(c)
-    tune = ""
+    tune = f", sounds: {', '.join(sounds)}" if name == "soundscape" and sounds else ""
     if name not in ("soundscape", "machines", "brass", "vibes", "music box") and lead_kind != "none":
         line, kind = melody(c, seed, lead_kind, contour)
         c.add(line, 0.28, float(c.rng.uniform(0.4, 0.65)))
-        tune = f", {kind} melody"
+        tune += f", {kind} melody"
     c.write(path, *((0.4, 0.6) if ambient else (0.02, 0.2)))
     return f"{c.mode} on {c.root}{tune}"
 
@@ -873,7 +979,8 @@ def cue(path, seconds, seed, mood, avoid=(), prefer=()):
     """Write a cue for a mood; returns (variant id, description).
 
     prefer: cue ids Claude chose for this picture, best first (FITS), plus "lead:<instrument or none>"
-    and "contour:<shape>" for the melody. Then only those cues are used:
+    and "contour:<shape>" for the melody and "sound:<name>" for a soundscape (SOUNDS). When a fitting
+    soundscape is among them and none ran in the last four posts, it plays half the time. Otherwise:
     the best one, unless it was among the last cues (avoid), then the next; the mood follows it.
     avoid: recently used variant ids, oldest first. Without prefer, a variant not among them is
     picked at random; when all were used, the one used longest ago, so the variants take turns.
@@ -882,13 +989,17 @@ def cue(path, seconds, seed, mood, avoid=(), prefer=()):
     avoid = list(avoid)
     lead_kind = next((p.split(":", 1)[1] for p in prefer if p.startswith("lead:")), None)
     contour = next((p.split(":", 1)[1] for p in prefer if p.startswith("contour:")), None)
+    sounds = [p.split(":", 1)[1] for p in prefer if p.startswith("sound:")]
     chosen = [p for p in prefer if p in FITS]
     if chosen:
-        best = next((p for p in chosen if p not in avoid), chosen[0])
+        best = next((p for p in chosen if p not in avoid[-2:]), chosen[0])
+        scape = next((p for p in chosen if p.endswith(":soundscape")), None)
+        if scape and sounds and not any(a.endswith(":soundscape") for a in avoid[-4:]) and rng.random() < 0.5:
+            best = scape  # now and then the pure sound of the place, when Claude found one that fits
         mood, wanted = best.split(":")
         variant = next(v for v in RECIPES[mood] if v[0].replace(" ", "_") == wanted)
         return f"{mood}:{wanted}", f"{mood} cue '{variant[0]}' (chosen for the picture), " + \
-            _render(path, seconds, seed, mood, variant, lead_kind, contour)
+            _render(path, seconds, seed, mood, variant, lead_kind, contour, sounds)
 
     def last_use(v):
         vid = f"{mood}:{v[0]}".replace(" ", "_")
