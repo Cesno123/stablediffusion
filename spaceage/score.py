@@ -624,6 +624,75 @@ def soundscape(c):
         c.add(echo(ping, 0.7, 0.55, repeats=6), 0.1, 0.7)
 
 
+# ------------------------------------------------- scenes the first moods did not cover
+
+def wasteland(c):
+    """Lonely frontier: a slow bending twang over wind and a low drone (desert, dunes, wasteland)."""
+    rng, t = c.rng, c.t
+    c.add(wind(c, 700, 0.07, 0.6), 0.3, 0.5)
+    c.add(np.sin(2 * np.pi * hz(c.root - 12) * t) + 0.3 * np.sin(2 * np.pi * hz(c.root - 5) * t), 0.25, 0.5)
+    twang = np.zeros(c.n)
+    for k, start in enumerate(sorted(rng.uniform(0.3, c.seconds - 2.5, size=3))):
+        n = int(2.5 * SR)
+        tt = np.arange(n) / SR
+        f = hz(c.note(int(rng.choice([0, 2, 4, 7])), 1)) * (1 - 0.02 * np.minimum(1, tt / 0.6))  # sliding down
+        x = sum(np.sin(2 * np.pi * np.cumsum(f * h) / SR) * np.exp(-2.5 * h * tt) / h for h in range(1, 6))
+        place(twang, start * SR, x * np.minimum(1, tt / 0.003))
+    c.add(echo(twang, 0.55, 0.45, repeats=5), 0.3, 0.6)
+
+
+def machines(c):
+    """Industry at work: a slow mechanical rhythm, hydraulic hiss, an engine drone; no melody."""
+    rng, t = c.rng, c.t
+    clank = np.zeros(c.n)
+    pattern = [0, 6, 8, 14] if rng.random() < 0.5 else [0, 3, 8, 11]
+    for b in range(c.bars):
+        for i in pattern:
+            n = int(0.35 * SR)
+            tt = np.arange(n) / SR
+            hit = np.sin(2 * np.pi * rng.uniform(180, 420) * tt) * np.sin(2 * np.pi * rng.uniform(900, 1800) * tt)
+            place(clank, c.at(b, i), (hit * np.exp(-14 * tt) + 0.6 * noise_hit(rng, n, 0.6, 30)))
+    c.add(clank, 0.45, 0.45)
+    hiss = np.zeros(c.n)
+    for start in rng.uniform(0.5, c.seconds - 1.5, size=2):
+        n = int(1.2 * SR)
+        place(hiss, start * SR, lowpass_noise(rng, n, 4000) * np.sin(np.pi * np.arange(n) / n))
+    c.add(hiss, 0.15, float(rng.uniform(0.2, 0.8)))
+    c.add((np.sin(2 * np.pi * hz(c.root - 24) * t) + 0.5 * np.sin(2 * np.pi * hz(c.root - 12) * t))
+          * (0.7 + 0.3 * np.sin(2 * np.pi * (c.bars / c.seconds) * t)), 0.4, 0.5)
+
+
+def lament(c):
+    """Melancholy: slow minor strings and a few lonely piano notes (ruins, loss, a lone figure)."""
+    rng = c.rng
+    pads = np.zeros(c.n)
+    for b, deg in enumerate([0, int(rng.choice([5, 3]))]):
+        place(pads, c.at(b), ensemble(c.chord(deg, 0, 3), int(c.bar * SR) + int(0.4 * SR), "strings", 1.2, 1.0, rng))
+    keys = np.zeros(c.n)
+    for k, step in enumerate(sorted(rng.choice([2, 6, 10, 18, 22, 26], size=3, replace=False))):
+        deg = 7 if k == 2 else int(rng.choice([2, 4, 5]))
+        place(keys, c.at(0, int(step)), epiano(int(3 * SR), c.note(deg, 1), 1.2))
+    c.add(pads, 0.45, 0.45)
+    c.add(echo(keys, c.step * 5, 0.35), 0.3, 0.6)
+
+
+def temple(c):
+    """Ancient and mystical: singing bowls, a low chant and a rare deep drum (temples, relics, alien shrines)."""
+    rng, t = c.rng, c.t
+    bowls = np.zeros(c.n)
+    for start in sorted(rng.uniform(0.2, c.seconds - 3, size=2)):
+        n = int(5 * SR)
+        tt = np.arange(n) / SR
+        f = hz(c.note(int(rng.choice([0, 4])), 1))
+        x = sum(np.sin(2 * np.pi * f * r * tt) * np.exp(-d * tt) for r, d in ((1, 0.6), (2.76, 1.2), (5.4, 2.5)))
+        place(bowls, start * SR, x * (1 + 0.1 * np.sin(2 * np.pi * 4 * tt)) * np.minimum(1, tt / 0.01))
+    c.add(bowls, 0.3, 0.55)
+    c.add(choir([c.root, c.root + 7], c.n, rng, "u"), 0.35, 0.45)
+    drum = np.zeros(c.n)
+    place(drum, c.at(0), timpani(int(2 * SR), c.root - 12, 1.0))
+    c.add(drum, 0.3, 0.5)
+
+
 # mood: list of (variant, recipe, scales, bars, lowest root, highest root, ambient fades).
 # Several clearly different variants per mood keep the music varied while it fits the picture.
 RECIPES = {
@@ -656,6 +725,10 @@ RECIPES = {
                ("whales", deep_whales, ["dorian", "lydian"], 2, 40, 46, True),
                ("engine", deep_engine, ["minor", "phrygian"], 2, 38, 44, True),
                ("soundscape", soundscape, ["dorian"], 2, 38, 44, True)],
+    "frontier": [("wasteland", wasteland, ["dorian", "minor"], 2, 40, 47, True)],
+    "industry": [("machines", machines, ["minor", "phrygian"], 2, 38, 44, False)],
+    "sorrow":   [("lament", lament, ["minor", "dorian"], 2, 43, 50, True)],
+    "ancient":  [("temple", temple, ["phrygian", "dorian"], 2, 40, 46, True)],
 }
 
 # What picture each cue fits; Claude reads this list and picks the cues for a picture (mood.py).
@@ -689,6 +762,10 @@ FITS = {
     "deep:whales": "sea creatures and ocean life: whales, giant animals, a living deep sea",
     "deep:engine": "inside a submarine or ship hull, an industrial underwater base",
     "deep:soundscape": "under water or under ice: frozen silence, depths with nothing happening",
+    "frontier:wasteland": "a lonely frontier: deserts, dunes, wasteland, a lone rover or traveller, wide empty land",
+    "industry:machines": "industry at work: mining, factories, cranes, cargo trains and haulers, heavy machinery",
+    "sorrow:lament": "melancholy and loss: ruins of a once great place, a lone mourning figure, quiet sadness",
+    "ancient:temple": "ancient and mystical: temples, relics, monoliths, alien shrines, sacred mystery",
 }
 
 
@@ -696,7 +773,7 @@ def cue(path, seconds, seed, mood, avoid=(), prefer=()):
     """Write a cue for a mood; returns (variant id, description).
 
     prefer: cue ids Claude chose for this picture, best first (FITS). Then only those are used:
-    the best one not among the last cues, else the best one; the mood comes from the first.
+    the best one, unless it was among the last cues (avoid), then the next; the mood follows it.
     avoid: recently used variant ids, oldest first. Without prefer, a variant not among them is
     picked at random; when all were used, the one used longest ago, so the variants take turns.
     """

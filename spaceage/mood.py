@@ -98,14 +98,17 @@ def colors(path):
 
 
 ASK = """You choose the soundtrack for an 8 second Instagram reel of this science fiction picture.
-Look at what the picture shows (subject, action, place, light, feeling) and choose from these cues the
-three that fit it best, best first. Each cue says which pictures it fits; a cue marked soundscape has no
-music, only the sound of the place. Only choose cues that really fit this picture; if fewer than three
-fit well, repeat the best one.
+Look closely at what the picture shows: the main subject, what is happening, the place, the time of day,
+the light and the feeling it leaves. Then choose from these cues the ones that fit, best first, and rate
+each from 1 (does not fit) to 10 (made for this picture). Each cue says which pictures it fits; a cue
+marked soundscape has no music, only the sound of the place. Give up to three cues; only include a cue
+rated below 8 if nothing fits better.
 {catalog}
 Judge the content and the feeling, not the painting technique."""
 SCHEMA = {"type": "object", "additionalProperties": False, "required": ["cues", "reason"],
-          "properties": {"cues": {"type": "array", "items": {"type": "string", "enum": list(FITS)}},
+          "properties": {"cues": {"type": "array", "items": {
+                             "type": "object", "additionalProperties": False, "required": ["cue", "fit"],
+                             "properties": {"cue": {"type": "string", "enum": list(FITS)}, "fit": {"type": "integer"}}}},
                          "reason": {"type": "string", "description": "a few words on what the picture shows"}}}
 
 
@@ -125,16 +128,20 @@ def ask_claude(path):
         resp = client.messages.create(
             model=os.environ.get("SPACEAGE_MOOD_MODEL", "claude-opus-5-5"),
             max_tokens=2000,
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}},
+            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": SCHEMA}},
             messages=[{"role": "user", "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": data}},
                 {"type": "text", "text": ASK.format(catalog="\n".join(f"- {k}: {v}" for k, v in FITS.items()))}]}],
         )
         text = next(b.text for b in resp.content if b.type == "text")
         out = json.loads(text)
-        cues = [c for c in out.get("cues", []) if c in FITS][:3]
+        rated = [c for c in out.get("cues", []) if isinstance(c, dict) and c.get("cue") in FITS]
+        rated.sort(key=lambda c: -int(c.get("fit", 0)))
+        good = [c for c in rated if int(c.get("fit", 0)) >= 8] or rated[:1]  # only cues that really fit
+        cues = [c["cue"] for c in good][:3]
         if cues:
-            return cues[0].split(":")[0], f"claude: {str(out.get('reason', ''))[:80]} -> {', '.join(cues)}", cues
+            scores = ", ".join(f"{c['cue']} {c.get('fit')}" for c in good[:3])
+            return cues[0].split(":")[0], f"claude: {str(out.get('reason', ''))[:80]} -> {scores}", cues
     except Exception as e:  # never let the soundtrack stop a post
         print(f"mood: claude failed ({type(e).__name__}: {e}), using words and colors", file=sys.stderr, flush=True)
     return None
