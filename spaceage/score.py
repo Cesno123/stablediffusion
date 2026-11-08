@@ -740,13 +740,17 @@ def lead(kind, midi, n, rng):
     return voice(kind, midi, n, rng)  # brass, theremin
 
 
-def melody(c, seed):
-    """A short singable line: a fresh rhythm, contour and instrument per seed, chord tones on the strong
-    beats, steps in between, ending on the root or fifth so the reel loops."""
+LEAD_KINDS = ["flute", "whistle", "reed", "synth", "strings", "epiano", "bell", "vibes", "brass", "theremin"]
+
+
+def melody(c, seed, kind=None, contour=None):
+    """A short singable line: a fresh rhythm and note sequence per seed, chord tones on the strong
+    beats, steps in between, ending on the root or fifth so the reel loops. kind and contour come
+    from Claude (what suits the picture); without them they are picked to suit the mood."""
     rng = np.random.default_rng(seed + 7919)
-    kind = str(rng.choice(LEADS.get(c.mood, ["flute", "strings"])))
+    kind = kind if kind in LEAD_KINDS else str(rng.choice(LEADS.get(c.mood, ["flute", "strings"])))
     rhythm = list(RHYTHMS[int(rng.integers(len(RHYTHMS)))])
-    contour = str(rng.choice(CONTOURS))
+    contour = contour if contour in CONTOURS else str(rng.choice(CONTOURS))
     beat = c.seconds / 8
     count = sum(1 for d in rhythm if d)
     octave = 1 if kind in ("strings", "brass", "reed") else int(rng.choice([1, 2]))
@@ -849,7 +853,7 @@ FITS = {
 }
 
 
-def _render(path, seconds, seed, mood, variant):
+def _render(path, seconds, seed, mood, variant, lead_kind=None, contour=None):
     """Build one cue; it gets a new melody on top unless it is a soundscape, the machines or a cue
     that already carries its own tune (horn, theremin, music box)."""
     name, fn, scales, bars, low, high, ambient = variant
@@ -857,8 +861,8 @@ def _render(path, seconds, seed, mood, variant):
     c.mood = mood
     fn(c)
     tune = ""
-    if name not in ("soundscape", "machines", "brass", "vibes", "music box"):
-        line, kind = melody(c, seed)
+    if name not in ("soundscape", "machines", "brass", "vibes", "music box") and lead_kind != "none":
+        line, kind = melody(c, seed, lead_kind, contour)
         c.add(line, 0.28, float(c.rng.uniform(0.4, 0.65)))
         tune = f", {kind} melody"
     c.write(path, *((0.4, 0.6) if ambient else (0.02, 0.2)))
@@ -868,20 +872,23 @@ def _render(path, seconds, seed, mood, variant):
 def cue(path, seconds, seed, mood, avoid=(), prefer=()):
     """Write a cue for a mood; returns (variant id, description).
 
-    prefer: cue ids Claude chose for this picture, best first (FITS). Then only those are used:
+    prefer: cue ids Claude chose for this picture, best first (FITS), plus "lead:<instrument or none>"
+    and "contour:<shape>" for the melody. Then only those cues are used:
     the best one, unless it was among the last cues (avoid), then the next; the mood follows it.
     avoid: recently used variant ids, oldest first. Without prefer, a variant not among them is
     picked at random; when all were used, the one used longest ago, so the variants take turns.
     """
     rng = np.random.default_rng(seed)
     avoid = list(avoid)
+    lead_kind = next((p.split(":", 1)[1] for p in prefer if p.startswith("lead:")), None)
+    contour = next((p.split(":", 1)[1] for p in prefer if p.startswith("contour:")), None)
     chosen = [p for p in prefer if p in FITS]
     if chosen:
         best = next((p for p in chosen if p not in avoid), chosen[0])
         mood, wanted = best.split(":")
         variant = next(v for v in RECIPES[mood] if v[0].replace(" ", "_") == wanted)
         return f"{mood}:{wanted}", f"{mood} cue '{variant[0]}' (chosen for the picture), " + \
-            _render(path, seconds, seed, mood, variant)
+            _render(path, seconds, seed, mood, variant, lead_kind, contour)
 
     def last_use(v):
         vid = f"{mood}:{v[0]}".replace(" ", "_")
