@@ -1,49 +1,84 @@
-"""Post a finished reel to TikTok through Upload-Post (needs UPLOAD_POST_API_KEY and UPLOAD_POST_USER).
+"""Post a finished reel to TikTok through Zernio (needs ZERNIO_API_KEY).
 
 TikTok only lets audited apps for many users post publicly, so a private server cannot do it
-directly. Upload-Post runs such an approved app; the TikTok account is connected once in its
-dashboard (a "profile", whose name goes into UPLOAD_POST_USER). TikTok posting needs a paid
-Upload-Post plan (Basic and up); the Free plan answers 403.
+directly. Zernio runs such an app; the TikTok account is connected once in its dashboard.
+Zernio's first two connected accounts are free.
 
-post(path, caption) sends the video file to POST https://api.upload-post.com/api/upload with
-platform[]=tiktok, public, labelled as AI-generated (is_aigc), and async_upload=true so the
-call returns at once with a request_id while Upload-Post publishes in the background.
-Reference: https://docs.upload-post.com/api/upload-video
+post(video_url, caption) calls POST https://zernio.com/api/v1/posts with the reel's public URL
+in mediaItems, the TikTok account, tiktokSettings (public, AI-generated disclosure and the two
+consent flags TikTok requires on every post) and publishNow. Only TikTok is posted here:
+Instagram is posted by the server itself.
+The TikTok account id comes from ZERNIO_TIKTOK_ACCOUNT, or else from GET /v1/accounts?platform=tiktok.
+Docs: https://docs.zernio.com/platforms/tiktok.mdx and https://docs.zernio.com/posts/create-post.mdx
 """
 
 import os
 
 import requests
 
-API = "https://api.upload-post.com/api/upload"
+API = "https://zernio.com/api/v1"
+
+
+def _key():
+    return os.environ.get("ZERNIO_API_KEY", "").strip()
 
 
 def enabled():
-    return bool(os.environ.get("UPLOAD_POST_API_KEY", "").strip() and os.environ.get("UPLOAD_POST_USER", "").strip())
+    return bool(_key())
 
 
-def post(path, caption):
-    """Returns a short report line; raises RuntimeError on a refused upload."""
-    key = os.environ.get("UPLOAD_POST_API_KEY", "").strip()
-    user = os.environ.get("UPLOAD_POST_USER", "").strip()
-    if not (key and user):
-        return "TikTok: aus (UPLOAD_POST_API_KEY oder UPLOAD_POST_USER fehlt)"
-    data = {
-        "user": user,
-        "platform[]": "tiktok",
-        "title": caption[:2200],
-        "tiktok_title": caption[:2200],
-        "privacy_level": "PUBLIC_TO_EVERYONE",
-        "is_aigc": "true",
-        "async_upload": "true",
-    }
-    with open(path, "rb") as f:
-        r = requests.post(API, headers={"Authorization": f"Apikey {key}"}, data=data,
-                          files={"video": (os.path.basename(path), f, "video/mp4")}, timeout=300)
+def _headers():
+    return {"Authorization": f"Bearer {_key()}", "Content-Type": "application/json"}
+
+
+def _check(r, what):
     try:
         body = r.json()
     except ValueError:
-        body = {"message": r.text[:200]}
-    if not r.ok or body.get("success") is False:
-        raise RuntimeError(f"TikTok {r.status_code}: {str(body.get('message') or body.get('error') or body)[:200]}")
-    return f"TikTok: angenommen (request_id {body.get('request_id', '?')})"
+        body = {"error": r.text[:200]}
+    if not r.ok:
+        raise RuntimeError(f"Zernio {what} {r.status_code}: {str(body.get('error') or body)[:200]}")
+    return body
+
+
+def accounts():
+    """[(id, username, status)] of the connected TikTok accounts."""
+    body = _check(requests.get(f"{API}/accounts", headers=_headers(), params={"platform": "tiktok"}, timeout=60),
+                  "accounts")
+    return [(a.get("_id") or a.get("id"), a.get("username") or a.get("displayName"), a.get("status"))
+            for a in body.get("accounts", [])]
+
+
+def account_id():
+    fixed = os.environ.get("ZERNIO_TIKTOK_ACCOUNT", "").strip()
+    if fixed:
+        return fixed
+    found = [a for a in accounts() if a[0]]
+    if not found:
+        raise RuntimeError("Zernio: kein TikTok-Konto verbunden")
+    return found[0][0]
+
+
+def post(video_url, caption):
+    """Returns a short report line; raises RuntimeError when Zernio refuses the post."""
+    if not enabled():
+        return "TikTok: aus (ZERNIO_API_KEY fehlt)"
+    body = {
+        "content": caption[:2200],
+        "mediaItems": [{"type": "video", "url": video_url}],
+        "platforms": [{"platform": "tiktok", "accountId": account_id()}],
+        "tiktokSettings": {
+            "privacy_level": "PUBLIC_TO_EVERYONE",
+            "allow_comment": True,
+            "allow_duet": True,
+            "allow_stitch": True,
+            "videoMadeWithAi": True,
+            "content_preview_confirmed": True,
+            "express_consent_given": True,
+        },
+        "publishNow": True,
+    }
+    out = _check(requests.post(f"{API}/posts", headers=_headers(), json=body, timeout=120), "post")
+    states = [p.get("status") for p in (out.get("post") or {}).get("platforms", [])]
+    warn = f", Hinweise: {'; '.join(out['warnings'])[:200]}" if out.get("warnings") else ""
+    return f"TikTok: an Zernio uebergeben (Status {', '.join(map(str, states)) or '?'}){warn}"

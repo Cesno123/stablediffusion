@@ -255,15 +255,15 @@ def post_next(dry_run=False):
     ig.wait_until_ready(container, token)
     media_id = ig.publish(user_id, token, container)
     pq.count_post()
-    if tiktok.enabled():
-        try:
-            log(tiktok.post(media, caption))
-        except Exception as e:  # TikTok must never break the Instagram post
-            log(f"TikTok fehlgeschlagen: {type(e).__name__}: {e}")
     try:
         tiktok_keep(media, caption)
     except Exception as e:  # the TikTok page must never break a post
         log(f"tiktok page: {type(e).__name__}: {e}")
+    if tiktok.enabled():  # the copy in WWW/tiktok/ stays online for the next ten posts: Zernio fetches it there
+        try:
+            log(tiktok.post(f"{PUBLIC_URL}/tiktok/{reel}", caption))
+        except Exception as e:  # TikTok must never break the Instagram post
+            log(f"TikTok fehlgeschlagen: {type(e).__name__}: {e}")
 
     # posted: archive a small preview and the caption, drop the original
     os.makedirs(pq.POSTED, exist_ok=True)
@@ -366,6 +366,14 @@ def main():
         return
     if args.flux:
         log(autogen.batch(args.flux, args.set))
+        return
+    if args.tiktok_check:
+        if not tiktok.enabled():
+            print("ZERNIO_API_KEY fehlt in /etc/spaceage.env")
+            return
+        for acc_id, name, status in tiktok.accounts():
+            print(f"TikTok-Konto bei Zernio: {name}  (id {acc_id}, Status {status})")
+        print("Wird benutzt:", tiktok.account_id())
         return
     try:
         if args.check:
