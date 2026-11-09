@@ -93,6 +93,9 @@ def main():
 
 
 USED_FLUX = os.path.join(HERE, "posted", "used_flux.txt")
+COMPOSE = (" Calm, carefully composed like a classic illustration: one clear main subject placed on a golden-ratio"
+           " point, few elements, nothing crowded, no swarms or crowds, generous empty space, restrained details."
+           " Comic book art, printed on paper. Not a photo, not a 3D render, no text, no speech bubbles.")
 
 
 def batch(count, which="comic"):
@@ -118,7 +121,7 @@ def batch(count, which="comic"):
             pool = [c for c in COMIC if which == "comic" or c[0].startswith("fifties")]
             fresh = [c for c in pool if c[0] not in used] or pool
             title, prompt = rng.choice(fresh)
-            prompt += " Comic book art, printed on paper. Not a photo, not a 3D render, no text, no speech bubbles."
+            prompt += COMPOSE
         else:
             title, scene = rng.choice(SCENES)
             style, look = rng.choice(STYLES)
