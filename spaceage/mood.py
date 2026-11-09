@@ -112,22 +112,43 @@ distant; vibes: playful retro; brass: heroic, military, grand; theremin: alien, 
 if a melody would spoil the scene, and the melody's shape: rise (hope, departure), fall (calm, sadness,
 landing), arch (a journey), wave (drifting, dreamy), valley (tension that resolves).
 {catalog}
-Judge the content and the feeling, not the painting technique."""
+Judge the content and the feeling, not the painting technique.
+Finally write `line`: one English sentence of at most 110 characters for the Instagram caption. Say what is
+happening in this picture, vivid and a little poetic, like the blurb on an old science fiction paperback.
+Only what is really visible in the picture. No hashtags, no emoji, no quotation marks."""
 SCHEMA = {"type": "object", "additionalProperties": False,
-          "required": ["cues", "lead", "contour", "sounds", "reason"],
+          "required": ["cues", "lead", "contour", "sounds", "reason", "line"],
           "properties": {"cues": {"type": "array", "items": {
                              "type": "object", "additionalProperties": False, "required": ["cue", "fit"],
                              "properties": {"cue": {"type": "string", "enum": list(FITS)}, "fit": {"type": "integer"}}}},
                          "lead": {"type": "string", "enum": LEAD_KINDS + ["none"]},
                          "contour": {"type": "string", "enum": CONTOURS},
                          "sounds": {"type": "array", "items": {"type": "string", "enum": SOUNDS}},
-                         "reason": {"type": "string", "description": "a few words on what the picture shows"}}}
+                         "reason": {"type": "string", "description": "a few words on what the picture shows"},
+                         "line": {"type": "string", "description": "one caption sentence about this picture"}}}
+_SEEN = {}  # path -> (result of ask_claude, caption line): one Claude call per picture serves both
 
 
 def ask_claude(path):
-    """(mood, reason, cues) chosen by Claude from the picture itself, or None (no key, no network, error)."""
+    """(mood, reason, cues) chosen by Claude from the picture itself, or None (no key, no network, error).
+    The caption line Claude writes in the same answer is kept for caption_line()."""
+    if path in _SEEN:
+        return _SEEN[path][0]
+    result, line = _ask(path)
+    if result is not None or line:
+        _SEEN[path] = (result, line)
+    return result
+
+
+def caption_line(path):
+    """One sentence about this picture for the caption, written by Claude; None without Claude."""
+    ask_claude(path)
+    return _SEEN.get(path, (None, None))[1]
+
+
+def _ask(path):
     if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
-        return None
+        return None, None
     try:
         import anthropic
 
@@ -154,13 +175,16 @@ def ask_claude(path):
         tune = [f"lead:{out['lead']}"] if out.get("lead") in LEAD_KINDS + ["none"] else []
         tune += [f"contour:{out['contour']}"] if out.get("contour") in CONTOURS else []
         tune += [f"sound:{x}" for x in out.get("sounds", []) if x in SOUNDS][:4]
+        line = " ".join(str(out.get("line", "")).replace('"', "").split())[:140] or None
         if cues:
             scores = ", ".join(f"{c['cue']} {c.get('fit')}" for c in good[:3])
             return (cues[0].split(":")[0], f"claude: {str(out.get('reason', ''))[:80]} -> {scores}; "
-                    f"{out.get('lead')} {out.get('contour')}; sounds {', '.join(out.get('sounds', []))}", cues + tune)
+                    f"{out.get('lead')} {out.get('contour')}; sounds {', '.join(out.get('sounds', []))}",
+                    cues + tune), line
+        return None, line
     except Exception as e:  # never let the soundtrack stop a post
         print(f"mood: claude failed ({type(e).__name__}: {e}), using words and colors", file=sys.stderr, flush=True)
-    return None
+    return None, None
 
 
 def mood_of(path, caption=""):

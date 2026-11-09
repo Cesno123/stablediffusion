@@ -34,6 +34,7 @@ VIDEOS = {".mp4", ".mov"}
 # text first) plus a few hashtags drawn from the pool. The same text and the
 # same 30 hashtags on every post look like spam to Instagram; brand tags
 # (#NASA, #SpaceX, #StarWars...) that don't match the picture were dropped.
+LINE_EMOJI = ["🚀", "🌌", "✨", "🛸", "🪐", "🌠"]
 INTROS = [
     "🚀 Step into the future with SpaceAge42 – your gateway to cosmic art and sci-fi "
     "visions! 🌌 Perfect for dreamers, explorers, and tech lovers. From interstellar "
@@ -76,13 +77,21 @@ QUESTIONS = [
 
 
 def default_caption(src):
-    """Intro and hashtags for one file; the same file always gets the same caption."""
+    """Intro and hashtags for one file. The intro is Claude's sentence about the picture when Claude
+    is reachable, else one of INTROS; the same file always gets the same tags and question."""
     import hashlib
     import random
 
     rng = random.Random(hashlib.sha256(os.path.basename(src).encode()).hexdigest())
     tags = ["#SpaceAge42"] + rng.sample(HASHTAGS, TAGS_PER_POST - 1)
     intro = rng.choice(INTROS)
+    try:  # Claude's sentence about this very picture (the same answer that picks the music)
+        from mood import caption_line
+        line = caption_line(src) if os.path.splitext(src)[1].lower() in IMAGES else None
+    except Exception:
+        line = None
+    if line:
+        intro = f"{rng.choice(LINE_EMOJI)} {line}"
     if rng.random() < 0.5:
         intro += "\n\n" + rng.choice(QUESTIONS)
     return intro + "\n\n" + " ".join(tags)
