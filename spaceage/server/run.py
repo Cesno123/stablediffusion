@@ -345,6 +345,7 @@ def tiktok_keep(media, caption):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="build the reel but do not post")
+    ap.add_argument("--tiktok-check", action="store_true", help="list the TikTok accounts Zernio sees, post nothing")
     ap.add_argument("--check", action="store_true", help="only test the Instagram access")
     ap.add_argument("--prepare", action="store_true", help="make the Atlas clip for the coming post if it is due")
     ap.add_argument("--test-video", action="store_true", help="compare video models on one image; posts nothing")
