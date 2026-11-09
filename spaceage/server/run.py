@@ -281,7 +281,7 @@ def main():
     ap.add_argument("--prompts", help="for --test-video: motion prompts separated by | (each model gets each)")
     ap.add_argument("--test-index", action="store_true", help="only rebuild the page listing the test clips")
     ap.add_argument("--flux", type=int, metavar="N", help="generate N FLUX images into the queue now")
-    ap.add_argument("--set", default="comic", choices=["comic", "library"], help="prompts for --flux")
+    ap.add_argument("--set", default="comic", choices=["comic", "fifties", "library"], help="prompts for --flux")
     args = ap.parse_args()
     if args.prepare:
         log(prepare())

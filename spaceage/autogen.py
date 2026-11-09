@@ -97,7 +97,8 @@ USED_FLUX = os.path.join(HERE, "posted", "used_flux.txt")
 def batch(count, which="comic"):
     """Generate count new images into the queue right away (run.py --flux), whatever the queue holds.
 
-    which: "comic" (comic_prompts.py, each prompt once before any repeats) or "library" (a scene
+    which: "comic" (comic_prompts.py, each prompt once before any repeats), "fifties" (only the
+    1950s comic prompts, which do best on the account) or "library" (a scene
     from prompt_library.py in a random style, like the automatic images). Stops early when the
     FLUX balance is empty. Returns a short report."""
     from comic_prompts import COMIC
@@ -112,8 +113,9 @@ def batch(count, which="comic"):
             used = {line.strip() for line in f if line.strip()}
     made, errors = [], []
     for _ in range(count):
-        if which == "comic":
-            fresh = [c for c in COMIC if c[0] not in used] or list(COMIC)
+        if which in ("comic", "fifties"):
+            pool = [c for c in COMIC if which == "comic" or c[0].startswith("fifties")]
+            fresh = [c for c in pool if c[0] not in used] or pool
             title, prompt = rng.choice(fresh)
             prompt += " Comic book art, printed on paper. Not a photo, not a 3D render, no text, no speech bubbles."
         else:
