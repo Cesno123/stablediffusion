@@ -18,6 +18,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from bfl import generate  # noqa: E402
+from quality import judge  # noqa: E402
 from post_queue import IMAGES, QUEUE, queue_files, video_turn  # noqa: E402
 from prompt_library import SCENES, STYLE_ENDING, STYLES  # noqa: E402
 
@@ -93,6 +94,7 @@ def main():
 
 
 USED_FLUX = os.path.join(HERE, "posted", "used_flux.txt")
+REJECTED = os.path.join(HERE, "posted", "flux-aussortiert")
 COMPOSE = (" Composed like a classic pulp illustration: a clear story moment with tension or wonder, the main"
            " subject large in the frame on a golden-ratio point, at most three or four elements, no swarms or crowds,"
            " dramatic lighting. Anatomically correct people with natural proportions and hands, believable scale"
@@ -117,7 +119,7 @@ def batch(count, which="comic"):
     if os.path.exists(USED_FLUX):
         with open(USED_FLUX) as f:
             used = {line.strip() for line in f if line.strip()}
-    made, errors = [], []
+    made, errors, rejected = [], [], []
     for _ in range(count):
         if which in ("comic", "fifties"):
             pool = [c for c in COMIC if which == "comic" or c[0].startswith("fifties")]
@@ -147,7 +149,16 @@ def batch(count, which="comic"):
                 break
             continue
         slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
-        path = os.path.join(QUEUE, f"flux-{dt.datetime.utcnow():%Y%m%d-%H%M%S}-{slug}.jpg")
+        name = f"flux-{dt.datetime.utcnow():%Y%m%d-%H%M%S}-{slug}.jpg"
+        keep, note = judge(data, prompt)
+        if not keep:  # Claude found it broken or dull: kept aside, never posted
+            os.makedirs(REJECTED, exist_ok=True)
+            with open(os.path.join(REJECTED, name), "wb") as f:
+                f.write(data)
+            rejected.append(name)
+            print(f"  aussortiert: {name} ({note})", flush=True)
+            continue
+        path = os.path.join(QUEUE, name)
         with open(path, "wb") as f:
             f.write(add_grain(data, rng.randrange(2**31)))
         os.makedirs(os.path.dirname(USED_FLUX), exist_ok=True)
@@ -155,8 +166,9 @@ def batch(count, which="comic"):
             f.write(title + "\n")
         used.add(title)
         made.append(os.path.basename(path))
-        print(f"  {len(made)}/{count}: {made[-1]}", flush=True)
-    report = f"FLUX: {len(made)} von {count} Bildern in die Warteschlange gelegt"
+        print(f"  behalten {len(made)}: {made[-1]} ({note})", flush=True)
+    report = (f"FLUX: {len(made) + len(rejected)} von {count} Bildern erzeugt, {len(made)} in die Warteschlange,"
+              f" {len(rejected)} von Claude aussortiert")
     return report + (f" (Fehler: {'; '.join(errors)})" if errors else "")
 
 
