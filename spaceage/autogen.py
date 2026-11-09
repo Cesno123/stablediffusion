@@ -13,6 +13,7 @@ import os
 import random
 import re
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -123,11 +124,21 @@ def batch(count, which="comic"):
             style, look = rng.choice(STYLES)
             title = f"{title} {style}"
             prompt = f"{scene} {look}. {STYLE_ENDING}"
-        try:
-            data = generate(prompt, MODEL, key, rng.randrange(2**31))
-        except RuntimeError as e:
-            errors.append(str(e)[:120])
-            if "402" in str(e) or "credit" in str(e).lower() or len(errors) >= 3:
+        data, waits = None, 0
+        while data is None:
+            try:
+                data = generate(prompt, MODEL, key, rng.randrange(2**31))
+            except RuntimeError as e:
+                # 429 "credit balance is low": BFL only slows down, so wait and try again
+                if "429" in str(e) and waits < 8:
+                    waits += 1
+                    print(f"  BFL bremst (wenig Guthaben), warte {30 * waits} s ...", flush=True)
+                    time.sleep(30 * waits)
+                    continue
+                errors.append(str(e)[:120])
+                break
+        if data is None:
+            if "402" in errors[-1] or "429" in errors[-1] or len(errors) >= 3:
                 break
             continue
         slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
