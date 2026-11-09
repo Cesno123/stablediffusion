@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 import autogen  # noqa: E402
 import post_instagram as ig  # noqa: E402
 import post_queue as pq  # noqa: E402
+import tiktok  # noqa: E402
 
 DATA = os.environ.get("SPACEAGE_DATA", "/var/lib/spaceage")
 WWW = os.environ.get("SPACEAGE_WWW", "/srv/spaceage/www")
@@ -254,6 +255,11 @@ def post_next(dry_run=False):
     ig.wait_until_ready(container, token)
     media_id = ig.publish(user_id, token, container)
     pq.count_post()
+    if tiktok.enabled():
+        try:
+            log(tiktok.post(media, caption))
+        except Exception as e:  # TikTok must never break the Instagram post
+            log(f"TikTok fehlgeschlagen: {type(e).__name__}: {e}")
     try:
         tiktok_keep(media, caption)
     except Exception as e:  # the TikTok page must never break a post
