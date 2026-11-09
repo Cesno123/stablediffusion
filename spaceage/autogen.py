@@ -93,9 +93,11 @@ def main():
 
 
 USED_FLUX = os.path.join(HERE, "posted", "used_flux.txt")
-COMPOSE = (" Calm, carefully composed like a classic illustration: one clear main subject placed on a golden-ratio"
-           " point, few elements, nothing crowded, no swarms or crowds, generous empty space, restrained details."
-           " Comic book art, printed on paper. Not a photo, not a 3D render, no text, no speech bubbles.")
+COMPOSE = (" Composed like a classic pulp illustration: a clear story moment with tension or wonder, the main"
+           " subject large in the frame on a golden-ratio point, at most three or four elements, no swarms or crowds,"
+           " dramatic lighting. Anatomically correct people with natural proportions and hands, believable scale"
+           " between people, vehicles and buildings. Comic book art, printed on paper. Not a photo, not a 3D render,"
+           " no text, no speech bubbles.")
 
 
 def batch(count, which="comic"):
