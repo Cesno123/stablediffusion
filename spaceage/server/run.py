@@ -342,10 +342,52 @@ def tiktok_keep(media, caption):
         f.write(TIKTOK_PAGE.format(n=len(items), items="".join(items) or "<p>noch keine</p>"))
 
 
+def tiktok_fill(count):
+    """Put the newest `count` Instagram reels that are not on the TikTok page yet onto it,
+    downloaded from Instagram itself (media_url of the account's own media)."""
+    token = ig_token()
+    user_id = ig_user_id(token)
+    folder = os.path.join(WWW, "tiktok")
+    os.makedirs(folder, exist_ok=True)
+    have = set()
+    for f in os.listdir(folder):
+        if f.endswith(".txt"):
+            with open(os.path.join(folder, f)) as fh:
+                have.add(fh.read().strip())
+    media = ig.check(requests.get(f"{ig.GRAPH}/{user_id}/media", timeout=60, params={
+        "fields": "id,media_type,media_url,caption,timestamp", "limit": 25, "access_token": token}))
+    added, skipped = [], 0
+    for m in media.get("data", []):
+        if len(added) >= count:
+            break
+        caption = (m.get("caption") or "").strip()
+        if m.get("media_type") != "VIDEO" or caption in have:
+            continue
+        if not m.get("media_url"):
+            skipped += 1
+            continue
+        stamp = dt.datetime.strptime(m["timestamp"][:19], "%Y-%m-%dT%H:%M:%S")
+        tmp = os.path.join(DATA, f"reel-{stamp:%Y%m%d-%H%M%S}.mp4")
+        video = requests.get(m["media_url"], timeout=300)
+        video.raise_for_status()
+        with open(tmp, "wb") as f:
+            f.write(video.content)
+        try:
+            tiktok_keep(tmp, caption)
+        finally:
+            os.remove(tmp)
+        have.add(caption)
+        added.append(os.path.basename(tmp))
+    note = f", {skipped} ohne Download-Link von Instagram" if skipped else ""
+    return f"TikTok-Seite: {len(added)} Reels von Instagram dazu ({', '.join(added)}){note} - {PUBLIC_URL}/tiktok/"
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="build the reel but do not post")
     ap.add_argument("--tiktok-check", action="store_true", help="list the TikTok accounts Zernio sees, post nothing")
+    ap.add_argument("--tiktok-fill", type=int, metavar="N",
+                    help="put the newest N Instagram reels that are missing onto the TikTok page")
     ap.add_argument("--check", action="store_true", help="only test the Instagram access")
     ap.add_argument("--prepare", action="store_true", help="make the Atlas clip for the coming post if it is due")
     ap.add_argument("--test-video", action="store_true", help="compare video models on one image; posts nothing")
@@ -367,6 +409,9 @@ def main():
         return
     if args.flux:
         log(autogen.batch(args.flux, args.set))
+        return
+    if args.tiktok_fill:
+        log(tiktok_fill(args.tiktok_fill))
         return
     if args.tiktok_check:
         if not tiktok.enabled():
