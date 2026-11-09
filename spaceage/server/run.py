@@ -402,8 +402,11 @@ def tiktok_links(links):
         url, params, pages = (page.get("paging") or {}).get("next"), None, pages + 1
     lines = [f"nicht gefunden: {wanted[c]}" for c in wanted if c not in found]
     for code, m in found.items():
-        if m.get("media_type") != "VIDEO" or not m.get("media_url"):
-            lines.append(f"{wanted[code]}: kein Video zum Herunterladen von Instagram")
+        if m.get("media_type") != "VIDEO":
+            lines.append(f"{wanted[code]}: ist kein Video, sondern {m.get('media_type')} - TikTok braucht ein Video")
+            continue
+        if not m.get("media_url"):
+            lines.append(f"{wanted[code]}: Instagram gibt dieses Video nicht zum Herunterladen frei")
             continue
         caption = (m.get("caption") or "").strip()
         stamp = dt.datetime.strptime(m["timestamp"][:19], "%Y-%m-%dT%H:%M:%S")
@@ -478,6 +481,7 @@ def main():
                     help="with --tiktok-post: first now, then one every MIN minutes (default: all now)")
     ap.add_argument("--tiktok-link", nargs="+", metavar="LINK",
                     help="post these Instagram posts (their links) to TikTok now")
+    ap.add_argument("--tiktok-status", action="store_true", help="show the last TikTok posts made through Zernio")
     ap.add_argument("--tiktok-fill", type=int, metavar="N",
                     help="put the newest N Instagram reels that are missing onto the TikTok page")
     ap.add_argument("--check", action="store_true", help="only test the Instagram access")
@@ -501,6 +505,13 @@ def main():
         return
     if args.flux:
         log(autogen.batch(args.flux, args.set))
+        return
+    if args.tiktok_status:
+        if not tiktok.enabled():
+            print("ZERNIO_API_KEY fehlt in /etc/spaceage.env")
+            return
+        for when, status, info, text in tiktok.recent():
+            print(f"{when[:16]}  {status}  {info}  | {text}")
         return
     if args.tiktok_link:
         print(tiktok_links(args.tiktok_link))

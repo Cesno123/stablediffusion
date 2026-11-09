@@ -90,7 +90,24 @@ def post(video_url, caption, when=None):
     if r.status_code == 409:
         raise AlreadyPosted("schon bei TikTok")
     out = _check(r, "post")
-    states = [p.get("status") for p in (out.get("post") or {}).get("platforms", [])]
+    plats = (out.get("post") or {}).get("platforms", [])
+    states = [p.get("status") for p in plats]
+    errors = [p.get("errorMessage") for p in plats if p.get("errorMessage")]
+    errors += [x.get("error") for x in out.get("platformResults") or [] if x.get("error")]
     warn = f", Hinweise: {'; '.join(out['warnings'])[:200]}" if out.get("warnings") else ""
+    warn += f", Grund: {'; '.join(dict.fromkeys(errors))[:300]}" if errors else ""
     plan = f" fuer {when:%H:%M} UTC geplant" if when else ""
     return f"TikTok: an Zernio uebergeben{plan} (Status {', '.join(map(str, states)) or '?'}){warn}"
+
+
+def recent(limit=10):
+    """The last TikTok posts made through Zernio: (when, status, url or error, start of the text)."""
+    body = _check(requests.get(f"{API}/posts", headers=_headers(), timeout=60,
+                               params={"platform": "tiktok", "limit": limit}), "posts")
+    rows = []
+    for post in body.get("posts", []):
+        for p in post.get("platforms", []):
+            if p.get("platform") == "tiktok":
+                rows.append((post.get("createdAt") or post.get("scheduledFor") or "?", p.get("status"),
+                             p.get("platformPostUrl") or p.get("errorMessage") or "", (post.get("content") or "")[:50]))
+    return rows
