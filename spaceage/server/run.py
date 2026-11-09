@@ -259,7 +259,9 @@ def post_next(dry_run=False):
         tiktok_keep(media, caption)
     except Exception as e:  # the TikTok page must never break a post
         log(f"tiktok page: {type(e).__name__}: {e}")
-    if tiktok.enabled():  # the copy in WWW/tiktok/ stays online for the next ten posts: Zernio fetches it there
+    if tiktok.enabled() and name in tiktok_images():
+        log(f"TikTok: {name} war schon vorab auf TikTok, nicht nochmal")
+    elif tiktok.enabled():  # the copy in WWW/tiktok/ stays online for the next ten posts: Zernio fetches it there
         try:
             log(tiktok.post(f"{PUBLIC_URL}/tiktok/{reel}", caption))
             tiktok_mark(reel)
@@ -349,6 +351,42 @@ TIKTOK_POSTED = os.path.join(DATA, "tiktok-posted.txt")
 def tiktok_mark(reel):
     with open(TIKTOK_POSTED, "a") as f:
         f.write(reel + "\n")
+
+
+TIKTOK_IMAGES = os.path.join(DATA, "tiktok-images.txt")  # queue images that already went to TikTok ahead of Instagram
+
+
+def tiktok_images():
+    return set(open(TIKTOK_IMAGES).read().split()) if os.path.exists(TIKTOK_IMAGES) else set()
+
+
+def tiktok_new(count, every):
+    """Make reels from `count` queue images that were never on TikTok and post them to TikTok only:
+    the first now, then one every `every` minutes (all now when 0). The images stay in the queue for
+    Instagram; when one is posted there later, it is not sent to TikTok a second time."""
+    done = tiktok_images()
+    images = [p for p in pq.queue_files(pq.IMAGES) if os.path.basename(p) not in done]
+    lines, start = [], dt.datetime.now(dt.timezone.utc)
+    for n, src in enumerate(random.sample(images, min(count, len(images)))):
+        name = os.path.basename(src)
+        caption = pq.caption_for(src)
+        reel = f"reel-{dt.datetime.now():%Y%m%d-%H%M%S}-{n}.mp4"
+        tmp = os.path.join(DATA, reel)
+        pq.to_reel(src, tmp, seed=zlib.crc32(name.encode()))
+        try:
+            tiktok_keep(tmp, caption, prune=False)
+        finally:
+            os.remove(tmp)
+        when = start + dt.timedelta(minutes=every * n) if every and n else None
+        try:
+            lines.append(f"{name}: {tiktok.post(f'{PUBLIC_URL}/tiktok/{reel}', caption, when)}")
+        except Exception as e:
+            lines.append(f"{name}: TikTok-Fehler {e}")
+            break
+        tiktok_mark(reel)
+        with open(TIKTOK_IMAGES, "a") as f:
+            f.write(name + "\n")
+    return "\n".join(lines) or "Keine neuen Bilder in der Warteschlange"
 
 
 def tiktok_post(count, every):
@@ -475,10 +513,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="build the reel but do not post")
     ap.add_argument("--tiktok-check", action="store_true", help="list the TikTok accounts Zernio sees, post nothing")
+    ap.add_argument("--tiktok-new", type=int, metavar="N",
+                    help="make reels from N queue images never on TikTok and post them to TikTok only")
     ap.add_argument("--tiktok-post", type=int, metavar="N",
                     help="post the newest N reels of the TikTok page that are not on TikTok yet")
     ap.add_argument("--every", type=int, default=0, metavar="MIN",
-                    help="with --tiktok-post: first now, then one every MIN minutes (default: all now)")
+                    help="with --tiktok-post/--tiktok-new: first now, then one every MIN minutes (default: all now)")
     ap.add_argument("--tiktok-link", nargs="+", metavar="LINK",
                     help="post these Instagram posts (their links) to TikTok now")
     ap.add_argument("--tiktok-status", action="store_true", help="show the last TikTok posts made through Zernio")
@@ -515,6 +555,9 @@ def main():
         return
     if args.tiktok_link:
         print(tiktok_links(args.tiktok_link))
+        return
+    if args.tiktok_new:
+        print(tiktok_new(args.tiktok_new, args.every))
         return
     if args.tiktok_post:
         print(tiktok_post(args.tiktok_post, args.every))
