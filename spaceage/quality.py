@@ -1,6 +1,6 @@
 """Claude looks at each new FLUX image before it enters the queue (needs ANTHROPIC_API_KEY).
 
-judge(jpeg_bytes, prompt) returns (keep, short note). Claude rates anatomy, logic, composition
+judge(jpeg_bytes, prompt) returns (keep, short note). Claude rates anatomy, logic, engines, composition
 and interest from 1 to 10 like a strict art editor; the image is kept only if Claude says keep
 and no rating is below 7. Without a key, or if the check fails, the image is kept (and the note
 says so), so a Claude outage never throws away paid images.
@@ -20,6 +20,11 @@ Rate 1-10:
 - anatomy: bodies, faces, hands and fingers correct, natural proportions, no fused or extra limbs
 - logic: nothing nonsensical (objects melting into each other, impossible machines, garbled shapes,
   floating parts, wrong scale between people, vehicles and buildings, text-like scribbles)
+- engines: look closely at every rocket, ship and saucer. Engines and exhaust nozzles must make
+  physical sense: a believable number (usually one to four), placed symmetrically at the rear, all
+  pointing backwards, opposite to the direction of travel; flames and exhaust come only out of the
+  nozzles and point away from the flight direction. Nozzles on the nose or sides at random angles,
+  mismatched counts, flames in the wrong direction or from nowhere = low score. No craft: give 10.
 - composition: clear main subject, balanced, not overcrowded, not empty and dull
 - interest: a moment someone would stop scrolling for
 
@@ -30,8 +35,8 @@ anything that looks odd at second glance. When in doubt, keep = false. Expect to
 Prompt: {prompt}"""
 
 SCHEMA = {"type": "object", "additionalProperties": False,
-          "required": ["anatomy", "logic", "composition", "interest", "keep", "reason"],
-          "properties": {"anatomy": {"type": "integer"}, "logic": {"type": "integer"},
+          "required": ["anatomy", "logic", "engines", "composition", "interest", "keep", "reason"],
+          "properties": {"anatomy": {"type": "integer"}, "logic": {"type": "integer"}, "engines": {"type": "integer"},
                          "composition": {"type": "integer"}, "interest": {"type": "integer"},
                          "keep": {"type": "boolean"}, "reason": {"type": "string"}}}
 MIN = 7
@@ -57,7 +62,7 @@ def judge(jpeg, prompt):
                 {"type": "text", "text": ASK.format(prompt=prompt[:1500])}]}],
         )
         out = json.loads(next(b.text for b in resp.content if b.type == "text"))
-        marks = {k: int(out.get(k, 0)) for k in ("anatomy", "logic", "composition", "interest")}
+        marks = {k: int(out.get(k, 0)) for k in ("anatomy", "logic", "engines", "composition", "interest")}
         keep = bool(out.get("keep")) and min(marks.values()) >= MIN
         note = " ".join(f"{k[:4]} {v}" for k, v in marks.items()) + f" - {str(out.get('reason', ''))[:90]}"
         return keep, note

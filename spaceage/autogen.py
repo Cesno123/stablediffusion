@@ -99,7 +99,9 @@ NOTES = os.path.join(HERE, "posted", "flux-notes.tsv")  # name, kept or not, Cla
 COMPOSE = (" Composed like a classic pulp illustration: a clear story moment with tension or wonder, the main"
            " subject large in the frame on a golden-ratio point, at most three or four elements, no swarms or crowds,"
            " dramatic lighting. Anatomically correct people with natural proportions and hands, believable scale"
-           " between people, vehicles and buildings. Comic book art, printed on paper. Not a photo, not a 3D render,"
+           " between people, vehicles and buildings. Rockets and spaceships have a sensible number of engines"
+           " (one to four), placed symmetrically at the rear and pointing backwards, with exhaust only from the"
+           " nozzles, away from the direction of flight. Comic book art, printed on paper. Not a photo, not a 3D render,"
            " no text, no speech bubbles.")
 
 
