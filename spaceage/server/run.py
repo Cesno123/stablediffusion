@@ -16,10 +16,12 @@ The result of the last round is written to WWW/status.txt.
 """
 
 import argparse
+import html
 import datetime as dt
 import json
 import os
 import random
+import re
 import shutil
 import sys
 import time
@@ -252,6 +254,10 @@ def post_next(dry_run=False):
     ig.wait_until_ready(container, token)
     media_id = ig.publish(user_id, token, container)
     pq.count_post()
+    try:
+        tiktok_keep(media, caption)
+    except Exception as e:  # the TikTok page must never break a post
+        log(f"tiktok page: {type(e).__name__}: {e}")
 
     # posted: archive a small preview and the caption, drop the original
     os.makedirs(pq.POSTED, exist_ok=True)
@@ -268,6 +274,66 @@ def post_next(dry_run=False):
         os.remove(txt)
     drop_prepared()
     return f"gepostet: {name} (Instagram-ID {media_id})" + (" als Video" if prepared else "")
+
+
+TIKTOK_KEEP = 10
+TIKTOK_PAGE = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>SpaceAge42 f&uuml;r TikTok</title>
+<body style="font-family:sans-serif;background:#111;color:#eee;padding:16px;max-width:640px;margin:auto">
+<h2>F&uuml;r TikTok</h2>
+<p style="font-size:14px">Die letzten {n} Reels, die auf Instagram gegangen sind, neueste oben.
+1. Herunterladen &nbsp;2. Text kopieren &nbsp;3. In TikTok posten, Schalter <b>KI-generierter Inhalt</b> an
+&nbsp;4. Hier abhaken (merkt sich nur dieses Handy).</p>
+{items}
+<script>
+const done = JSON.parse(localStorage.getItem("tt") || "[]");
+document.querySelectorAll("input[data-r]").forEach(b => {{
+  b.checked = done.includes(b.dataset.r);
+  b.closest("div.r").style.opacity = b.checked ? .4 : 1;
+  b.onchange = () => {{
+    const s = new Set(JSON.parse(localStorage.getItem("tt") || "[]"));
+    b.checked ? s.add(b.dataset.r) : s.delete(b.dataset.r);
+    localStorage.setItem("tt", JSON.stringify([...s]));
+    b.closest("div.r").style.opacity = b.checked ? .4 : 1;
+  }};
+}});
+function copy(id, btn) {{
+  navigator.clipboard.writeText(document.getElementById(id).value);
+  btn.textContent = "kopiert";
+}}
+</script>"""
+TIKTOK_ITEM = """<div class="r" style="border-top:1px solid #333;padding:12px 0">
+<video src="{reel}" controls playsinline preload="metadata" style="width:100%;max-height:70vh;background:#000"></video>
+<p><a href="{reel}" download style="color:#9cf;font-size:18px">Herunterladen</a> &nbsp; <small>{when}</small></p>
+<textarea id="c{i}" rows="5" style="width:100%">{caption}</textarea>
+<p><button onclick="copy('c{i}', this)" style="font-size:16px">Text kopieren</button>
+&nbsp; <label><input type="checkbox" data-r="{reel}"> auf TikTok gepostet</label></p></div>"""
+
+
+def tiktok_keep(media, caption):
+    """Keep a copy of each posted reel in WWW/tiktok/ (last TIKTOK_KEEP) and rebuild its page:
+    one link to download each reel and copy its caption for posting on TikTok by hand."""
+    folder = os.path.join(WWW, "tiktok")
+    os.makedirs(folder, exist_ok=True)
+    name = os.path.basename(media)
+    shutil.copyfile(media, os.path.join(folder, name))
+    with open(os.path.join(folder, name[:-4] + ".txt"), "w") as f:
+        f.write(caption.strip() + "\n")
+    reels = sorted((f for f in os.listdir(folder) if f.endswith(".mp4")), reverse=True)
+    for old in reels[TIKTOK_KEEP:]:
+        for ext in (".mp4", ".txt"):
+            path = os.path.join(folder, old[:-4] + ext)
+            if os.path.exists(path):
+                os.remove(path)
+    items = []
+    for i, reel in enumerate(reels[:TIKTOK_KEEP]):
+        txt = os.path.join(folder, reel[:-4] + ".txt")
+        text = open(txt).read().strip() if os.path.exists(txt) else ""
+        m = re.match(r"reel-(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)", reel)
+        when = f"{m[3]}.{m[2]}. {m[4]}:{m[5]} Uhr" if m else ""
+        items.append(TIKTOK_ITEM.format(reel=html.escape(reel), when=when, caption=html.escape(text), i=i))
+    with open(os.path.join(folder, "index.html"), "w") as f:
+        f.write(TIKTOK_PAGE.format(n=len(items), items="".join(items) or "<p>noch keine</p>"))
 
 
 def main():
