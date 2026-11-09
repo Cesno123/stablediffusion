@@ -262,6 +262,7 @@ def post_next(dry_run=False):
     if tiktok.enabled():  # the copy in WWW/tiktok/ stays online for the next ten posts: Zernio fetches it there
         try:
             log(tiktok.post(f"{PUBLIC_URL}/tiktok/{reel}", caption))
+            tiktok_mark(reel)
         except Exception as e:  # TikTok must never break the Instagram post
             log(f"TikTok fehlgeschlagen: {type(e).__name__}: {e}")
 
@@ -342,6 +343,40 @@ def tiktok_keep(media, caption):
         f.write(TIKTOK_PAGE.format(n=len(items), items="".join(items) or "<p>noch keine</p>"))
 
 
+TIKTOK_POSTED = os.path.join(DATA, "tiktok-posted.txt")
+
+
+def tiktok_mark(reel):
+    with open(TIKTOK_POSTED, "a") as f:
+        f.write(reel + "\n")
+
+
+def tiktok_post(count, every):
+    """Post the newest `count` reels of the TikTok page that are not on TikTok yet: the first now,
+    each further one `every` minutes later (scheduled at Zernio), or all now when every is 0."""
+    folder = os.path.join(WWW, "tiktok")
+    done = set(open(TIKTOK_POSTED).read().split()) if os.path.exists(TIKTOK_POSTED) else set()
+    reels = [f for f in sorted(os.listdir(folder), reverse=True) if f.endswith(".mp4") and f not in done]
+    lines, start = [], dt.datetime.now(dt.timezone.utc)
+    for reel in reels:
+        if len([x for x in lines if "uebergeben" in x]) >= count:
+            break
+        with open(os.path.join(folder, reel[:-4] + ".txt")) as fh:
+            caption = fh.read().strip()
+        n = len([x for x in lines if "uebergeben" in x])
+        when = start + dt.timedelta(minutes=every * n) if every and n else None
+        try:
+            lines.append(f"{reel}: {tiktok.post(f'{PUBLIC_URL}/tiktok/{reel}', caption, when)}")
+            tiktok_mark(reel)
+        except tiktok.AlreadyPosted:
+            lines.append(f"{reel}: war schon auf TikTok, uebersprungen")
+            tiktok_mark(reel)
+        except Exception as e:
+            lines.append(f"{reel}: Fehler {e}")
+            break
+    return "\n".join(lines) or "Nichts Neues auf der TikTok-Seite"
+
+
 def tiktok_fill(count):
     """Put the newest `count` Instagram reels that are not on the TikTok page yet onto it,
     downloaded from Instagram itself (media_url of the account's own media)."""
@@ -386,6 +421,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="build the reel but do not post")
     ap.add_argument("--tiktok-check", action="store_true", help="list the TikTok accounts Zernio sees, post nothing")
+    ap.add_argument("--tiktok-post", type=int, metavar="N",
+                    help="post the newest N reels of the TikTok page that are not on TikTok yet")
+    ap.add_argument("--every", type=int, default=0, metavar="MIN",
+                    help="with --tiktok-post: first now, then one every MIN minutes (default: all now)")
     ap.add_argument("--tiktok-fill", type=int, metavar="N",
                     help="put the newest N Instagram reels that are missing onto the TikTok page")
     ap.add_argument("--check", action="store_true", help="only test the Instagram access")
@@ -409,6 +448,9 @@ def main():
         return
     if args.flux:
         log(autogen.batch(args.flux, args.set))
+        return
+    if args.tiktok_post:
+        print(tiktok_post(args.tiktok_post, args.every))
         return
     if args.tiktok_fill:
         log(tiktok_fill(args.tiktok_fill))

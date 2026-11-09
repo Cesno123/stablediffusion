@@ -59,8 +59,13 @@ def account_id():
     return found[0][0]
 
 
-def post(video_url, caption):
-    """Returns a short report line; raises RuntimeError when Zernio refuses the post."""
+class AlreadyPosted(RuntimeError):
+    """Zernio 409: this exact video was scheduled or posted on the account within 24 hours."""
+
+
+def post(video_url, caption, when=None):
+    """Publish now, or at `when` (a UTC datetime) through Zernio's scheduledFor.
+    Returns a short report line; raises AlreadyPosted on a duplicate, RuntimeError on any other refusal."""
     if not enabled():
         return "TikTok: aus (ZERNIO_API_KEY fehlt)"
     body = {
@@ -76,9 +81,16 @@ def post(video_url, caption):
             "content_preview_confirmed": True,
             "express_consent_given": True,
         },
-        "publishNow": True,
     }
-    out = _check(requests.post(f"{API}/posts", headers=_headers(), json=body, timeout=120), "post")
+    if when:
+        body["scheduledFor"] = when.strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        body["publishNow"] = True
+    r = requests.post(f"{API}/posts", headers=_headers(), json=body, timeout=120)
+    if r.status_code == 409:
+        raise AlreadyPosted("schon bei TikTok")
+    out = _check(r, "post")
     states = [p.get("status") for p in (out.get("post") or {}).get("platforms", [])]
     warn = f", Hinweise: {'; '.join(out['warnings'])[:200]}" if out.get("warnings") else ""
-    return f"TikTok: an Zernio uebergeben (Status {', '.join(map(str, states)) or '?'}){warn}"
+    plan = f" fuer {when:%H:%M} UTC geplant" if when else ""
+    return f"TikTok: an Zernio uebergeben{plan} (Status {', '.join(map(str, states)) or '?'}){warn}"
