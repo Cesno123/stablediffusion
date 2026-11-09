@@ -377,6 +377,57 @@ def tiktok_post(count, every):
     return "\n".join(lines) or "Nichts Neues auf der TikTok-Seite"
 
 
+def ig_shortcode(link):
+    """'https://www.instagram.com/reel/ABC123/?igsh=..' -> 'ABC123'."""
+    m = re.search(r"instagram\.com/(?:[^/]+/)?(?:reel|reels|p|tv)/([A-Za-z0-9_-]+)", link)
+    return m[1] if m else None
+
+
+def tiktok_links(links):
+    """Fetch the given Instagram posts (by their links) back from Instagram, put them on the TikTok page
+    and post them to TikTok right away."""
+    wanted = {ig_shortcode(link): link for link in links}
+    if None in wanted:
+        return f"Kein Instagram-Link erkannt: {wanted[None]}"
+    token = ig_token()
+    url = f"{ig.GRAPH}/{ig_user_id(token)}/media"
+    params = {"fields": "id,media_type,media_url,caption,timestamp,permalink", "limit": 100, "access_token": token}
+    found, pages = {}, 0
+    while url and len(found) < len(wanted) and pages < 10:  # newest 1000 posts at most
+        page = ig.check(requests.get(url, params=params, timeout=60))
+        for m in page.get("data", []):
+            code = ig_shortcode(m.get("permalink") or "")
+            if code in wanted:
+                found[code] = m
+        url, params, pages = (page.get("paging") or {}).get("next"), None, pages + 1
+    lines = [f"nicht gefunden: {wanted[c]}" for c in wanted if c not in found]
+    for code, m in found.items():
+        if m.get("media_type") != "VIDEO" or not m.get("media_url"):
+            lines.append(f"{wanted[code]}: kein Video zum Herunterladen von Instagram")
+            continue
+        caption = (m.get("caption") or "").strip()
+        stamp = dt.datetime.strptime(m["timestamp"][:19], "%Y-%m-%dT%H:%M:%S")
+        reel = f"reel-{stamp:%Y%m%d-%H%M%S}.mp4"
+        tmp = os.path.join(DATA, reel)
+        video = requests.get(m["media_url"], timeout=300)
+        video.raise_for_status()
+        with open(tmp, "wb") as f:
+            f.write(video.content)
+        try:
+            tiktok_keep(tmp, caption)
+        finally:
+            os.remove(tmp)
+        try:
+            lines.append(f"{reel}: {tiktok.post(f'{PUBLIC_URL}/tiktok/{reel}', caption)}")
+            tiktok_mark(reel)
+        except tiktok.AlreadyPosted:
+            lines.append(f"{reel}: war schon auf TikTok, uebersprungen")
+            tiktok_mark(reel)
+        except Exception as e:
+            lines.append(f"{reel}: TikTok-Fehler {e}")
+    return "\n".join(lines)
+
+
 def tiktok_fill(count):
     """Put the newest `count` Instagram reels that are not on the TikTok page yet onto it,
     downloaded from Instagram itself (media_url of the account's own media)."""
@@ -425,6 +476,8 @@ def main():
                     help="post the newest N reels of the TikTok page that are not on TikTok yet")
     ap.add_argument("--every", type=int, default=0, metavar="MIN",
                     help="with --tiktok-post: first now, then one every MIN minutes (default: all now)")
+    ap.add_argument("--tiktok-link", nargs="+", metavar="LINK",
+                    help="post these Instagram posts (their links) to TikTok now")
     ap.add_argument("--tiktok-fill", type=int, metavar="N",
                     help="put the newest N Instagram reels that are missing onto the TikTok page")
     ap.add_argument("--check", action="store_true", help="only test the Instagram access")
@@ -448,6 +501,9 @@ def main():
         return
     if args.flux:
         log(autogen.batch(args.flux, args.set))
+        return
+    if args.tiktok_link:
+        print(tiktok_links(args.tiktok_link))
         return
     if args.tiktok_post:
         print(tiktok_post(args.tiktok_post, args.every))
