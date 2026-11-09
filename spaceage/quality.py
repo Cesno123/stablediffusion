@@ -2,7 +2,7 @@
 
 judge(jpeg_bytes, prompt) returns (keep, short note). Claude rates anatomy, logic, composition
 and interest from 1 to 10 like a strict art editor; the image is kept only if Claude says keep
-and no rating is below 6. Without a key, or if the check fails, the image is kept (and the note
+and no rating is below 7. Without a key, or if the check fails, the image is kept (and the note
 says so), so a Claude outage never throws away paid images.
 """
 
@@ -23,7 +23,9 @@ Rate 1-10:
 - composition: clear main subject, balanced, not overcrowded, not empty and dull
 - interest: a moment someone would stop scrolling for
 
-keep = true only if a careful human editor would post it as it is.
+keep = true only if a careful human editor would post it as it is. Be strict: the owner deletes
+overcrowded scenes (swarms, crowds, clutter), dull empty scenes, wrong body proportions or scale, and
+anything that looks odd at second glance. When in doubt, keep = false. Expect to reject about half.
 
 Prompt: {prompt}"""
 
@@ -32,7 +34,7 @@ SCHEMA = {"type": "object", "additionalProperties": False,
           "properties": {"anatomy": {"type": "integer"}, "logic": {"type": "integer"},
                          "composition": {"type": "integer"}, "interest": {"type": "integer"},
                          "keep": {"type": "boolean"}, "reason": {"type": "string"}}}
-MIN = 6
+MIN = 7
 
 
 def judge(jpeg, prompt):

@@ -10,6 +10,9 @@ GET  /upload/file?name=X     a queued file (for the previews)
 POST /upload/file?name=X     store the request body as a new queue file
                              (&caption=... optional, saved as X.txt)
 POST /upload/delete?name=X   remove a queued file and its caption
+POST /upload/restore?name=X  move an image Claude rejected (posted/flux-aussortiert) into the queue
+POST /upload/drop?name=X     delete a rejected image for good
+FLUX images show Claude's marks (posted/flux-notes.tsv); deleting one is noted in flux-geloescht.tsv.
 """
 
 import datetime as dt
@@ -22,7 +25,11 @@ import sys
 import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from post_queue import IMAGES, QUEUE, VIDEOS  # noqa: E402
+from post_queue import IMAGES, POSTED, QUEUE, VIDEOS  # noqa: E402
+
+REJECTED = os.path.join(POSTED, "flux-aussortiert")
+NOTES = os.path.join(POSTED, "flux-notes.tsv")
+DELETED = os.path.join(POSTED, "flux-geloescht.tsv")
 
 MAX_BYTES = 300 * 1024 * 1024
 POST_TIMES = "9:07, 13:07, 18:07, 21:07"
@@ -39,6 +46,9 @@ Was gepostet ist, verschwindet automatisch aus dieser Liste. Postzeiten: {times}
 <button id="b" style="font-size:18px;padding:8px 16px">Hochladen</button>
 <p id="r"></p>
 <h3>Warteschlange ({count})</h3>{items}
+<h3>Von Claude aussortiert ({rcount})</h3>
+<p style="font-size:13px">Diese FLUX-Bilder hat Claude nicht in die Warteschlange gelassen. Zur&uuml;ckholen
+legt ein Bild doch in die Warteschlange.</p>{rejected}
 <script>
 b.onclick = async () => {{
   const files = [...f.files]; if (!files.length) return;
@@ -50,6 +60,11 @@ b.onclick = async () => {{
   }}
   location.reload();
 }};
+async function act(what, name, ask) {{
+  if (ask && !confirm(name + " " + ask)) return;
+  await fetch("/upload/" + what + "?" + new URLSearchParams({{name}}), {{method: "POST"}});
+  location.reload();
+}}
 async function del(name) {{
   if (!confirm(name + " l\\u00f6schen?")) return;
   await fetch("/upload/delete?" + new URLSearchParams({{name}}), {{method: "POST"}});
@@ -60,6 +75,36 @@ async function del(name) {{
 ITEM = """<div style="display:flex;gap:12px;align-items:center;margin:8px 0">{preview}
 <div style="flex:1;word-break:break-all;font-size:13px">{nr}. {name}{caption}</div>
 <button onclick="del({js})">L&ouml;schen</button></div>"""
+
+REJ = """<div style="display:flex;gap:12px;align-items:center;margin:8px 0">{preview}
+<div style="flex:1;word-break:break-all;font-size:13px">{name}{caption}</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<button onclick="act('restore', {js})">Zur&uuml;ckholen</button>
+<button onclick="act('drop', {js}, 'endg\\u00fcltig l\\u00f6schen?')">L&ouml;schen</button></div></div>"""
+
+
+def notes():
+    """FLUX file name -> Claude's marks and reason."""
+    out = {}
+    if os.path.exists(NOTES):
+        with open(NOTES) as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) == 3:
+                    out[parts[0]] = parts[2]
+    return out
+
+
+def rejected():
+    if not os.path.isdir(REJECTED):
+        return []
+    names = [n for n in os.listdir(REJECTED) if os.path.splitext(n)[1].lower() in IMAGES]
+    return sorted(names, key=lambda n: os.path.getmtime(os.path.join(REJECTED, n)), reverse=True)
+
+
+def safe_rejected(name):
+    name = os.path.basename(name or "")
+    return name if name and not name.startswith(".") and name in rejected() else None
 
 
 def queued():
@@ -90,13 +135,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         path, q = self.params()
         if path == "/upload/file":
-            name = safe_name(q.get("name"))
+            rej = q.get("from") == "rej"
+            name = safe_rejected(q.get("name")) if rej else safe_name(q.get("name"))
             if not name:
                 return self.reply(404, "nicht gefunden")
-            with open(os.path.join(QUEUE, name), "rb") as f:
+            with open(os.path.join(REJECTED if rej else QUEUE, name), "rb") as f:
                 ctype = "video/mp4" if os.path.splitext(name)[1].lower() in VIDEOS else "image/jpeg"
                 return self.reply(200, f.read(), ctype)
-        items = []
+        items, marks = [], notes()
         for nr, name in enumerate(queued(), 1):
             src = "/upload/file?" + urllib.parse.urlencode({"name": name})
             preview = (f'<video src="{src}" width="90" muted></video>'
@@ -104,15 +150,37 @@ class Handler(http.server.BaseHTTPRequestHandler):
                        else f'<img src="{src}" width="90" loading="lazy">')
             txt = os.path.join(QUEUE, os.path.splitext(name)[0] + ".txt")
             caption = "<br><i>eigene Bildunterschrift</i>" if os.path.exists(txt) else ""
+            if name in marks:
+                caption += f"<br><span style='color:#9c9'>Claude: {html.escape(marks[name])}</span>"
             items.append(ITEM.format(preview=preview, nr=nr, name=html.escape(name), caption=caption,
                                      js=html.escape(repr(name))))
         body = "".join(items) or "<p>leer &ndash; es werden FLUX-Bilder erzeugt</p>"
-        self.reply(200, PAGE.format(times=POST_TIMES, count=len(items), items=body), "text/html; charset=utf-8")
+        rej = []
+        for name in rejected():
+            src = "/upload/file?" + urllib.parse.urlencode({"name": name, "from": "rej"})
+            note = f"<br><span style='color:#c99'>Claude: {html.escape(marks.get(name, ''))}</span>"
+            rej.append(REJ.format(preview=f'<img src="{src}" width="90" loading="lazy">', name=html.escape(name),
+                                  caption=note, js=html.escape(repr(name))))
+        self.reply(200, PAGE.format(times=POST_TIMES, count=len(items), items=body, rcount=len(rej),
+                                    rejected="".join(rej) or "<p>keine</p>"), "text/html; charset=utf-8")
 
     def do_POST(self):
         path, q = self.params()
+        if path in ("/upload/restore", "/upload/drop"):
+            name = safe_rejected(q.get("name"))
+            if name:
+                src = os.path.join(REJECTED, name)
+                if path == "/upload/restore":
+                    shutil.move(src, os.path.join(QUEUE, name))
+                    os.utime(os.path.join(QUEUE, name))  # back at the top of the page
+                else:
+                    os.remove(src)
+            return self.reply(200, "ok")
         if path == "/upload/delete":
             name = safe_name(q.get("name"))
+            if name and name.startswith("flux-"):  # remember what the owner throws away (and what Claude said)
+                with open(DELETED, "a") as f:
+                    f.write(f"{name}\t{notes().get(name, '')}\n")
             if name:
                 os.remove(os.path.join(QUEUE, name))
                 txt = os.path.join(QUEUE, os.path.splitext(name)[0] + ".txt")

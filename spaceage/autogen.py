@@ -95,6 +95,7 @@ def main():
 
 USED_FLUX = os.path.join(HERE, "posted", "used_flux.txt")
 REJECTED = os.path.join(HERE, "posted", "flux-aussortiert")
+NOTES = os.path.join(HERE, "posted", "flux-notes.tsv")  # name, kept or not, Claude's marks (upload page)
 COMPOSE = (" Composed like a classic pulp illustration: a clear story moment with tension or wonder, the main"
            " subject large in the frame on a golden-ratio point, at most three or four elements, no swarms or crowds,"
            " dramatic lighting. Anatomically correct people with natural proportions and hands, believable scale"
@@ -151,6 +152,9 @@ def batch(count, which="comic"):
         slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
         name = f"flux-{dt.datetime.utcnow():%Y%m%d-%H%M%S}-{slug}.jpg"
         keep, note = judge(data, prompt)
+        os.makedirs(os.path.dirname(NOTES), exist_ok=True)
+        with open(NOTES, "a") as f:
+            f.write(f"{name}\t{'ja' if keep else 'nein'}\t{note.replace(chr(9), ' ')}\n")
         if not keep:  # Claude found it broken or dull: kept aside, never posted
             os.makedirs(REJECTED, exist_ok=True)
             with open(os.path.join(REJECTED, name), "wb") as f:
