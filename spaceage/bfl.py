@@ -48,18 +48,30 @@ def generate(prompt, model, key, seed, raw=False, refs=()):
     for n, url in enumerate(refs, 1):  # input_image, input_image_2, ...
         body["input_image" if n == 1 else f"input_image_{n}"] = url
     headers = {"x-key": key, "accept": "application/json"}
-    r = requests.post(f"{API}/{endpoint}", json=body, headers=headers, timeout=60)
+    try:
+        r = requests.post(f"{API}/{endpoint}", json=body, headers=headers, timeout=60)
+    except requests.RequestException as e:
+        raise RuntimeError(f"BFL not reachable: {type(e).__name__}") from e
     if not r.ok:
         raise RuntimeError(f"BFL request failed {r.status_code}: {r.text}")
     job = r.json()
     poll = job.get("polling_url") or f"{API}/get_result?id={job['id']}"
-    deadline = time.time() + 300
-    while time.time() < deadline:
+    deadline = time.time() + 600
+    while time.time() < deadline:  # the job is paid: a dropped connection only means ask again
         time.sleep(2)
-        res = requests.get(poll, headers=headers, timeout=60).json()
+        try:
+            res = requests.get(poll, headers=headers, timeout=60).json()
+        except (requests.RequestException, ValueError):
+            time.sleep(15)
+            continue
         status = res.get("status")
         if status == "Ready":
-            return requests.get(res["result"]["sample"], timeout=120).content
+            for _ in range(4):
+                try:
+                    return requests.get(res["result"]["sample"], timeout=120).content
+                except requests.RequestException:
+                    time.sleep(15)
+            raise RuntimeError("BFL image download failed")
         if status not in ("Pending", "Processing", "Queued", "Task not found"):
             raise RuntimeError(f"BFL status {status}: {res}")
     raise RuntimeError("BFL timed out")
