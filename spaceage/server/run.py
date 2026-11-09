@@ -317,7 +317,7 @@ TIKTOK_ITEM = """<div class="r" style="border-top:1px solid #333;padding:12px 0"
 &nbsp; <label><input type="checkbox" data-r="{reel}"> auf TikTok gepostet</label></p></div>"""
 
 
-def tiktok_keep(media, caption):
+def tiktok_keep(media, caption, prune=True):
     """Keep a copy of each posted reel in WWW/tiktok/ (last TIKTOK_KEEP) and rebuild its page:
     one link to download each reel and copy its caption for posting on TikTok by hand."""
     folder = os.path.join(WWW, "tiktok")
@@ -327,7 +327,7 @@ def tiktok_keep(media, caption):
     with open(os.path.join(folder, name[:-4] + ".txt"), "w") as f:
         f.write(caption.strip() + "\n")
     reels = sorted((f for f in os.listdir(folder) if f.endswith(".mp4")), reverse=True)
-    for old in reels[TIKTOK_KEEP:]:
+    for old in (reels[TIKTOK_KEEP:] if prune else []):  # an old reel added by link stays until Zernio fetched it
         for ext in (".mp4", ".txt"):
             path = os.path.join(folder, old[:-4] + ext)
             if os.path.exists(path):
@@ -417,7 +417,7 @@ def tiktok_links(links):
         with open(tmp, "wb") as f:
             f.write(video.content)
         try:
-            tiktok_keep(tmp, caption)
+            tiktok_keep(tmp, caption, prune=False)
         finally:
             os.remove(tmp)
         try:
@@ -428,7 +428,7 @@ def tiktok_links(links):
             tiktok_mark(reel)
         except Exception as e:
             lines.append(f"{reel}: TikTok-Fehler {e}")
-    return "\n".join(lines)
+    return "\n".join(lines)  # the page is trimmed back to TIKTOK_KEEP with the next regular post
 
 
 def tiktok_fill(count):
