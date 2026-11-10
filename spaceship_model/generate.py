@@ -605,17 +605,18 @@ def spine_segment(kinds, antenna_hole=False):
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=-0.1)
     if antenna_hole:
         m -= cyl(4.0 + 1, 2.0 + CLEAR, seg=32).rotate([0, 90, 0]).translate([ap - 4.0, 0, 12.0])
+        m -= cyl(ap, 0.8, seg=16).rotate([0, 90, 0]).translate([0, 0, 12.0])      # antenna wires into the spine channel
     return m
 
 
 def dish(r, stem_r, z0):
-    """Conical dish opening upward (45 deg wall, prints without support)."""
+    """Conical dish opening upward (45 deg wall, prints without support).
+    The flat centre is the seat for a pre-wired 0402 LED; its wires leave through a bore below."""
     h = r - stem_r
     shell = cyl(h, stem_r, r, seg=96, z=z0) - cyl(h, stem_r, r, seg=96, z=z0 + 1.1)
     rim = cyl(0.8, r + 0.5, seg=96, z=z0 + h - 0.8) - cyl(2, r - 0.3, seg=96, z=z0 + h - 1.4)
-    horn = cyl(h * 0.6, 0.9, seg=24, z=z0 + 0.5)
-    tip = cyl(1.2, 1.5, seg=24, z=z0 + h * 0.6 + 0.4)
-    return union([shell, rim, horn, tip]).trim_by_plane([0, 0, -1], -(z0 + h))
+    hood = cyl(0.8, stem_r, seg=32, z=z0 + 1.0) - cyl(2, stem_r - 0.5, seg=32, z=z0 + 0.5)
+    return union([shell, rim, hood]).trim_by_plane([0, 0, -1], -(z0 + h))
 
 
 AX_Z = 3.2            # hinge axis height in the dish carrier (print coords)
@@ -628,13 +629,17 @@ def antenna_dishes():
     web = box(3.0, 6, 6.4, 4.4, 0, 3.2)
     bar = box(4.0, 64, 4.0, 7.8, 0, 2.0)
     parts = [hub, web, bar]
-    for y, r, sr in ((0, 19.0, 2.0), (-29, 9.0, 1.4), (29, 9.0, 1.4)):
+    for y, r, sr in ((0, 19.0, 2.0), (-29, 9.0, 1.7), (29, 9.0, 1.7)):
         parts.append(cyl(3.2, sr + 0.6, sr, seg=32, z=3.9).translate([7.8, y, 0]))
         parts.append(dish(r, sr, 7.0).translate([7.8, y, 0]))
     for y in (-14.5, 14.5):                                  # small equipment boxes on the bar
         parts.append(box(3.0, 5, 1.2, 7.8, y, 4.5))
     m = union(parts)
     m -= cyl(10, 1.1, seg=24, z=-5).rotate([90, 0, 0]).translate([0, 0, AX_Z])   # hinge bore (1.75 mm filament)
+    for y in (0, -29, 29):                                   # LED wire bores up into each dish
+        m -= cyl(9.0, 0.45, seg=16, z=0.5).translate([7.8, y, 0])
+    m -= box(1.4, 59.4, 1.8, 7.8, 0, 0)                      # wire groove on the back of the bar
+    m -= box(11.5, 1.4, 1.8, 2.55, 0, 0)                     # ... and down to the hinge
     return m
 
 
@@ -651,6 +656,7 @@ def antenna_mast():
     pin = cyl(4.0, 2.0, seg=48, z=26.49)
     m = union(arms + [bridge, col, collar, pin])
     m -= cyl(14, 0.95, seg=24, z=-7).rotate([90, 0, 0]).translate([0, 0, MAST_AX])  # press fit for the filament pin
+    m -= cyl(23.0, 0.65, seg=16, z=8.9)                      # wire channel from the fork down through the pin
     return m
 
 
@@ -781,16 +787,86 @@ def adapter():
 
 
 # ---------------------------------------------------------------------- stands
-def stand_engine():
-    ap = BLOCK_R * math.cos(math.radians(22.5))
-    top = AXIS_H - ap
-    base = cyl(4, 36, 34, seg=96)
-    col = cyl(top - 3, 9, 6, seg=64, z=3.9)
-    plug = cyl(9.0, 4.0, seg=48, z=top - 0.01)
-    m = union([base, col, plug])
-    m -= cyl(top + 12, 2.0, seg=24, z=-1)                 # cable channel
-    m -= box(40, 4.0, 4.4, 20, 0, 0)                      # cable groove under base
+PB_L, PB_W = 120.0, 64.0      # power base footprint
+PB_WALL = 2.0
+PB_LID = 2.0
+PB_INNER_H = 25.0             # room for an 18650 holder (up to 21.5 mm high)
+PB_H = PB_LID + PB_INNER_H + PB_WALL
+HOLDER = (79.0, 23.0)         # pocket for a 1 x 18650 holder (holders are 74.5-77.5 x 20-21.5 mm)
+CHARGER = (30.0, 19.0)        # pocket for a TP4056 USB-C board (25-28 x 17-19 mm)
+BOOST = (38.5, 19.0)          # pocket for an MT3608 board (36-37 x 17 mm)
+SWITCH_CUT = (9.0, 13.5)      # panel cutout of a mini rocker switch (KCD11 type), upright
+COL_PLUG_R = 5.85
+COL_SEAT = 4.1                # print height at which the column rests on the base
+
+
+def power_base():
+    """Battery / electronics box, built in use orientation (lid plane at z = PB_LID).
+    Exported upside down so the closed top lies on the bed."""
+    hx, hy = PB_L / 2, PB_W / 2
+    outer = box(PB_L, PB_W, PB_H - PB_LID, 0, 0, PB_LID + (PB_H - PB_LID) / 2)
+    inner = box(PB_L - 2 * PB_WALL, PB_W - 2 * PB_WALL, PB_INNER_H + 0.1, 0, 0, PB_LID + PB_INNER_H / 2 - 0.05)
+    m = outer - inner
+    posts = []
+    for sx in (-1, 1):                                       # screw posts for the lid (M3 self-tapping)
+        for sy in (-1, 1):
+            px, py = sx * (hx - PB_WALL - 3.5), sy * (hy - PB_WALL - 3.5)
+            posts.append(box(7.2, 7.2, PB_INNER_H, px, py, PB_LID + PB_INNER_H / 2) - cyl(12, 1.3, seg=16, z=PB_LID - 0.1).translate([px, py, 0]))
+    m = union([m] + posts)
+    m -= cyl(PB_WALL + 2, COL_PLUG_R + 0.3, seg=64, z=PB_H - PB_WALL - 1)                         # column socket
+    m -= box(SWITCH_CUT[0], PB_WALL + 2, SWITCH_CUT[1], -36.0, hy - PB_WALL / 2, PB_LID + PB_INNER_H / 2)  # switch
+    m -= box(PB_WALL + 2, 11.0, 6.6, hx - PB_WALL / 2, 15.0, PB_LID + 3.2)                        # USB-C charging port
+    # surface detail on the long sides and the top
+    for sy in (-1, 1):
+        for x in (-48, -18, 10, 38):
+            if sy == 1 and x == -48:
+                continue
+            m += box(18, 0.8, 16, x + 5, sy * hy, PB_LID + PB_INNER_H / 2)
+    for x in (-40, -20, 20, 40):
+        m -= box(0.5, PB_W - 8, 0.8, x, 0, PB_H)
     return m
+
+
+def power_lid():
+    """Bottom plate with locating ribs for holder, charger and boost converter."""
+    hx, hy = PB_L / 2, PB_W / 2
+    parts = [box(PB_L, PB_W, PB_LID, 0, 0, PB_LID / 2)]
+
+    def frame(cx, cy, lx, ly, open_side=None):
+        t, h = 1.2, 4.0
+        ribs = []
+        for sy in (-1, 1):
+            ribs.append(box(lx * 0.5, t, h, cx, cy + sy * (ly / 2 + t / 2), PB_LID + h / 2))
+        for sx in (-1, 1):
+            if open_side != sx:
+                ribs.append(box(t, ly * 0.5, h, cx + sx * (lx / 2 + t / 2), cy, PB_LID + h / 2))
+        return ribs
+
+    parts += frame(0.0, -15.5, *HOLDER)                                           # 18650 holder
+    xin = hx - PB_WALL
+    parts += frame(xin - CHARGER[0] / 2, 15.0, *CHARGER, open_side=1)             # charger against the end wall
+    parts += frame(xin - CHARGER[0] - 3.0 - BOOST[0] / 2, 15.0, *BOOST)           # boost converter
+    m = union(parts)
+    for sx in (-1, 1):                                                            # countersunk M3 screws
+        for sy in (-1, 1):
+            px, py = sx * (hx - PB_WALL - 3.5), sy * (hy - PB_WALL - 3.5)
+            m -= cyl(PB_LID + 1, 1.7, seg=24, z=-0.5).translate([px, py, 0])
+            m -= cyl(1.6, 3.3, 1.7, seg=24, z=-0.01).translate([px, py, 0])
+    return m
+
+
+def stand_column():
+    """Column between power base and reactor block, with the cable channel. Printed upright."""
+    ap = BLOCK_R * math.cos(math.radians(22.5))
+    body_h = AXIS_H - ap - PB_H                            # visible height above the base
+    z1 = COL_SEAT + body_h
+    m = union([cyl(3.8, COL_PLUG_R, seg=64),
+               cyl(3.2, COL_PLUG_R, 9.0, seg=64, z=3.79),
+               cyl(z1 - 6.98, 9.0, 6.0, seg=64, z=6.98),
+               cyl(9.0, 4.0, seg=48, z=z1 - 0.01)])
+    for z in (12.0, z1 - 6.0):
+        m += cyl(1.2, 9.0 - (z - 7) / (z1 - 7) * 3.0 + 0.6, seg=64, z=z)
+    return m - cyl(z1 + 12, 2.0, seg=24, z=-1)
 
 
 def stand_front():
@@ -819,7 +895,9 @@ def main():
     blk = engine_block()
     noz = nozzle()
     cock = cockpit_interior()
-    st_e = stand_engine()
+    st_e = stand_column()
+    pbase = power_base()
+    plid = power_lid()
     st_f = stand_front()
 
     for m, n in [(front, "01_crew_front.stl"), (rear, "02_crew_rear.stl"), (join, "03_crew_joiner_ring.stl"),
@@ -827,8 +905,10 @@ def main():
                  (dishes, "06_antenna_dishes.stl"), (mast, "07_antenna_mast.stl"),
                  (adp, "08_adapter_collar.stl"), (blk, "09_engine_block.stl"),
                  (noz, "10_engine_nozzle_6x.stl"),
-                 (st_e, "11_stand_engine.stl"), (st_f, "12_stand_front.stl"),
-                 (cock, "13_cockpit_interior.stl")]:
+                 (st_e, "11_stand_engine_column.stl"), (st_f, "12_stand_front.stl"),
+                 (cock, "13_cockpit_interior.stl"),
+                 (pbase.rotate([180, 0, 0]).translate([0, 0, PB_H]), "14_power_base.stl"),
+                 (plid, "15_power_base_lid.stl")]:
         write_stl(m, n)
 
     # ---- assembled preview (ship axis = x, nose at x = 0, table at z = -AXIS_H)
@@ -854,11 +934,15 @@ def main():
     asm += [fwd(adp, x3 + 30.0), fwd(blk, x4 + Z_TOP),
             mast.rotate([180, 0, 0]).translate([xa, 0, ap - 4.0 + MAST_H]),
             fwd(dishes, xa + AX_Z).translate([0, 0, za]),
-            st_e.translate([x4 + Z_TOP - Z_STAND, 0, -AXIS_H]),
+            st_e.translate([x4 + Z_TOP - Z_STAND, 0, -AXIS_H + PB_H - COL_SEAT]),
             st_f.translate([x_mid + CREW_R + NECK_L / 2 + 1, 0, -AXIS_H])]
     cock_ship = cock.rotate([0, 0, 180]).translate([x_mid, 0, COCK_DECK])
     print("cockpit vs hull overlap volume:", round((cock_ship ^ union(asm[:2])).volume(), 3))
-    full = Manifold.compose(asm + [cock_ship])
+    xs = x4 + Z_TOP - Z_STAND
+    base_ship = [pbase.translate([xs, 0, -AXIS_H]), plid.translate([xs, 0, -AXIS_H])]
+    col_ship = st_e.translate([xs, 0, -AXIS_H + PB_H - COL_SEAT])
+    print("column vs base/block overlap volume:", round((col_ship ^ union(base_ship + [fwd(blk, x4 + Z_TOP)])).volume(), 3))
+    full = Manifold.compose(asm + [cock_ship] + base_ship)
     write_stl(full, "00_assembly_preview_only.stl")
     print(f"overall length: {xr + NOZ_L + NOZ_FLANGE:.0f} mm, sphere {2 * CREW_R:.0f} mm")
     print("nozzles vs block overlap volume:", round((union(asm[2 + N_SEG:8 + N_SEG]) ^ fwd(blk, x4 + Z_TOP)).volume(), 3))

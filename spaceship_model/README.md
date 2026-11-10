@@ -9,6 +9,8 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit breitem Triebwerks
 
 ![Cockpit](cockpit.png)
 
+![Elektronik](electronics.png)
+
 - Gesamtlänge 748 mm bei 72 mm Kugeldurchmesser (Verhältnis ca. 1:10), größtes Einzelteil 260 mm hoch (für Anycubic Kobra Plus, 300 × 300 × 350 mm)
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
@@ -27,9 +29,11 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit breitem Triebwerks
 | 08_adapter_collar | Übergang Wirbelsäule → Block | breite Seite unten |
 | 09_engine_block | Reaktorblock + breites Gehäuse mit 6 Düsensockeln (67 mm breit) | Heckfläche nach unten |
 | 10_engine_nozzle_6x | Glockendüse (Trichter, Ø 22 mm, Wand 0,8 mm) | **6× drucken**, Rand unten, langsam; Zapfen ins Heck kleben |
-| 11_stand_engine | Ständer hinten mit Kabelkanal | |
+| 11_stand_engine_column | Säule zwischen Batteriefach und Reaktorblock, mit Kabelkanal | stehend, Zapfen unten |
 | 12_stand_front | Ständer vorn (Gabel unter dem Hals) | |
 | 13_cockpit_interior | Cockpit-Einsatz: Deck, 2 Sitze, Instrumentenpult, Mittelkonsole, Rückwand mit Tür und Geräteschränken | Deck nach unten; 0,08 mm Schichthöhe |
+| 14_power_base | Batteriefach (120 × 64 × 27 mm) mit Ausschnitten für Schalter und USB-C | liegt schon kopfüber: geschlossene Oberseite unten |
+| 15_power_base_lid | Bodenplatte mit Halterippen für Akkuhalter, Lademodul, Spannungswandler | Rippen nach oben |
 | 00_assembly_preview_only | Nur Vorschau | **nicht drucken** |
 
 ## Cockpit einbauen
@@ -73,15 +77,64 @@ Alle Details sind aus einem Baukasten erzeugt und so ausgelegt, dass sie ohne St
 - Geschwindigkeit Außenwand max. 40 mm/s, stehende Wirbelsäulenteile 30 mm/s
 - Stützen aus, Brim wie in der Tabelle
 
-## Beleuchtung (7 LEDs, 3 mm)
+## Beleuchtung und Stromversorgung
 
-- 6 × kaltweiß oder blau: von innen durch den offenen Block in die Sitze stecken (Ø 3,2 mm). Die LED leuchtet durch den Düsenhals in den Trichter.
-  Die Kanäle der vier äußeren Düsen laufen schräg: LED mit angelöteten Litzen voran einschieben.
-- 1 × warmweiß: in die Rückwand des Cockpit-Einsatzes (siehe „Cockpit einbauen“)
-- Versorgung 5 V (USB): **jede LED bekommt einen eigenen Vorwiderstand**, alle parallel
-  - weiß/blau (ca. 3,0 V, 15 mA): 150 Ω
-  - warmweiß (ca. 3,0 V, 15 mA): 150 Ω, für gedimmtes Licht 330 Ω
-- Kabelweg: USB-Kabel → Nut unter dem hinteren Ständer → Säule → Block. Von dort zwei dünne Litzen
-  (max. 0,14 mm²) durch Übergang und Wirbelsäule (Kanal Ø 4,5 mm) ins Crew-Modul.
-- Reihenfolge: erst Kabel durchfädeln und LEDs testen, dann kleben. Übergang (07) nur stecken, nicht kleben,
-  damit der Block zugänglich bleibt.
+**10 LEDs, 1 × 18650-Akku im hinteren Ständer, Schalter außen am Batteriefach, Laden über USB-C.**
+
+### Einkaufsliste
+
+| Anzahl | Teil | Wofür | Hinweis |
+|---|---|---|---|
+| 1 | 18650 Li-Ion-Zelle, 2500–3500 mAh, Markenware | Energie | flache oder Button-Top-Zelle, die in den Halter passt |
+| 1 | Akkuhalter 1 × 18650 mit Litzen (ca. 76 × 21 × 19 mm) | hält die Zelle | Fach ist für bis 79 × 23 × 21,5 mm ausgelegt |
+| 1 | TP4056-Lademodul **mit Schutzschaltung** (DW01), USB-C, ca. 28 × 17 mm | Laden + Tiefentlade-/Kurzschlussschutz | Anschlüsse B+/B− und OUT+/OUT− |
+| 1 | MT3608 Step-up-Modul (36 × 17 mm) | macht aus 3–4,2 V stabile 5 V | **vor dem Anschließen der LEDs auf 5,0 V einstellen** |
+| 1 | Mini-Wippschalter KCD11, 2-polig, Einbauausschnitt 13,5 × 9 mm | Ein/Aus | rastet von außen in die Seitenwand |
+| 6 | LED 3 mm kaltweiß oder blau, klar | Triebwerke | |
+| 1 | LED 3 mm warmweiß, diffus | Cockpit | |
+| 3 | SMD-LED 0402, vorverdrahtet mit Kupferlackdraht, **50 cm**, **ohne** eingebauten Widerstand (3-V-Typ) | Antennenschüsseln | Sets mit Widerstand für 9–18 V sind bei 5 V zu dunkel |
+| 6 | Widerstand 150 Ω, 0,25 W | Triebwerks-LEDs | je LED einer |
+| 1 | Widerstand 220 Ω | Cockpit-LED | 470 Ω für gedimmtes Licht |
+| 3 | Widerstand 330 Ω | Antennen-LEDs | je LED einer |
+| 1 | Stück Lochrasterplatine ca. 30 × 20 mm | Verteiler im Reaktorblock | |
+| 2 m | Litze 0,14 mm², rot und schwarz | Verbindungen | |
+| 4 | Senkkopfschraube 3 × 10 mm (Blech- oder Kunststoffschraube) | Bodenplatte | |
+| 1 | Multimeter | 5 V einstellen, Polung prüfen | unverzichtbar |
+| – | Schrumpfschlauch 1,5 mm, Lötkolben, Heißkleber | | |
+
+### Schaltung
+
+```
+18650 im Halter ──► TP4056 (B+ / B−)
+                    TP4056 OUT+ ──► Schalter ──► MT3608 IN+
+                    TP4056 OUT− ───────────────► MT3608 IN−
+                                                 MT3608 OUT+ (5,0 V) ─┐  rot    durch die Säule
+                                                 MT3608 OUT− (GND)  ──┤  schwarz  in den Reaktorblock
+                                                                      ▼
+                          Verteilerplatine im Reaktorblock: 5-V-Schiene und GND-Schiene
+   5 V ──150 Ω──►|── GND   (6 ×, Triebwerke, LEDs in den Sitzen im Heck)
+   5 V ──220 Ω──►|── GND   (1 ×, Cockpit; zwei Litzen durch die Wirbelsäule nach vorn)
+   5 V ──330 Ω──►|── GND   (3 ×, Antennen; Lackdrähte durch Mast und Wirbelsäule nach hinten)
+```
+
+Alle LEDs liegen parallel, jede mit eigenem Widerstand. Geschätzter Verbrauch: ca. 100 mA bei 5 V, das sind rund 170 mA aus dem Akku
+und damit grob 12–18 Stunden Leuchtdauer pro Ladung (Schätzung, nicht gemessen).
+
+### Leitungswege im Modell
+
+- **Batteriefach → Schiff:** zwei Litzen durch die Säule (Kanal Ø 4 mm) in den Hohlraum des Reaktorblocks.
+- **Triebwerke:** sechs LEDs von innen in die Sitze stecken; die Kanäle der vier äußeren Düsen laufen schräg.
+- **Cockpit:** zwei Litzen vom Block durch Übergangsstück und Wirbelsäule (Kanal Ø 4,5 mm, daneben der 2-mm-Versteifungsstab) in die Kugel, LED in das Loch über der Cockpittür.
+- **Antennen:** jede Schüssel hat in der Mitte einen Sitz für eine 0402-LED mit Bohrung (Ø 0,9 mm) nach hinten. Die Lackdrähte laufen in der Nut
+  auf der Rückseite des Trägers zur Mitte, mit einer **lockeren Schlaufe** (ca. 15 mm) über das Scharnier, durch den Mast (Ø 1,3 mm) und das Loch
+  in der Wirbelsäule in den Hauptkanal und von dort nach hinten in den Block. Bohrungen nach dem Druck mit einem 0,8–1-mm-Bohrer freimachen.
+- **Reihenfolge:** erst alle Leitungen einziehen und am Verteiler testen, dann kleben. Übergangsstück (08) nur stecken, damit der Block zugänglich bleibt.
+
+### Sicherheit
+
+- MT3608 **ohne angeschlossene LEDs** mit dem Multimeter auf 5,0 V drehen. Im Auslieferungszustand kann er weit mehr liefern und zerstört dann sofort alle LEDs.
+- Nur ein Lademodul **mit** Schutzschaltung verwenden und die Zelle richtig herum einlegen. Li-Ion-Zellen nie kurzschließen und nicht unbeaufsichtigt laden.
+- Manche dieser Lademodule laden nicht an einem USB-C-zu-USB-C-Kabel. Dann ein USB-A-zu-USB-C-Kabel nehmen.
+- Die Fächer sind auf Händlerangaben ausgelegt, die je nach Hersteller um 1–3 mm abweichen. **Teile zuerst kaufen und nachmessen**, dann 14 und 15 drucken;
+  die Maße stehen als `HOLDER`, `CHARGER`, `BOOST`, `SWITCH_CUT` oben im Skript.
+
