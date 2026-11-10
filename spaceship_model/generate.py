@@ -18,8 +18,11 @@ from manifold3d import CrossSection, Manifold, OpType
 
 # ----------------------------------------------------------------- parameters
 CLEAR = 0.15          # radial clearance for plug/socket fits
-LED_D = 3.2           # hole for a 3 mm LED
-ROD_D = 8.0           # wooden core rod (beech dowel) through neck, spine and adapter
+# Overall scale: SHIP_SCALE=1.2346 gives a 100 cm ship. Everything grows with it except the features that must
+# match real parts (LEDs, switch, filament pins, core rod); those are divided by K here and come out at true size.
+K = float(os.environ.get("SHIP_SCALE", "1"))
+LED_D = 3.2 / K       # hole for a 3 mm LED
+ROD_D = 8.0 if K == 1 else 10.0 / K           # wooden core rod (beech dowel) through neck, spine and adapter
 WIRE_R = 1.6          # wire channel running along the top of the rod
 WIRE_OFF = 4.65       # its centre distance from the axis
 PLUG_D = 12.0         # spine connector plug diameter
@@ -45,22 +48,22 @@ ENG_COL = 23.0        # horizontal spacing of the three nozzle columns
 ENG_R = 10.0
 ENG_L = 30.0
 NOZ_L = 16.0          # length of the bell nozzle
-NOZ_RT = 1.6          # throat radius = 3 mm LED, which sits in the throat
-NOZ_LED_OUT = 1.5     # how far the LED tip protrudes into the bell
+NOZ_RT = 1.6 / K       # throat radius = 3 mm LED, which sits in the throat
+NOZ_LED_OUT = 1.5 / K   # how far the LED tip protrudes into the bell
 NOZ_WIRE_R = 2.2      # passage for the LED legs and wires behind the nozzle
 NOZ_WALL = 0.8
 NOZ_FLANGE = 3.5      # flange height between bell and plug
 NOZ_PLUG_R = 3.4
 NOZ_PLUG_L = 5.0
 
-SWITCH_CUT = (9.0, 13.5)   # panel cutout of a mini rocker switch (KCD11 type): across x along the ship
+SWITCH_CUT = (9.0 / K, 13.5 / K) # panel cutout of a mini rocker switch (KCD11 type): across x along the ship
 TRAY_L = 84.0              # length of the removable battery tray (holder up to 79 mm)
 TRAY_CUT = -12.0           # the tray is everything below this height (print x of the block)
-PIN_D = 1.75               # locking pin of the tray = a piece of filament
+PIN_D = 1.75 / K          # locking pin of the tray = a piece of filament
 LUG_HOLE = 3.2             # eye diameter of the suspension lugs
 SEED = 2001
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stl")
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stl" if K == 1 else "stl_%dcm" % round(81.0 * K))
 rng = random.Random(SEED)
 
 
@@ -100,6 +103,8 @@ def clean(m):
 
 def write_stl(m, name):
     m = clean(m)
+    if K != 1:
+        m = m.scale([K, K, K])
     mesh = m.to_mesh()
     v = np.asarray(mesh.vert_properties, dtype=np.float32)[:, :3]
     t = np.asarray(mesh.tri_verts, dtype=np.uint32)
@@ -756,7 +761,7 @@ def antenna_dishes():
         parts.append(cyl(0.7, ro + 0.55, seg=32, z=h - 3.0).translate([x, y, 0]))     # collar below the lamp
         cuts += [pocket.translate([x, y, 0]), bore.translate([x, y, 0])]
     m = union(parts) - union(cuts)
-    m -= cyl(10, 1.1, seg=24, z=-5).rotate([90, 0, 0]).translate([0, 0, AX_Z])   # hinge bore (1.75 mm filament)
+    m -= cyl(10, 1.1 / K, seg=24, z=-5).rotate([90, 0, 0]).translate([0, 0, AX_Z])   # hinge bore (1.75 mm filament)
     m -= box(1.4, 2 * yl, 1.8, xb, 0, 0)                     # wire groove on the back of the arms
     m -= box(TOWER_TOP + 3.2, 1.4, 1.8, (TOWER_TOP - 3.2) / 2, 0, 0)  # ... along the tower and down to the hinge
     return m
@@ -777,7 +782,7 @@ def antenna_mast():
     foot = cyl(1.4, 2.8, 4.1, seg=48, z=23.7) + cyl(1.4, 4.1, seg=48, z=25.09)
     pin = cyl(MAST_PIN, 2.0, seg=48, z=26.49)
     m = union(arms + [bridge, col, foot, pin] + rings)
-    m -= cyl(14, 0.95, seg=24, z=-7).rotate([90, 0, 0]).translate([0, 0, MAST_AX])  # press fit for the filament pin
+    m -= cyl(14, 0.95 / K, seg=24, z=-7).rotate([90, 0, 0]).translate([0, 0, MAST_AX])  # press fit for the filament pin
     m -= cyl(23.0, 0.65, seg=16, z=8.9)                      # wire channel from the fork down through the pin
     return m
 
@@ -937,8 +942,8 @@ def nozzle():
     ro_t = NOZ_RT + NOZ_WALL
     outer_pts = [(0, 0)] + [(r + NOZ_WALL, z) for r, z in prof] + \
                 [(ro_t + 2.0, NOZ_L + 2.0), (ro_t + 2.0, z1), (NOZ_PLUG_R, z1), (NOZ_PLUG_R, z2), (0, z2)]
-    z_sh = NOZ_L - NOZ_LED_OUT + 4.3                                 # shoulder for the LED flange (LED body = 4.3 mm)
-    inner_pts = [(0, -1)] + [(prof[0][0], -1)] + prof + [(NOZ_RT, z_sh), (2.05, z_sh), (2.05, z2 + 1), (0, z2 + 1)]
+    z_sh = NOZ_L - NOZ_LED_OUT + 4.3 / K                                 # shoulder for the LED flange (LED body = 4.3 mm)
+    inner_pts = [(0, -1)] + [(prof[0][0], -1)] + prof + [(NOZ_RT, z_sh), (2.05 / K, z_sh), (2.05 / K, z2 + 1), (0, z2 + 1)]
     outer = Manifold.revolve(CrossSection([outer_pts]), 96)
     inner = Manifold.revolve(CrossSection([inner_pts]), 96)
     rings = [cyl(1.0, prof[0][0] + NOZ_WALL + 0.45, seg=96)]          # rim band

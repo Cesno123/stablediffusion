@@ -16,6 +16,18 @@ Das Modell wird **frei hängend** montiert; Akku, Elektronik und Schalter sitzen
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
 
+## Variante 100 cm (Ordner `stl_100cm/`)
+
+Dieselben 15 Teile, einheitlich um den Faktor 1,2346 vergrößert: Gesamtlänge 100 cm, Kugel 100 mm, höchstes Teil 165 mm.
+Erzeugt mit `SHIP_SCALE=1.2346 python3 generate.py`. Dabei bleiben in Originalgröße: die LED-Sitze (3 mm), der Schalterausschnitt
+(13,5 × 9 mm) und alle Löcher für 1,75-mm-Filamentstifte. Abweichungen von der 81-cm-Fassung:
+
+- **Kernstab Ø 10 mm**, ca. 680 mm lang (Bohrung 10,5 mm) statt 8 mm.
+- Akkuwanne, Kabelkanäle und Elektronikraum sind entsprechend größer; der Akkuhalter liegt lose und wird mit Schaumklebeband fixiert.
+- Die Wand am Schalterausschnitt ist ca. 2,3 mm dick. Rastet der Wippschalter dort nicht ein, die Kanten innen etwas anfasen oder ihn einkleben.
+- Die Freiflächen für Abziehbilder sind 23 % größer als die Schilder auf dem Decal-Bogen.
+- Filamentbedarf rund 470 g (Schätzung, Volumen × 1,88).
+
 ## Teile (Ordner `stl/`), nummeriert in Baureihenfolge von vorn nach hinten
 
 ![Explosionsansicht](assembly.png)
