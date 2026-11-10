@@ -12,7 +12,7 @@ Das Modell wird **frei hängend** montiert; Akku, Elektronik und Schalter sitzen
 
 ![Heck, Schalter, Ösen](electronics.png)
 
-- Gesamtlänge 788 mm, Kugel 72 mm, 14 verschiedene Druckteile, das höchste 134 mm (für Anycubic Kobra Plus, 300 × 300 × 350 mm)
+- Gesamtlänge 802 mm, Kugel 72 mm, 15 verschiedene Druckteile, das höchste 134 mm (für Anycubic Kobra Plus, 300 × 300 × 350 mm)
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
 
@@ -31,11 +31,12 @@ Das Modell wird **frei hängend** montiert; Akku, Elektronik und Schalter sitzen
 | 07_spine_C_lug | Wirbelsäule 3 mit **Aufhängeöse** | 134 mm | stehend, Brim 8 mm, max. 30 mm/s |
 | 08_spine_D | Wirbelsäule 4 (hinten) | 134 mm | stehend, Brim 8 mm, max. 30 mm/s |
 | 09_adapter_collar | Übergang Wirbelsäule → Reaktorblock | 38 mm | breite Seite unten; **nur stecken, nicht kleben** (Zugang zum Akku) |
-| 10_reactor_block | Reaktorblock: Rohr für Akku und Elektronik, Ausschnitte für Schalter und USB-C, **Aufhängeöse** | 102 mm | Trennfläche nach unten |
+| 10_reactor_block | Reaktorblock: Rohr für Elektronik, Öffnung für die Akkuwanne, Schalterausschnitt, **Aufhängeöse** | 115 mm | Trennfläche nach unten |
 | 11_engine_housing | Triebwerksgehäuse mit 6 Düsensockeln und Stecklippe | 57 mm | Heckfläche nach unten |
 | 12_engine_nozzle_6x | Glockendüse mit LED-Sitz im Düsenhals | 25 mm | **6× drucken**, Rand unten, langsam |
 | 13_antenna_dishes | Antennenträger mit 3 Schüsseln, Turm und LED-Sitzen | 24 mm | Schüsseln öffnen nach oben, langsam |
 | 14_antenna_mast | Mast mit Gabel und Kabelkanal | 31 mm | kopfüber (Gabel unten), Brim 5 mm |
+| 15_battery_tray | Akkuwanne: abnehmbare Unterseite des Reaktorblocks, trägt den Akkuhalter | 16 mm | flache Unterseite nach unten |
 | 00_assembly_preview_only | Nur Vorschau | – | **nicht drucken** |
 
 Kein Teil ist höher als 134 mm, und kein Teil braucht Stützstrukturen.
@@ -56,7 +57,7 @@ Kein Teil ist höher als 134 mm, und kein Teil braucht Stützstrukturen.
 | 2 | 05, 06, 07, 08 zusammen auf einem Bett, weit auseinander | 0,10 mm |
 | 3 | 01, 02, 03 | 0,08 mm |
 | 4 | 04, 13 | 0,08 mm |
-| 5 | 10, 11 | 0,08 mm |
+| 5 | 10, 11, 15 | 0,08 mm |
 | 6 | restliche 5 Düsen (12) | 0,10 mm |
 
 Mit Auftrag 1 prüfst du zuerst die Passung (Zapfen von 09 in die Buchse eines Wirbelsäulenteils, sobald Auftrag 2 fertig ist) und die dünnsten Teile.
@@ -65,13 +66,13 @@ Mit Auftrag 1 prüfst du zuerst die Passung (Zapfen von 09 in die Buchse eines W
 
 Vor dem Kleben **alles trocken zusammenstecken**. Kleber: 2K-Epoxid für tragende Verbindungen, Sekundenkleber für Kleinteile.
 
-1. **Trockenprobe:** 02 – 05 – 06 – 07 – 08 – 09 – 10 – 11 zusammenstecken, Versteifungsstab (2 mm, 520 mm) durch die Wirbelsäule schieben, Länge prüfen.
+1. **Trockenprobe:** 02 – 05 – 06 – 07 – 08 – 09 – 10 – 11 zusammenstecken, Holzstab (Ø 5 mm) durchschieben und auf Länge sägen (ca. 550 mm), Akkuwanne 15 probeweise einsetzen.
 2. **Cockpit:** Einsatz 04 bemalen, warmweiße LED mit zwei 70 cm langen Litzen in die Rückwand stecken, Fenster von 01 mit Folie hinterkleben, 04 in 01 kleben.
 3. **Antenne:** die drei roten LEDs in 13 setzen, Drähte in die Nut legen, durch 14 fädeln, Scharnierstift (Filament) einsetzen.
 4. **Wirbelsäule:** 05 bis 08 mit Epoxid verkleben, dabei den Stab einschieben. Antennendrähte durch das Loch in 06 nach hinten, Cockpit-Litzen von vorn nach hinten durchziehen. Flach liegend aushärten lassen.
 5. **Kugel:** Litzen durch den Hals von 02 führen, Ring 03 in 02 kleben, 02 auf die Wirbelsäule kleben, 01 aufstecken und verkleben.
 6. **Triebwerke:** je LED zwei Litzen anlöten, durch die Sockel von 11 fädeln, LED in die Düse 12 stecken, Düse einkleben. Alle zwölf Litzen ragen oben aus 11 heraus.
-7. **Elektronik im Block:** Schalter von außen in 10 einrasten, Lademodul an den USB-Ausschnitt kleben, Akkuhalter und Platine einsetzen und verdrahten (siehe unten). **Jetzt testen**, alle LEDs müssen leuchten bzw. blinken.
+7. **Elektronik im Block:** Schalter von außen in 10 einrasten, Schutzplatine, Spannungswandler und Platine oben im Block befestigen, Akkuhalter in die Wanne 15 kleben und mit 10 cm losen Litzen anschließen (siehe unten). **Jetzt testen**, alle LEDs müssen leuchten bzw. blinken.
 8. **Heck schließen:** 11 mit Epoxid an 10 kleben.
 9. **Übergang:** Leitungen aus der Wirbelsäule an die Platine anschließen, 09 auf die Wirbelsäule kleben und in 10 **nur stecken**. Zum Schluss den Antennenmast einstecken und das Schiff an den drei Ösen aufhängen.
 
@@ -83,13 +84,15 @@ Drei Ösen (Loch Ø 3,2 mm) sitzen auf der Oberseite, gemessen von der Schiffssp
 |---|---|---|
 | vorn | 82 mm | Hals der Crew-Kugel (02) |
 | Mitte | 346 mm | Wirbelsäule 3 (07), 20 mm hinter der Antenne |
-| hinten | 670 mm | Reaktorblock (10), über dem Akku |
+| hinten | 677 mm | Reaktorblock (10), über dem Akku |
 
 - Vorn und hinten tragen das Gewicht; die mittlere Öse verhindert Durchhängen und sollte nur leicht gespannt sein.
 - Die Ösen sind so gedruckt, dass der Zug **in** den Druckschichten liegt, nicht quer dazu.
 - Empfohlen: Nylonschnur 0,4–0,5 mm oder dünnes Stahlseil, an drei Deckenhaken. Schnurlängen so einstellen, dass das Schiff waagerecht hängt.
-- **Pflicht für die Steifigkeit:** Steckverbindungen von Kugel, Wirbelsäule und Übergang mit 2K- oder Sekundenkleber verkleben und einen
-  **2-mm-Stahldraht oder Carbonstab (ca. 520 mm)** durch den Kabelkanal der Wirbelsäule schieben; die Leitungen passen daneben.
+- **Holzkern:** ein **Buchenrundstab Ø 5 mm, 550 mm lang** läuft durch Kugelhals, alle vier Wirbelsäulenteile und das Übergangsstück bis in den Reaktorblock.
+  Die Bohrung hat 5,4 mm; darüber liegt ein eigener Kabelkanal (3,2 mm breit), sodass Stab und Leitungen sich nicht stören.
+  Den Stab beim Verkleben der Wirbelsäule mit Epoxid oder Holzleim einkleben. Er trägt die Biegung, die Kunststoffteile sind nur noch Verkleidung.
+  Der Stabdurchmesser steht als `ROD_D` oben im Skript.
 - Die Teile unter Last sind PLA mit 4 Wandlinien. Vor dem Aufhängen jede Öse von Hand mit etwa 1 kg Zug prüfen.
 
 ## Cockpit einbauen
@@ -123,7 +126,7 @@ Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
 
 ## Beleuchtung und Stromversorgung
 
-**10 LEDs, 1 × 18650-Akku im Reaktorblock, Schalter und USB-C-Ladebuchse auf der Unterseite des Blocks. Die drei roten Antennen-LEDs blinken etwa einmal pro Sekunde.**
+**10 LEDs, 1 × 18650-Akku in einer abnehmbaren Wanne unter dem Reaktorblock, Schalter daneben. Geladen wird der Akku außerhalb des Schiffs im Ladegerät. Die drei roten Antennen-LEDs blinken etwa einmal pro Sekunde.**
 
 ### Einkaufsliste
 
@@ -131,7 +134,9 @@ Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
 |---|---|---|---|
 | 1 | 18650 Li-Ion-Zelle, 2500–3500 mAh, Markenware | Energie | Zelle muss in den Halter passen |
 | 1 | Akkuhalter 1 × 18650 mit Litzen, max. 79 × 21 × 21,5 mm | hält die Zelle | |
-| 1 | TP4056-Lademodul **mit Schutzschaltung** (DW01), USB-C, ca. 28 × 17 mm | Laden + Tiefentlade-/Kurzschlussschutz | Anschlüsse B+/B− und OUT+/OUT− |
+| 1 | Schutzplatine 1S 3,7 V, 3 A (DW01 + 8205A), ca. 33 × 7 mm | Tiefentlade- und Kurzschlussschutz | bleibt fest im Schiff; **nicht weglassen** |
+| 1 | externes Ladegerät für 18650-Zellen | Laden | Zelle zum Laden herausnehmen |
+| 1 | Stück 1,75-mm-Filament, 55 mm | Sicherungsstift der Akkuwanne | ein Ende umbiegen oder anschmelzen |
 | 1 | MT3608 Step-up-Modul (36 × 17 mm) | macht aus 3–4,2 V stabile 5 V | **vor dem Anschließen der LEDs auf 5,0 V einstellen** |
 | 1 | Mini-Wippschalter KCD11, 2-polig, Einbauausschnitt 13,5 × 9 mm | Ein/Aus | rastet von außen in die Blockunterseite |
 | 6 | LED 3 mm **warmweiß**, klar | Triebwerke: sitzt im Düsenhals, die Spitze ist als Lichtpunkt mittig in der Düse sichtbar | |
@@ -148,9 +153,9 @@ Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
 ### Schaltung
 
 ```
-18650 im Halter ──► TP4056 (B+ / B−)
-                    TP4056 OUT+ ──► Schalter ──► MT3608 IN+
-                    TP4056 OUT− ───────────────► MT3608 IN−
+18650 im Halter ──► Schutzplatine (B+ / B−)
+                    Schutzplatine P+ ──► Schalter ──► MT3608 IN+
+                    Schutzplatine P− ───────────────► MT3608 IN−
                                                  MT3608 OUT+ (5,0 V) ──► 5-V-Schiene ┐ Verteilerplatine
                                                  MT3608 OUT− (GND)  ──► GND-Schiene ┘ im Reaktorblock
    5 V ──150 Ω──►|── GND   (6 ×, Triebwerke warmweiß)
@@ -174,18 +179,21 @@ Fertige NE555-Impulsmodule eignen sich nicht: laut Händlerangaben beginnen sie 
 Alle LEDs haben einen eigenen Widerstand; Triebwerke und Cockpit leuchten dauerhaft, die Antennen blinken. Geschätzter Verbrauch: ca. 100 mA bei 5 V, rund 170 mA aus dem Akku,
 grob 12–18 Stunden Leuchtdauer pro Ladung (Schätzung, nicht gemessen).
 
-### Anordnung im Reaktorblock (Hohlraum 42 mm breit, 102 mm lang, vor dem Verkleben von beiden Seiten zugänglich)
+### Akkuwanne und Anordnung im Reaktorblock
 
-Von hinten (Triebwerke) nach vorn (Übergangsstück):
+Die Wanne (15) ist die abnehmbare Unterseite des Reaktorblocks, 84 mm lang. Der Akkuhalter liegt mit der offenen Seite nach oben in der V-förmigen Mulde
+der Wanne und wird dort eingeklebt; er zentriert sich an den schrägen Wänden von selbst.
 
-1. **6 mm Kabelraum** direkt über den Triebwerkskanälen.
-2. **Akkuhalter** (79 mm) oben an der Decke des Hohlraums, mit Klebeband fixiert. Darunter liegen hintereinander der **MT3608** (37 mm)
-   und die **Lochrasterplatine** mit Verteiler und Blinkgeber (30 mm) auf dem Boden; die freie Höhe dort beträgt rund 20 mm.
-3. **Elektronikraum** (16 mm) ganz vorn: der **Schalter** rastet von außen in den Ausschnitt auf der Unterseite; das **TP4056** steht hochkant
-   daneben, seine USB-C-Buchse zeigt nach unten in den zweiten Ausschnitt (5 × 11 mm). Mit Heißkleber fixieren.
+**Akku wechseln:**
+1. Filamentstift am hinteren Ende der Wanne seitlich herausziehen.
+2. Wanne hinten nach unten schwenken und nach hinten aus der vorderen Kante aushängen. Sie hängt an zwei Litzen.
+3. Zelle aus dem Halter nehmen, geladene Zelle richtig herum einlegen (ein Stoffband unter der Zelle erleichtert das Herausziehen).
+4. Wanne vorn mit der Zunge unter die Kante haken, hinten hochschwenken, Stift durchstecken.
 
-Mit den Maßen aus der Einkaufsliste passen alle vier Teile rechnerisch kollisionsfrei hinein; zwischen Akkuhalter und Hohlraumecken bleibt aber kein Spiel.
-Akkuwechsel: Übergangsstück (09) abziehen, Halter nach vorn herausziehen. Normalerweise wird nur über USB-C geladen.
+**Im Block** (über der Wanne, rund 19 mm freie Höhe): Schutzplatine, MT3608 und Lochrasterplatine mit Verteiler und Blinkgeber, mit doppelseitigem Klebeband an der Decke befestigt.
+Der **Schalter** sitzt vor der Wanne auf der Unterseite.
+
+Rechnerisch passt ein Halter bis 79 × 21 × 21,5 mm ohne Kollision in Wanne und Block. Die Wanne trägt Halter und Zelle (rund 60 g) über Zunge und Stift.
 
 ### Leitungswege
 
@@ -201,8 +209,7 @@ Akkuwechsel: Übergangsstück (09) abziehen, Halter nach vorn herausziehen. Norm
 ### Sicherheit
 
 - MT3608 **ohne angeschlossene LEDs** mit dem Multimeter auf 5,0 V drehen. Unverstellt kann er weit mehr liefern und zerstört dann sofort alle LEDs.
-- Nur ein Lademodul **mit** Schutzschaltung verwenden und die Zelle richtig herum einlegen. Li-Ion-Zellen nie kurzschließen.
-- **Der Akku lädt in einem geschlossenen PLA-Gehäuse an der Decke.** Nur unter Aufsicht laden, mit maximal 1 A, und das Schiff danach vom Kabel trennen.
-- Manche dieser Lademodule laden nicht an einem USB-C-zu-USB-C-Kabel. Dann ein USB-A-zu-USB-C-Kabel nehmen.
+- Die Zelle richtig herum einlegen; eine verpolte Zelle kann Spannungswandler und Blinkgeber zerstören. Li-Ion-Zellen nie kurzschließen.
+- Geladen wird nur im externen Ladegerät, nie im Schiff. Die Schutzplatine im Schiff verhindert, dass der Spannungswandler die Zelle tiefentlädt.
 - Die Ausschnitte beruhen auf Händlerangaben, die um 1–3 mm schwanken. **Teile zuerst kaufen und nachmessen**, dann Teil 10 drucken;
-  die Maße stehen als `SWITCH_CUT`, `USB_CUT` und `BLOCK_L` oben im Skript.
+  die Maße stehen als `SWITCH_CUT`, `TRAY_L` und `BLOCK_L` oben im Skript.

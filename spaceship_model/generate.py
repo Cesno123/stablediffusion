@@ -19,22 +19,24 @@ from manifold3d import CrossSection, Manifold, OpType
 # ----------------------------------------------------------------- parameters
 CLEAR = 0.15          # radial clearance for plug/socket fits
 LED_D = 3.2           # hole for a 3 mm LED
-WIRE_D = 4.5          # wire channel through the spine
-PLUG_D = 9.0          # spine connector plug diameter
+ROD_D = 5.0           # wooden core rod (beech dowel) through neck, spine and adapter
+WIRE_R = 1.6          # wire channel running along the top of the rod
+WIRE_OFF = 3.2        # its centre distance from the axis
+PLUG_D = 11.0         # spine connector plug diameter
 PLUG_L = 8.0
 
 CREW_R = 36.0         # crew module radius (sphere)
 CREW_CYL = 0.0        # optional cylindrical stretch per half; 0 = pure sphere
 CREW_WALL = 1.6
-NECK_R = 8.0
+NECK_R = 9.5
 NECK_L = 16.0
 
-SPINE_R = 8.0         # circumradius of octagonal spine core
+SPINE_R = 9.5         # circumradius of octagonal spine core
 SEG_L = 126.0         # length of one spine segment
 N_SEG = 4             # number of spine segments (sphere diameter : length = 1 : 10)
 
 BLOCK_R = 25.0        # circumradius of octagonal reactor block
-BLOCK_L = 111.0       # holds 18650 holder (79) + electronics bay (20) + wiring space
+BLOCK_L = 124.0       # battery tray (84) + switch bay + joints
 BLOCK_CAV_R = 23.0
 ENG_OFF = 11.5        # vertical nozzle offset (two rows)
 ENG_COL = 23.0        # horizontal spacing of the three nozzle columns
@@ -50,7 +52,9 @@ NOZ_PLUG_R = 3.4
 NOZ_PLUG_L = 5.0
 
 SWITCH_CUT = (9.0, 13.5)   # panel cutout of a mini rocker switch (KCD11 type): across x along the ship
-USB_CUT = (5.0, 11.0)      # opening for the USB-C socket of the charger board
+TRAY_L = 84.0              # length of the removable battery tray (holder up to 79 mm)
+TRAY_CUT = -12.0           # the tray is everything below this height (print x of the block)
+PIN_D = 1.75               # locking pin of the tray = a piece of filament
 LUG_HOLE = 3.2             # eye diameter of the suspension lugs
 SEED = 2001
 
@@ -273,6 +277,11 @@ def detail_face(apothem, W, z0, z1, angle, t0=0.0, blank=None):
     return adds, cuts
 
 
+def core_bore(h, z=0.0):
+    """Bore for the wooden rod with a wire channel on its upper side (+x)."""
+    return cyl(h, ROD_D / 2 + 0.2, seg=48, z=z) + cyl(h, WIRE_R, seg=24, z=z).translate([WIRE_OFF, 0, 0])
+
+
 def plug_key(z0, length=None):
     """Rib on a round plug (at +x) so that the joint only fits in one orientation."""
     length = PLUG_L if length is None else length
@@ -458,7 +467,7 @@ def crew_rear():
     lg, lg_hole = lug(NECK_R, z_neck0 + 5.0, length=9.0)
     body.append(rz(lg, 180))
     m = union(body) - crew_inner() - rz(lg_hole, 180)
-    m -= cyl(z_top + 1, WIRE_D / 2, seg=32)                                   # wire channel
+    m -= rz(core_bore(z_top + 1), 180)                                       # rod + wire channel (upper side = print -x)
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=z_top - PLUG_L - 0.5)  # socket
     m -= rz(socket_key(z_top - PLUG_L - 0.5, PLUG_L + 0.6), 180)             # keyway on the ship's upper side
     m += box(1.9, 1.8, 4.0, (CREW_R - CREW_WALL) - 0.75, 0, 2.0)            # alignment rib, ship underside
@@ -631,7 +640,7 @@ def spine_segment(kinds, antenna_hole=False, lug_at=None):
     m = union(parts)
     if cuts:
         m -= union(cuts)
-    m -= cyl(SEG_L + PLUG_L + 2, WIRE_D / 2, seg=32, z=-1)
+    m -= core_bore(SEG_L + PLUG_L + 2, -1)
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=-0.1)
     m -= socket_key(-0.1, PLUG_L + 0.6)
     if lug_at is not None:
@@ -711,7 +720,11 @@ Z_T0 = ENG_L                 # start of transition
 Z_OCT = ENG_L + 12.0         # start of octagonal block
 Z_TOP = Z_OCT + BLOCK_L      # open top (front of block)
 Z_FLOOR = Z_OCT + 3.0        # cavity floor
-Z_BAY = Z_TOP - 12.75        # centre of the electronics bay openings (switch, USB)
+Z_BAY = Z_TOP - 12.75        # centre of the switch cutout
+Z_TRAY0 = Z_FLOOR + 6.0 + 8.0   # rear end of the battery tray opening (above the housing lip)
+Z_TRAY1 = Z_TRAY0 + TRAY_L
+Z_PIN = Z_TRAY0 + 5.0
+X_PIN = TRAY_CUT + 2.0
 Z_LUG = Z_OCT + BLOCK_L / 2 - 5.0
 
 
@@ -742,7 +755,9 @@ def engine_block():
     for k in range(8):                                     # reactor block: eight detailed faces
         blank = None
         if k == 4:                                         # keep the switch / USB area clear
-            blank = lambda t, z, w, l: z + l > Z_BAY - 10
+            blank = lambda t, z, w, l: z + l > Z_TRAY0 - 1
+        if k in (3, 5):                                    # tray reaches into the two lower diagonal faces
+            blank = lambda t, z, w, l: z < Z_TRAY1 + 1 and z + l > Z_TRAY0 - 1
         if k == 0:                                         # keep the suspension lug area clear
             blank = lambda t, z, w, l: z < Z_LUG + 12 and z + l > Z_LUG - 10
         add_face(ap, 2 * half_w - 1.6, Z_OCT + 3.2, Z_TOP - 3.2, 45 * k, blank=blank)
@@ -789,13 +804,36 @@ def engine_block():
 
     # electronics bay: rocker switch and USB-C charging port on the underside (print -x)
     xw = -BLOCK_R * math.cos(math.radians(22.5))
-    m -= box(6, SWITCH_CUT[0], SWITCH_CUT[1], xw, -4.0, Z_BAY)
-    m -= box(6, USB_CUT[0], USB_CUT[1], xw, 5.5, Z_BAY)
-    m += box(0.8, 12.6, 0.8, xw, -4.0, Z_BAY - 8.6) + box(0.8, 12.6, 0.8, xw, -4.0, Z_BAY + 8.6)   # switch guard rails
+    m -= box(6, SWITCH_CUT[0], SWITCH_CUT[1], xw, 0, Z_BAY)
+    m += box(0.8, 12.6, 0.8, xw, 0, Z_BAY - 8.6) + box(0.8, 12.6, 0.8, xw, 0, Z_BAY + 8.6)          # switch guard rails
+    # battery tray opening: everything below TRAY_CUT between Z_TRAY0 and Z_TRAY1
+    m -= box(40, 80, TRAY_L, TRAY_CUT - 20, 0, (Z_TRAY0 + Z_TRAY1) / 2)
+    m -= cyl(70, PIN_D / 2 + 0.08, seg=16, z=-35).rotate([90, 0, 0]).translate([X_PIN, 0, Z_PIN])    # locking pin holes
     # suspension lug on the upper side (print +x)
     lg, lg_hole = lug(-xw, Z_LUG)
     m = (m + lg) - lg_hole
     return m - box(6.0, 4.2, 4.4, -xw, 0, Z_TOP - 2.1)      # notch for the adapter tooth (upper side)
+
+
+def battery_tray():
+    """Removable belly pan of the reactor block. The 18650 holder is glued into it, so the cell
+    comes out with the tray. A wedge tongue hooks under the front edge, a filament pin locks the rear.
+    Built in block coordinates; exported lying on its flat underside."""
+    g = 0.2                                                   # clearance to the opening
+    shell = octa(BLOCK_L, BLOCK_R, z=Z_OCT) - octa(BLOCK_L + 2, BLOCK_CAV_R, z=Z_OCT - 1)
+    tray = shell ^ box(40, 80, TRAY_L - 2 * g, TRAY_CUT - g - 20, 0, (Z_TRAY0 + Z_TRAY1) / 2)
+    xi = -BLOCK_CAV_R * math.cos(math.radians(22.5))          # inner face of the underside wall
+    tongue = hull(box(1.4, 12, 3.8, xi + 0.7, 0, Z_TRAY1 - g - 1.9),
+                  box(1.2, 12, 0.1, xi + 3.0, 0, Z_TRAY1 + 1.95))
+    parts = [tray, tongue]
+    cuts = []
+    for sy in (-1, 1):                                        # lugs for the locking pin
+        parts.append(box(X_PIN + 3.0 - (xi + 6.0), 2.0, 6.0, (X_PIN + 3.0 + xi + 6.0) / 2, sy * 16.5, Z_PIN))
+    cuts.append(cyl(70, PIN_D / 2 + 0.22, seg=16, z=-35).rotate([90, 0, 0]).translate([X_PIN, 0, Z_PIN]))
+    for z in (Z_TRAY0 + 16, Z_TRAY0 + 42, Z_TRAY0 + 68):      # panel seams across the underside
+        cuts.append(box(0.5, 16, 0.5, -BLOCK_R * math.cos(math.radians(22.5)), 0, z))
+    cuts.append(box(1.2, 8, 3.0, -BLOCK_R * math.cos(math.radians(22.5)), 0, Z_TRAY0 + 3.5))   # fingernail recess
+    return union(parts) - union(cuts)
 
 
 Z_SPLIT = Z_FLOOR + 6.0      # the block is printed as two parts, split here
@@ -853,7 +891,7 @@ def adapter():
                k * 45) for k in range(8)]
     m = union([lip, body, plug, tooth] + ribs)
     m -= hull(octa(6.1, rl - 1.6, z=-0.1), octa(0.05, 3.0, z=27.0))
-    m -= cyl(40, WIRE_D / 2, seg=32)
+    m -= core_bore(40)
     return m
 
 
@@ -873,6 +911,9 @@ def main():
     adp = adapter()
     blk = engine_block()
     housing, reactor = split_block(blk)
+    tray = battery_tray()
+    ap_b = BLOCK_R * math.cos(math.radians(22.5))
+    tray_print = tray.translate([0, 0, -Z_TRAY0]).rotate([0, -90, 0]).translate([0, 0, ap_b])
     noz = nozzle()
     cock = cockpit_interior()
 
@@ -882,7 +923,8 @@ def main():
                  (segs[2], "07_spine_C_lug.stl"), (segs[3], "08_spine_D.stl"),
                  (adp, "09_adapter_collar.stl"), (reactor, "10_reactor_block.stl"),
                  (housing, "11_engine_housing.stl"), (noz, "12_engine_nozzle_6x.stl"),
-                 (dishes, "13_antenna_dishes.stl"), (mast, "14_antenna_mast.stl")]:
+                 (dishes, "13_antenna_dishes.stl"), (mast, "14_antenna_mast.stl"),
+                 (tray_print, "15_battery_tray.stl")]:
         write_stl(m, n)
 
     # ---- assembled preview (ship axis = x, nose at x = 0, +z = up)
@@ -910,7 +952,9 @@ def main():
             fwd(dishes, xa + AX_Z).translate([0, 0, za])]
     cock_ship = cock.rotate([0, 0, 180]).translate([x_mid, 0, COCK_DECK])
     print("cockpit vs hull overlap volume:", round((cock_ship ^ union(asm[:2])).volume(), 3))
-    full = Manifold.compose(asm + [cock_ship])
+    tray_ship = fwd(tray, x4 + Z_TOP)
+    print("battery tray vs block overlap volume:", round((tray_ship ^ fwd(blk, x4 + Z_TOP)).volume(), 3))
+    full = Manifold.compose(asm + [cock_ship, tray_ship])
     write_stl(full, "00_assembly_preview_only.stl")
     lugs_x = [x_mid + neck_top - NECK_L + 2.0 + 5.0 + 5.0, x1 + 3 * SEG_L - (SEG_L - 14.0 + 6.0), x4 + Z_TOP - (Z_LUG + 6.0)]
     print("suspension eyes at x =", [round(v) for v in lugs_x], "mm from the nose")
@@ -919,7 +963,7 @@ def main():
         ex = [("01", fwd(front, x_mid), -62), ("04", cock_ship, -30), ("03", fwd(join, x_mid + 4), -8), ("02", aft(rear, x_mid), 12)]
         ex += [("%02d" % (5 + i), fwd(segs[i], x1 + (i + 1) * SEG_L), 40 + 26 * i) for i in range(N_SEG)]
         ex += [("09", fwd(adp, x3 + 30.0), 146), ("10", fwd(reactor, x4 + Z_TOP - Z_SPLIT), 174),
-               ("11", fwd(housing, x4 + Z_TOP), 206)]
+               ("11", fwd(housing, x4 + Z_TOP), 206), ("15", tray_ship.translate([0, 0, -34]), 174)]
         labels, solids = [], []
         for name, m, dx in ex:
             m = m.translate([dx, 0, 0]); solids.append(m); b = m.bounding_box()
