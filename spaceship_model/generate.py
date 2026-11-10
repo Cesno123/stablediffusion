@@ -747,7 +747,7 @@ def antenna_dishes():
         parts.append(strut((xb + 17.0, 0), 1.0, 2.4, (xb, sy * 24.0), 1.0, 2.4))
         parts.append(strut((xb + 9.0, 0), 0.8, 2.0, (xb, sy * 12.0), 0.8, 2.0))
     for y, r, sr in ((0, 19.0, 2.0), (-29, 9.0, 1.4), (29, 9.0, 1.4)):
-        parts.append(cyl(3.2, sr + 0.9, sr, seg=32, z=3.9).translate([xb, y, 0]))
+        parts.append(cyl(5.2, sr + 0.9, sr, seg=32, z=1.9).translate([xb, y, 0]))   # stem, rooted inside the arm
         parts.append(dish(r, sr, 7.0).translate([xb, y, 0]))
     cuts = []
     for x, y, h, ro, rp in ((TOWER_TOP, 0, 8.0, 2.3, 1.6), (xb, -yl, 11.0, 1.9, 1.2), (xb, yl, 11.0, 1.9, 1.2)):
