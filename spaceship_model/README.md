@@ -135,7 +135,7 @@ nummerierte Sektionsdreiecke, Sechsecke, Feldnummern, Richtungsbänder, Schachbr
 | Fläche | Größe | Teil | Passender Abschnitt auf dem Bogen |
 |---|---|---|---|
 | Reaktorblock, linke und rechte Seite | je 64 × 16,5 mm | 10 | A Schiffsname groß |
-| Kugel hinten, links und rechts direkt hinter der Naht | je 30 × 9,6 mm (leicht gewölbt) | 02 | B Schiffsname klein oder C Kennung |
+| Kugel hinten, oben links und oben rechts, hinter der Naht längs zum Schiff | je 25 × 12 mm (leicht gewölbt) | 02 | B Schiffsname klein (24 × 7,2 mm) |
 | Akkuwanne, Unterseite | 83 × 19 mm | 15 | D Battery Access |
 | Akkuwanne, schräge Seiten | je 83 × 14 mm | 15 | I Warnstreifen, C Kennung |
 | Tankmodule der Wirbelsäule, glatte Deckel links und rechts | je 12 × 7,5 mm, 14 Stück | 05–08 | H Tankschilder T-01 bis T-12 |
@@ -143,6 +143,8 @@ nummerierte Sektionsdreiecke, Sechsecke, Feldnummern, Richtungsbänder, Schachbr
 
 Kleinschilder ohne eigene Freifläche: E neben die Düsen und an den Reaktorblock, F neben die Schleusen, G „Hoist Point“ neben die drei Ösen,
 „Antenna“ an den Mastfuß.
+
+Die Bilder `renders/mitdecals_*.png` zeigen das Modell mit aufgebrachten Abziehbildern.
 
 ### Verarbeitung
 

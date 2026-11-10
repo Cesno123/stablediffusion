@@ -474,12 +474,12 @@ def crew_rear():
     feat2[0.45].append(wedge(166.9, 193.1, zc + 11.2, zc + 22.8))
     feat2[1.3].append(wedge(178.6, 181.4, zc + 14, zc + 20))
     panels = []
-    for a in (90, 270):                                    # smooth panels for the ship name decals
-        area = wedge(a - 23, a + 23, zc + 2.6, zc + 11.9)
+    for a in (125, 235):                                   # smooth panels for the ship name decals: upper left and right,
+        area = wedge(a - 10.5, a + 10.5, zc + 2.6, zc + 26.0)    # running along the ship so the name reads horizontally
         clear.append(area)
         panels.append(area)
-        feat2[0.3].append(wedge(a - 22, a + 22, zc + 3.0, zc + 11.5))
-    grooves = [zslab(10.0, 10.8) - union(panels), zslab(21.0, 21.8)]
+        feat2[0.3].append(wedge(a - 9.5, a + 9.5, zc + 3.0, zc + 25.5))
+    grooves = [zslab(10.0, 10.8) - union(panels), zslab(21.0, 21.8) - union(panels)]
     sphere = crew_build(feat, clear, feat2, grooves) - crew_inner()
     sphere += box(1.9, 1.8, 4.0, (CREW_R - CREW_WALL) - 0.75, 0, 2.0)       # alignment rib, ship underside
     sphere = sphere.scale([CREW_SCALE] * 3)

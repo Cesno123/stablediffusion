@@ -143,9 +143,9 @@ line(144, y + 15.2, 198, y + 15.2, 0.6, RED)
 t(171, y + 17.6, CLASS, 1.9, weight="normal", sp=0.5)
 
 y = 38
-t(10, y + 2.5, "B  Schiffsname, Kugel hinten links und rechts (Feld 30 × 9,6 mm)     C  Kennung groß", 2.3, weight="normal", anchor="start")
-name_block(10, y + 4, 28, 8.4, small=True)
-name_block(42, y + 4, 28, 8.4, small=True)
+t(10, y + 2.5, "B  Schiffsname, Kugel hinten oben links und rechts (Feld 25 × 12 mm)     C  Kennung groß", 2.3, weight="normal", anchor="start")
+name_block(10, y + 4, 24, 7.2, small=True)
+name_block(42, y + 4, 24, 7.2, small=True)
 for i in range(3):
     cut(76 + i * 30, y + 4, 27, 8.4)
     t(89.5 + i * 30, y + 10.6, REGISTRY, 5.6, sp=0.5, maxw=24)
@@ -255,7 +255,7 @@ for i, sm in enumerate(small):
 y = 223
 t(10, y + 2.5, "L  Zweiter Satz der wichtigsten Schilder (Reserve, falls eines reißt)", 2.3, weight="normal", anchor="start")
 name_block(10, y + 4, 60, 14.5)
-name_block(76, y + 4, 28, 8.4, small=True)
+name_block(76, y + 4, 24, 7.2, small=True)
 cut(108, y + 4, 27, 8.4)
 t(121.5, y + 10.6, REGISTRY, 5.6, sp=0.5, maxw=24)
 trefoil(144, y + 9, 9)
