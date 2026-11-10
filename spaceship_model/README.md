@@ -7,7 +7,7 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit breitem Triebwerks
 
 ![Details](details.png)
 
-- Gesamtlänge 748 mm bei 72 mm Kugeldurchmesser (Verhältnis ca. 1:10), größtes Einzelteil 134 mm hoch
+- Gesamtlänge 748 mm bei 72 mm Kugeldurchmesser (Verhältnis ca. 1:10), größtes Einzelteil 260 mm hoch (für Anycubic Kobra Plus, 300 × 300 × 350 mm)
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
 
@@ -18,8 +18,8 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit breitem Triebwerks
 | 01_crew_front | Crew-Kugel vordere Hälfte, Cockpit mit 5 Fenstern nach vorn | Öffnung nach unten |
 | 02_crew_rear | Crew-Kugel hintere Hälfte mit Hals | Öffnung nach unten |
 | 03_crew_joiner_ring | Verbindungsring | in eine Hälfte einkleben |
-| 04_spine_segment_antenna_1x | Wirbelsäule mit Loch für den Antennenmast | 1× drucken, stehend, Brim 5 mm; zweites Segment von vorn |
-| 05_spine_segment_3x | Wirbelsäule | **3× drucken**, stehend, Brim 5 mm |
+| 04_spine_front_antenna | Wirbelsäule vorn (252 mm), Loch für den Antennenmast am hinteren Ende | stehend, **Brim 10 mm**, max. 25 mm/s |
+| 05_spine_rear | Wirbelsäule hinten (252 mm) | stehend, **Brim 10 mm**, max. 25 mm/s |
 | 06_antenna_dishes | Träger mit 1 großen und 2 kleinen Schüsseln | Schüsseln öffnen nach oben, langsam drucken |
 | 07_antenna_mast | Mast mit Gabel | kopfüber (Gabel unten), Brim 5 mm |
 | 08_adapter_collar | Übergang Wirbelsäule → Block | breite Seite unten |
@@ -37,9 +37,20 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit breitem Triebwerks
 
 ## Stabilität
 
-Die Wirbelsäule ist 504 mm lang und nur an den Enden gestützt. Steckverbindungen mit Sekundenkleber oder 2K-Kleber
+Die Wirbelsäule besteht aus zwei 252 mm langen Segmenten (nur eine Steckverbindung in der Mitte) und ist nur an den Enden gestützt. Steckverbindungen mit Sekundenkleber oder 2K-Kleber
 verkleben und zusätzlich einen **2-mm-Stahldraht oder Carbonstab (ca. 520 mm)** durch den Kabelkanal schieben;
 daneben bleibt Platz für die zwei LED-Litzen.
+
+## Oberflächendetails
+
+Alle Details sind aus einem Baukasten erzeugt und so ausgelegt, dass sie ohne Stützen drucken (max. ca. 1,3 mm Überstand, größere Teile mit 45°-Anlauf):
+
+- Rohrbündel mit Schellen und Ventilen, Querleitungen zwischen Verteilern
+- versenkte Kanäle (0,6 mm tief) mit innenliegender Leitung
+- runde Schleusen mit Rahmen, Schrauben, Griff und Scharnier; rechteckige Türen mit Fenster
+- Lüftungsgitter, genietete Wartungsplatten, Drucktanks mit Spannbändern
+- Kugel: feinere Hüllenplatten, Leitungen entlang der Breiten- und Längengrade, zwei umlaufende Nuten, 5 Schleusen/Luken, Verstärkungsrippen am Hals
+- Wirbelsäule: abwechselnd Tankmodule, große Drucktanks, Radiatorrippen und ein breiteres Modul mit Schleusen
 
 ## Druckeinstellungen (0,2-mm-Düse)
 
