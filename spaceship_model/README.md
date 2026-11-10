@@ -118,6 +118,38 @@ Rohrbündel mit Schellen und Ventilen, versenkte Kanäle mit innenliegender Leit
 rechteckige Türen mit Fenster, Lüftungsgitter, genietete Wartungsplatten, Drucktanks mit Spannbändern, Hüllenplatten und Leitungen auf der Kugel,
 Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
 
+## Abziehbilder (Wasserschiebefolie)
+
+![Decal-Bogen](decals_preview.png)
+
+`decals.pdf` ist ein A4-Bogen im Maßstab 1:1 mit Schiffsname **PERIHELION**, Kennung **DSV-27**, Warnzeichen, Schleusenschildern,
+Tanknummern, Warnstreifen und Typenschildern. Name und Kennung stehen als `NAME` und `REGISTRY` oben in `decals.py`; nach dem Ändern
+`python3 decals.py` ausführen und die erzeugte `decals.svg` im Browser als PDF drucken.
+
+### Glatte Freiflächen am Modell
+
+| Fläche | Größe | Teil | Passender Abschnitt auf dem Bogen |
+|---|---|---|---|
+| Reaktorblock, linke und rechte Seite | je 64 × 16,5 mm | 10 | A Schiffsname groß |
+| Kugel hinten, links und rechts direkt hinter der Naht | je 30 × 9,6 mm (leicht gewölbt) | 02 | B Schiffsname klein oder C Kennung |
+| Akkuwanne, Unterseite | 83 × 19 mm | 15 | D Battery Access |
+| Akkuwanne, schräge Seiten | je 83 × 14 mm | 15 | I Warnstreifen, C Kennung |
+| Tankmodule der Wirbelsäule, glatte Deckel links und rechts | je 12 × 7,5 mm, 14 Stück | 05–08 | H Tankschilder T-01 bis T-12 |
+| Übergangsstück, schräge Flächen | ca. 15 × 12 mm | 09 | J Typenschilder |
+
+Kleinschilder ohne eigene Freifläche: E neben die Düsen und an den Reaktorblock, F neben die Schleusen, G „Hoist Point“ neben die drei Ösen,
+„Antenna“ an den Mastfuß.
+
+### Verarbeitung
+
+- Mit **100 %** drucken, nicht „an Seite anpassen“. Das Kontrollmaß oben rechts muss genau 50 mm messen.
+- **Folientyp:** Auf weißem oder hellgrauem Modell funktioniert **transparente** Folie für alle schwarzen und roten Schilder.
+  Gelbe Flächen und weiß hinterlegte Schilder brauchen **weiße** Folie und müssen knapp an der grauen Schnittlinie ausgeschnitten werden,
+  weil Tintenstrahl- und Laserdrucker kein Weiß drucken.
+- Tintenstrahldruck vor dem Wässern mit 2–3 dünnen Schichten Klarlack versiegeln, sonst läuft die Tinte aus.
+- Untergrund vorher glänzend lackieren, Decals nach dem Trocknen mit mattem oder seidenmattem Klarlack überziehen.
+- Die kleinste Schrift ist 1,35 mm hoch. Das braucht mindestens 600 dpi und ist auf einfachen Druckern nur als Textur lesbar.
+
 ## Druckeinstellungen (0,2-mm-Düse)
 
 - Schichthöhe 0,08 mm für Crew-Kugel, Cockpit, Reaktorblock und Antenne, sonst 0,10 mm; Linienbreite 0,22 mm

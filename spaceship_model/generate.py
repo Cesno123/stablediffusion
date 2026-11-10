@@ -473,7 +473,13 @@ def crew_rear():
     feat2[0.9].append(wedge(168, 192, zc + 12, zc + 22))
     feat2[0.45].append(wedge(166.9, 193.1, zc + 11.2, zc + 22.8))
     feat2[1.3].append(wedge(178.6, 181.4, zc + 14, zc + 20))
-    grooves = [zslab(10.0, 10.8), zslab(21.0, 21.8)]
+    panels = []
+    for a in (90, 270):                                    # smooth panels for the ship name decals
+        area = wedge(a - 23, a + 23, zc + 2.6, zc + 11.9)
+        clear.append(area)
+        panels.append(area)
+        feat2[0.3].append(wedge(a - 22, a + 22, zc + 3.0, zc + 11.5))
+    grooves = [zslab(10.0, 10.8) - union(panels), zslab(21.0, 21.8)]
     sphere = crew_build(feat, clear, feat2, grooves) - crew_inner()
     sphere += box(1.9, 1.8, 4.0, (CREW_R - CREW_WALL) - 0.75, 0, 2.0)       # alignment rib, ship underside
     sphere = sphere.scale([CREW_SCALE] * 3)
@@ -585,13 +591,15 @@ def _crew_joiner():
 
 
 # ----------------------------------------------------------------------- spine
-def pod(z0, length, width, height):
+def pod(z0, length, width, height, plain=False):
     """Tank pod on the +x flat; both ends slope 45 deg so it prints unsupported."""
     r0 = SPINE_R * math.cos(math.radians(22.5)) - 0.9
     base = box(0.02, width, length, r0, 0, z0 + length / 2)
     top = box(0.02, width - 1.5, length - 2 * height, r0 + height, 0, z0 + length / 2)
     body = hull(base, top)
     top_l = length - 2 * height
+    if plain:                                              # smooth top = area for a decal
+        return body
     extra = []
     for _ in range(4):                                     # small equipment boxes on top
         w, l = rng.uniform(1.4, 3.6), rng.uniform(1.4, 4.5)
@@ -651,7 +659,7 @@ def spine_segment(kinds, antenna_hole=False, lug_at=None):
         parts.append(octa(1.6, SPINE_R + 0.8, z=z - 3.8))                # collar ring below each cluster
         if kind == "pods":
             for k in range(4):
-                parts.append(rz(pod(z, 24.0, 9.0, 6.0), k * 90 + (45 if i % 4 else 0)))
+                parts.append(rz(pod(z, 24.0, 9.0, 6.0, plain=(k in (1, 3))), k * 90 + (45 if i % 4 else 0)))
         elif kind == "tanks":
             for k in range(4):
                 parts.append(rz(spine_tank(z), k * 90))
@@ -763,6 +771,7 @@ Z_BAY = Z_TOP - 12.75        # centre of the switch cutout
 Z_TRAY0 = Z_FLOOR + 6.0 + 8.0   # rear end of the battery tray opening (above the housing lip)
 Z_TRAY1 = Z_TRAY0 + TRAY_L
 Z_PIN = Z_TRAY0 + 5.0
+DECAL_Z0, DECAL_Z1 = Z_TRAY0 + 10.0, Z_TRAY0 + 74.0     # smooth name panel on the block's side faces
 X_PIN = TRAY_CUT + 2.0
 Z_LUG = Z_OCT + BLOCK_L / 2 - 5.0
 
@@ -799,6 +808,9 @@ def engine_block():
             blank = lambda t, z, w, l: z < Z_TRAY1 + 1 and z + l > Z_TRAY0 - 1
         if k == 0:                                         # keep the suspension lug area clear
             blank = lambda t, z, w, l: z < Z_LUG + 12 and z + l > Z_LUG - 10
+        if k in (2, 6):                                    # side faces: smooth panel for the ship name decal
+            blank = lambda t, z, w, l: z < DECAL_Z1 + 1 and z + l > DECAL_Z0 - 1
+            gre.append(rz(box(0.6, 2 * half_w - 2.6, DECAL_Z1 - DECAL_Z0, ap, 0, (DECAL_Z0 + DECAL_Z1) / 2), 45 * k))
         add_face(ap, 2 * half_w - 1.6, Z_OCT + 3.2, Z_TOP - 3.2, 45 * k, blank=blank)
     for za, zb in ((0.6, 13.4), (15.8, ENG_L - 0.5)):      # engine housing, above and below the belt groove
         for ang in (0, 180):
