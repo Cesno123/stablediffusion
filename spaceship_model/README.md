@@ -12,7 +12,7 @@ Das Modell wird **frei hängend** montiert; Akku, Elektronik und Schalter sitzen
 
 ![Heck, Schalter, Ösen](electronics.png)
 
-- Gesamtlänge 802 mm, Kugel 72 mm, 15 verschiedene Druckteile, das höchste 134 mm (für Anycubic Kobra Plus, 300 × 300 × 350 mm)
+- Gesamtlänge 810 mm, Kugel 81 mm (Verhältnis 1:10), 15 verschiedene Druckteile, das höchste 134 mm (für Anycubic Kobra Plus, 300 × 300 × 350 mm)
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
 
@@ -22,10 +22,10 @@ Das Modell wird **frei hängend** montiert; Akku, Elektronik und Schalter sitzen
 
 | Datei | Teil | Höhe beim Druck | Hinweis |
 |---|---|---|---|
-| 01_crew_front | Crew-Kugel vordere Hälfte, Cockpit mit 5 Fenstern | 37 mm | Öffnung nach unten |
-| 02_crew_rear | Crew-Kugel hintere Hälfte mit Hals und **Aufhängeöse** | 50 mm | Öffnung nach unten |
-| 03_crew_joiner_ring | Verbindungsring mit Schlitz | 8 mm | |
-| 04_cockpit_interior | Cockpit-Einsatz | 27 mm | Deck nach unten; 0,08 mm Schichthöhe |
+| 01_crew_front | Crew-Kugel vordere Hälfte, Cockpit mit 5 Fenstern | 42 mm | Öffnung nach unten |
+| 02_crew_rear | Crew-Kugel hintere Hälfte mit Hals und **Aufhängeöse** | 55 mm | Öffnung nach unten |
+| 03_crew_joiner_ring | Verbindungsring mit Schlitz | 9 mm | |
+| 04_cockpit_interior | Cockpit-Einsatz | 30 mm | Deck nach unten; 0,08 mm Schichthöhe |
 | 05_spine_A | Wirbelsäule 1 (vorn) | 134 mm | stehend, Brim 8 mm, max. 30 mm/s |
 | 06_spine_B_antenna | Wirbelsäule 2 mit Loch für den Antennenmast | 134 mm | stehend, Brim 8 mm, max. 30 mm/s |
 | 07_spine_C_lug | Wirbelsäule 3 mit **Aufhängeöse** | 134 mm | stehend, Brim 8 mm, max. 30 mm/s |
@@ -82,9 +82,9 @@ Drei Ösen (Loch Ø 3,2 mm) sitzen auf der Oberseite, gemessen von der Schiffssp
 
 | Öse | Position | Teil |
 |---|---|---|
-| vorn | 82 mm | Hals der Crew-Kugel (02) |
-| Mitte | 346 mm | Wirbelsäule 3 (07), 20 mm hinter der Antenne |
-| hinten | 677 mm | Reaktorblock (10), über dem Akku |
+| vorn | 91 mm | Hals der Crew-Kugel (02) |
+| Mitte | 355 mm | Wirbelsäule 3 (07), 20 mm hinter der Antenne |
+| hinten | 686 mm | Reaktorblock (10), über dem Akku |
 
 - Vorn und hinten tragen das Gewicht; die mittlere Öse verhindert Durchhängen und sollte nur leicht gespannt sein.
 - Die Ösen sind so gedruckt, dass der Zug **in** den Druckschichten liegt, nicht quer dazu.

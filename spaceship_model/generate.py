@@ -25,7 +25,9 @@ WIRE_OFF = 4.65       # its centre distance from the axis
 PLUG_D = 12.0         # spine connector plug diameter
 PLUG_L = 8.0
 
-CREW_R = 36.0         # crew module radius (sphere)
+CREW_R = 36.0         # design radius of the crew sphere; all sphere detail is modelled at this size
+CREW_SCALE = 1.125    # the finished sphere, cockpit and joiner ring are scaled by this factor (81 mm sphere)
+CREW_RS = CREW_R * CREW_SCALE
 CREW_CYL = 0.0        # optional cylindrical stretch per half; 0 = pure sphere
 CREW_WALL = 1.6
 NECK_R = 10.0
@@ -408,6 +410,10 @@ REAR_BANDS = [2.0, 4.8, 7.6, 10.4, 13.2, 16.0, 18.8, 21.4, 24.0, 26.4, 28.6, 30.
 
 
 def crew_front():
+    return _crew_front().scale([CREW_SCALE] * 3)
+
+
+def _crew_front():
     """Front hemisphere. Print coords: +z = ship forward, +x = ship up."""
     zc = CREW_CYL
     feat, feat2, clear = defaultdict(list), defaultdict(list), []
@@ -453,24 +459,32 @@ def crew_rear():
     feat2[0.45].append(wedge(166.9, 193.1, zc + 11.2, zc + 22.8))
     feat2[1.3].append(wedge(178.6, 181.4, zc + 14, zc + 20))
     grooves = [zslab(10.0, 10.8), zslab(21.0, 21.8)]
-    z_neck0 = CREW_CYL + CREW_R - 2.0
-    z_top = CREW_CYL + CREW_R + NECK_L - 2.0
-    body = [crew_build(feat, clear, feat2, grooves)]
+    sphere = crew_build(feat, clear, feat2, grooves) - crew_inner()
+    sphere += box(1.9, 1.8, 4.0, (CREW_R - CREW_WALL) - 0.75, 0, 2.0)       # alignment rib, ship underside
+    sphere = sphere.scale([CREW_SCALE] * 3)
+    rs = CREW_RS
+
+    def dome(r):                                                          # height of the scaled sphere at radius r
+        return math.sqrt(rs * rs - r * r)
+
+    z_neck0 = rs - 2.0
+    z_top = rs + NECK_L - 2.0
+    body = [sphere]
     body.append(cyl(z_top - z_neck0, NECK_R, seg=64, z=z_neck0))
-    body.append(cyl(4.0, NECK_R + 5.0, NECK_R, seg=64, z=z_neck0 - 1.0))  # fillet cone
+    body.append(cyl(dome(0) - dome(NECK_R + 5.0) + 2.0, NECK_R + 5.0, NECK_R, seg=64, z=dome(NECK_R + 5.0) - 0.6))  # fillet cone
     body.append(cyl(1.2, NECK_R + 0.6, seg=64, z=z_top - 4.0))            # neck collars
     body.append(cyl(1.0, NECK_R + 0.6, seg=64, z=z_top - 7.0))
+    r0, r1 = NECK_R - 0.5, NECK_R + 9.0
     for k in range(8):                                                    # gusset ribs around the neck
         pts = [(r, y, z) for y in (-0.5, 0.5)
-               for r, z in ((NECK_R - 0.5, zc + 34.3), (16.0, zc + 31.6), (NECK_R - 0.5, zc + 41.5))]
+               for r, z in ((r0, dome(r0) - 0.8), (r1, dome(r1) - 0.8), (r0, dome(r0) + 7.0))]
         body.append(rz(Manifold.hull_points(pts), 45 * k + 22.5))
     lg, lg_hole = lug(NECK_R, z_neck0 + 5.0, length=9.0)
     body.append(rz(lg, 180))
-    m = union(body) - crew_inner() - rz(lg_hole, 180)
+    m = union(body) - rz(lg_hole, 180)
     m -= rz(core_bore(z_top + 1), 180)                                       # rod + wire channel (upper side = print -x)
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=z_top - PLUG_L - 0.5)  # socket
     m -= rz(socket_key(z_top - PLUG_L - 0.5, PLUG_L + 0.6), 180)             # keyway on the ship's upper side
-    m += box(1.9, 1.8, 4.0, (CREW_R - CREW_WALL) - 0.75, 0, 2.0)            # alignment rib, ship underside
     return m, z_top
 
 
@@ -479,6 +493,12 @@ COCK_BACK = 6.0       # distance of the rear bulkhead from the sphere centre
 
 
 def cockpit_interior():
+    k = CREW_SCALE
+    m = _cockpit_interior().scale([k] * 3)
+    return m - xcyl(8, LED_D / 2, k * COCK_BACK - 2, 32).translate([0, 0, k * (-COCK_DECK + 15.5)])   # LED seat above the door
+
+
+def _cockpit_interior():
     """Cockpit insert for the front hemisphere. Print coords: z = up (deck on the bed),
     x = ship forward, y = sideways. Slides in from the open side and is glued in place."""
     up0 = -COCK_DECK                                       # print z of the ship axis
@@ -534,7 +554,6 @@ def cockpit_interior():
     for x in (10.5, 14.5, 19.0, 23.5):
         cuts.append(box(0.4, 80, 0.6, x, 0, 1.5))
     m = union(parts) - union(cuts)
-    m -= xcyl(4, LED_D / 2, COCK_BACK - 1, 32).translate([0, 0, up0 + 15.5])     # LED seat above the door
     # trim to the inside of the hull so the insert slides in from the open side
     m ^= Manifold.sphere(r_in, 128).translate([0, 0, up0])
     m ^= xcyl(60, 32.2, 0, 128).translate([0, 0, up0])
@@ -542,6 +561,10 @@ def cockpit_interior():
 
 
 def crew_joiner():
+    return _crew_joiner().scale([CREW_SCALE] * 3)
+
+
+def _crew_joiner():
     r = math.sqrt((CREW_R - CREW_WALL) ** 2 - 16.0) - CLEAR   # fits 4 mm into each half
     return cyl(8, r) - cyl(9, r - 1.2, z=-0.5) - box(4.0, 2.4, 10, r - 0.6, 0, 4.0)   # slot for the alignment ribs
 
@@ -936,7 +959,7 @@ def main():
         return m.rotate([0, 90, 0]).translate([c, 0, 0])
 
     ANT_SEG = 1                      # antenna sits at the rear end of the second segment
-    x_mid = CREW_CYL + CREW_R
+    x_mid = CREW_RS
     x1 = x_mid + neck_top            # neck end = start of spine
     x3 = x1 + N_SEG * SEG_L          # end of spine
     x4 = x3 + 30.0 - 4.0             # block front face (adapter lip sits 4 mm inside)
@@ -951,7 +974,7 @@ def main():
     asm += [fwd(adp, x3 + 30.0), fwd(blk, x4 + Z_TOP),
             mast.rotate([180, 0, 0]).translate([xa, 0, ap - MAST_PIN + MAST_H]),
             fwd(dishes, xa + AX_Z).translate([0, 0, za])]
-    cock_ship = cock.rotate([0, 0, 180]).translate([x_mid, 0, COCK_DECK])
+    cock_ship = cock.rotate([0, 0, 180]).translate([x_mid, 0, COCK_DECK * CREW_SCALE])
     print("cockpit vs hull overlap volume:", round((cock_ship ^ union(asm[:2])).volume(), 3))
     tray_ship = fwd(tray, x4 + Z_TOP)
     print("battery tray vs block overlap volume:", round((tray_ship ^ fwd(blk, x4 + Z_TOP)).volume(), 3))
@@ -961,7 +984,7 @@ def main():
     print("suspension eyes at x =", [round(v) for v in lugs_x], "mm from the nose")
     if os.environ.get("EXPLODED"):                   # optional exploded view for the assembly guide
         import json
-        ex = [("01", fwd(front, x_mid), -62), ("04", cock_ship, -30), ("03", fwd(join, x_mid + 4), -8), ("02", aft(rear, x_mid), 12)]
+        ex = [("01", fwd(front, x_mid), -62), ("04", cock_ship, -30), ("03", fwd(join, x_mid + 4 * CREW_SCALE), -8), ("02", aft(rear, x_mid), 12)]
         ex += [("%02d" % (5 + i), fwd(segs[i], x1 + (i + 1) * SEG_L), 40 + 26 * i) for i in range(N_SEG)]
         ex += [("09", fwd(adp, x3 + 30.0), 146), ("10", fwd(reactor, x4 + Z_TOP - Z_SPLIT), 174),
                ("11", fwd(housing, x4 + Z_TOP), 206), ("15", tray_ship.translate([0, 0, -34]), 174)]
@@ -980,7 +1003,7 @@ def main():
     print("adapter vs block overlap volume:", round((fwd(adp, x3 + 30.0) ^ fwd(blk, x4 + Z_TOP)).volume(), 3))
     print("spine joint overlap volume:", round((asm[2] ^ asm[3]).volume(), 3), "/ neck:", round((asm[1] ^ asm[2]).volume(), 3),
           "/ adapter:", round((asm[1 + N_SEG] ^ fwd(adp, x3 + 30.0)).volume(), 3))
-    print(f"overall length: {xr + NOZ_L + NOZ_FLANGE:.0f} mm, sphere {2 * CREW_R:.0f} mm")
+    print(f"overall length: {xr + NOZ_L + NOZ_FLANGE:.0f} mm, sphere {2 * CREW_RS:.0f} mm, ratio 1:{(xr + NOZ_L + NOZ_FLANGE) / (2 * CREW_RS):.1f}")
     print("nozzles vs block overlap volume:", round((union(asm[2 + N_SEG:8 + N_SEG]) ^ fwd(blk, x4 + Z_TOP)).volume(), 3))
     # sanity: no part may intersect the antenna assembly or the spine it sits above
     others = union([a for i, a in enumerate(asm) if i not in (len(asm) - 2, len(asm) - 1)])
