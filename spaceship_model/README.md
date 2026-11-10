@@ -12,26 +12,68 @@ Das Modell wird **frei hängend** montiert; Akku, Elektronik und Schalter sitzen
 
 ![Heck, Schalter, Ösen](electronics.png)
 
-- Gesamtlänge 788 mm, Kugel 72 mm, größtes Einzelteil 260 mm hoch (für Anycubic Kobra Plus, 300 × 300 × 350 mm)
+- Gesamtlänge 788 mm, Kugel 72 mm, 14 verschiedene Druckteile, das höchste 134 mm (für Anycubic Kobra Plus, 300 × 300 × 350 mm)
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
 
-## Teile (Ordner `stl/`)
+## Teile (Ordner `stl/`), nummeriert in Baureihenfolge von vorn nach hinten
 
-| Datei | Teil | Hinweis |
+![Explosionsansicht](assembly.png)
+
+| Datei | Teil | Höhe beim Druck | Hinweis |
+|---|---|---|---|
+| 01_crew_front | Crew-Kugel vordere Hälfte, Cockpit mit 5 Fenstern | 37 mm | Öffnung nach unten |
+| 02_crew_rear | Crew-Kugel hintere Hälfte mit Hals und **Aufhängeöse** | 50 mm | Öffnung nach unten |
+| 03_crew_joiner_ring | Verbindungsring mit Schlitz | 8 mm | |
+| 04_cockpit_interior | Cockpit-Einsatz | 27 mm | Deck nach unten; 0,08 mm Schichthöhe |
+| 05_spine_A | Wirbelsäule 1 (vorn) | 134 mm | stehend, Brim 8 mm, max. 30 mm/s |
+| 06_spine_B_antenna | Wirbelsäule 2 mit Loch für den Antennenmast | 134 mm | stehend, Brim 8 mm, max. 30 mm/s |
+| 07_spine_C_lug | Wirbelsäule 3 mit **Aufhängeöse** | 134 mm | stehend, Brim 8 mm, max. 30 mm/s |
+| 08_spine_D | Wirbelsäule 4 (hinten) | 134 mm | stehend, Brim 8 mm, max. 30 mm/s |
+| 09_adapter_collar | Übergang Wirbelsäule → Reaktorblock | 38 mm | breite Seite unten; **nur stecken, nicht kleben** (Zugang zum Akku) |
+| 10_reactor_block | Reaktorblock: Rohr für Akku und Elektronik, Ausschnitte für Schalter und USB-C, **Aufhängeöse** | 102 mm | Trennfläche nach unten |
+| 11_engine_housing | Triebwerksgehäuse mit 6 Düsensockeln und Stecklippe | 57 mm | Heckfläche nach unten |
+| 12_engine_nozzle_6x | Glockendüse mit LED-Sitz im Düsenhals | 25 mm | **6× drucken**, Rand unten, langsam |
+| 13_antenna_dishes | Antennenträger mit 3 Schüsseln, Turm und LED-Sitzen | 24 mm | Schüsseln öffnen nach oben, langsam |
+| 14_antenna_mast | Mast mit Gabel und Kabelkanal | 31 mm | kopfüber (Gabel unten), Brim 5 mm |
+| 00_assembly_preview_only | Nur Vorschau | – | **nicht drucken** |
+
+Kein Teil ist höher als 134 mm, und kein Teil braucht Stützstrukturen.
+
+### Führungsnasen: alles passt nur in einer Lage
+
+- **Kugelhälften:** je eine Rippe innen an der Unterseite; der Ring (03) hat dafür einen Schlitz.
+- **Hals, Wirbelsäule, Übergang:** jeder Zapfen hat eine Nase, jede Buchse eine Nut. Antenne und Ösen zeigen dadurch automatisch nach oben.
+- **Übergang ↔ Reaktorblock:** ein Zahn am Übergang greift in eine Kerbe im oberen Blockrand.
+- **Reaktorblock ↔ Triebwerksgehäuse:** achteckige Stecklippe mit einer Lücke unten, in die eine Nase im Block greift.
+- Passung: 0,15 mm Spiel pro Seite. Sitzt eine Verbindung zu stramm, die Nase leicht abschleifen, nicht mit Kraft drücken.
+
+### Druckplan (6 Druckaufträge)
+
+| Auftrag | Teile | Schichthöhe |
 |---|---|---|
-| 01_crew_front | Crew-Kugel vordere Hälfte, Cockpit mit 5 Fenstern nach vorn | Öffnung nach unten |
-| 02_crew_rear | Crew-Kugel hintere Hälfte mit Hals und **Aufhängeöse** | Öffnung nach unten |
-| 03_crew_joiner_ring | Verbindungsring | in die hintere Hälfte kleben |
-| 04_spine_front_antenna | Wirbelsäule vorn (252 mm), Loch für den Antennenmast am hinteren Ende | stehend, **Brim 10 mm**, max. 25 mm/s |
-| 05_spine_rear | Wirbelsäule hinten (252 mm) mit **Aufhängeöse** am vorderen Ende | stehend, **Brim 10 mm**, max. 25 mm/s |
-| 06_antenna_dishes | Träger mit großer Schüssel in der Mitte und je einer kleinen links und rechts; Turm mit LED-Sitz an der Spitze, LED-Sitze an beiden Enden des Querträgers, Kabelnut auf der Rückseite | Schüsseln öffnen nach oben, langsam drucken |
-| 07_antenna_mast | Mast mit Gabel und Kabelkanal | kopfüber (Gabel unten), Brim 5 mm |
-| 08_adapter_collar | Übergang Wirbelsäule → Block | breite Seite unten; **nur stecken, nicht kleben** (Zugang zum Akku) |
-| 09_engine_block | Reaktorblock (153 mm) mit Akku-/Elektronikraum, Ausschnitten für Schalter und USB-C, **Aufhängeöse**, 6 Düsensockeln | Heckfläche nach unten |
-| 10_engine_nozzle_6x | Glockendüse (Ø 21 mm, Wand 0,8 mm) mit LED-Sitz im Düsenhals | **6× drucken**, Rand unten, langsam; Zapfen ins Heck kleben |
-| 11_cockpit_interior | Cockpit-Einsatz: Deck, 2 Sitze, Instrumentenpult, Mittelkonsole, Rückwand | Deck nach unten; 0,08 mm Schichthöhe |
-| 00_assembly_preview_only | Nur Vorschau | **nicht drucken** |
+| 1 Test | 09, 14 und **eine** Düse (12) | 0,10 mm |
+| 2 | 05, 06, 07, 08 zusammen auf einem Bett, weit auseinander | 0,10 mm |
+| 3 | 01, 02, 03 | 0,08 mm |
+| 4 | 04, 13 | 0,08 mm |
+| 5 | 10, 11 | 0,08 mm |
+| 6 | restliche 5 Düsen (12) | 0,10 mm |
+
+Mit Auftrag 1 prüfst du zuerst die Passung (Zapfen von 09 in die Buchse eines Wirbelsäulenteils, sobald Auftrag 2 fertig ist) und die dünnsten Teile.
+
+## Zusammenbau in 9 Schritten
+
+Vor dem Kleben **alles trocken zusammenstecken**. Kleber: 2K-Epoxid für tragende Verbindungen, Sekundenkleber für Kleinteile.
+
+1. **Trockenprobe:** 02 – 05 – 06 – 07 – 08 – 09 – 10 – 11 zusammenstecken, Versteifungsstab (2 mm, 520 mm) durch die Wirbelsäule schieben, Länge prüfen.
+2. **Cockpit:** Einsatz 04 bemalen, warmweiße LED mit zwei 70 cm langen Litzen in die Rückwand stecken, Fenster von 01 mit Folie hinterkleben, 04 in 01 kleben.
+3. **Antenne:** die drei roten LEDs in 13 setzen, Drähte in die Nut legen, durch 14 fädeln, Scharnierstift (Filament) einsetzen.
+4. **Wirbelsäule:** 05 bis 08 mit Epoxid verkleben, dabei den Stab einschieben. Antennendrähte durch das Loch in 06 nach hinten, Cockpit-Litzen von vorn nach hinten durchziehen. Flach liegend aushärten lassen.
+5. **Kugel:** Litzen durch den Hals von 02 führen, Ring 03 in 02 kleben, 02 auf die Wirbelsäule kleben, 01 aufstecken und verkleben.
+6. **Triebwerke:** je LED zwei Litzen anlöten, durch die Sockel von 11 fädeln, LED in die Düse 12 stecken, Düse einkleben. Alle zwölf Litzen ragen oben aus 11 heraus.
+7. **Elektronik im Block:** Schalter von außen in 10 einrasten, Lademodul an den USB-Ausschnitt kleben, Akkuhalter und Platine einsetzen und verdrahten (siehe unten). **Jetzt testen**, alle LEDs müssen leuchten bzw. blinken.
+8. **Heck schließen:** 11 mit Epoxid an 10 kleben.
+9. **Übergang:** Leitungen aus der Wirbelsäule an die Platine anschließen, 09 auf die Wirbelsäule kleben und in 10 **nur stecken**. Zum Schluss den Antennenmast einstecken und das Schiff an den drei Ösen aufhängen.
 
 ## Aufhängung
 
@@ -40,8 +82,8 @@ Drei Ösen (Loch Ø 3,2 mm) sitzen auf der Oberseite, gemessen von der Schiffssp
 | Öse | Position | Teil |
 |---|---|---|
 | vorn | 82 mm | Hals der Crew-Kugel (02) |
-| Mitte | 346 mm | Wirbelsäule hinten (05), 20 mm hinter der Antenne |
-| hinten | 670 mm | Reaktorblock (09), über dem Akku |
+| Mitte | 346 mm | Wirbelsäule 3 (07), 20 mm hinter der Antenne |
+| hinten | 670 mm | Reaktorblock (10), über dem Akku |
 
 - Vorn und hinten tragen das Gewicht; die mittlere Öse verhindert Durchhängen und sollte nur leicht gespannt sein.
 - Die Ösen sind so gedruckt, dass der Zug **in** den Druckschichten liegt, nicht quer dazu.
@@ -52,7 +94,7 @@ Drei Ösen (Loch Ø 3,2 mm) sitzen auf der Oberseite, gemessen von der Schiffssp
 
 ## Cockpit einbauen
 
-1. Einsatz (11) vor dem Verkleben bemalen, z. B. Sitze dunkel, Bildschirme farbig.
+1. Einsatz (04) vor dem Verkleben bemalen, z. B. Sitze dunkel, Bildschirme farbig.
 2. Warmweiße LED von hinten in das Loch über der Tür stecken (Ø 3,2 mm), sie leuchtet nach vorn ins Cockpit.
 3. Einsatz von der offenen Seite in die vordere Kugelhälfte (01) schieben, bis das Pult vorn unter den Fenstern anliegt, und mit wenigen Tropfen Kleber fixieren.
 4. Erst danach den Verbindungsring (03) einsetzen; er wird in die hintere Hälfte (02) geklebt.
@@ -75,7 +117,7 @@ Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
 
 - Schichthöhe 0,08 mm für Crew-Kugel, Cockpit, Reaktorblock und Antenne, sonst 0,10 mm; Linienbreite 0,22 mm
 - 4 Wandlinien, 15 % Füllung, PLA weiß oder hellgrau
-- Geschwindigkeit Außenwand max. 40 mm/s, stehende Wirbelsäulenteile 25 mm/s
+- Geschwindigkeit Außenwand max. 40 mm/s, stehende Wirbelsäulenteile 30 mm/s
 - Im Slicer "dünne Wände erkennen" einschalten; Stützen aus; Brim wie in der Tabelle
 - Beim vorderen Kugelteil die Naht (Z-Seam) nach hinten legen, die Fensterstege sind 1,2 mm breite Brücken
 
@@ -132,7 +174,7 @@ Fertige NE555-Impulsmodule eignen sich nicht: laut Händlerangaben beginnen sie 
 Alle LEDs haben einen eigenen Widerstand; Triebwerke und Cockpit leuchten dauerhaft, die Antennen blinken. Geschätzter Verbrauch: ca. 100 mA bei 5 V, rund 170 mA aus dem Akku,
 grob 12–18 Stunden Leuchtdauer pro Ladung (Schätzung, nicht gemessen).
 
-### Anordnung im Reaktorblock (Hohlraum 42 mm breit, 108 mm lang, von vorn zugänglich)
+### Anordnung im Reaktorblock (Hohlraum 42 mm breit, 102 mm lang, vor dem Verkleben von beiden Seiten zugänglich)
 
 Von hinten (Triebwerke) nach vorn (Übergangsstück):
 
@@ -143,7 +185,7 @@ Von hinten (Triebwerke) nach vorn (Übergangsstück):
    daneben, seine USB-C-Buchse zeigt nach unten in den zweiten Ausschnitt (5 × 11 mm). Mit Heißkleber fixieren.
 
 Mit den Maßen aus der Einkaufsliste passen alle vier Teile rechnerisch kollisionsfrei hinein; zwischen Akkuhalter und Hohlraumecken bleibt aber kein Spiel.
-Akkuwechsel: Übergangsstück (08) abziehen, Halter nach vorn herausziehen. Normalerweise wird nur über USB-C geladen.
+Akkuwechsel: Übergangsstück (09) abziehen, Halter nach vorn herausziehen. Normalerweise wird nur über USB-C geladen.
 
 ### Leitungswege
 
@@ -162,5 +204,5 @@ Akkuwechsel: Übergangsstück (08) abziehen, Halter nach vorn herausziehen. Norm
 - Nur ein Lademodul **mit** Schutzschaltung verwenden und die Zelle richtig herum einlegen. Li-Ion-Zellen nie kurzschließen.
 - **Der Akku lädt in einem geschlossenen PLA-Gehäuse an der Decke.** Nur unter Aufsicht laden, mit maximal 1 A, und das Schiff danach vom Kabel trennen.
 - Manche dieser Lademodule laden nicht an einem USB-C-zu-USB-C-Kabel. Dann ein USB-A-zu-USB-C-Kabel nehmen.
-- Die Ausschnitte beruhen auf Händlerangaben, die um 1–3 mm schwanken. **Teile zuerst kaufen und nachmessen**, dann Teil 09 drucken;
+- Die Ausschnitte beruhen auf Händlerangaben, die um 1–3 mm schwanken. **Teile zuerst kaufen und nachmessen**, dann Teil 10 drucken;
   die Maße stehen als `SWITCH_CUT`, `USB_CUT` und `BLOCK_L` oben im Skript.

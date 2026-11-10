@@ -30,8 +30,8 @@ NECK_R = 8.0
 NECK_L = 16.0
 
 SPINE_R = 8.0         # circumradius of octagonal spine core
-SEG_L = 252.0         # length of one spine segment
-N_SEG = 2             # number of spine segments (sphere diameter : length = 1 : 10)
+SEG_L = 126.0         # length of one spine segment
+N_SEG = 4             # number of spine segments (sphere diameter : length = 1 : 10)
 
 BLOCK_R = 25.0        # circumradius of octagonal reactor block
 BLOCK_L = 111.0       # holds 18650 holder (79) + electronics bay (20) + wiring space
@@ -273,6 +273,17 @@ def detail_face(apothem, W, z0, z1, angle, t0=0.0, blank=None):
     return adds, cuts
 
 
+def plug_key(z0, length=None):
+    """Rib on a round plug (at +x) so that the joint only fits in one orientation."""
+    length = PLUG_L if length is None else length
+    return box(1.6, 1.6, length, PLUG_D / 2 + 0.2, 0, z0 + length / 2)
+
+
+def socket_key(z0, depth):
+    """Matching keyway for plug_key (at +x), with clearance."""
+    return box(1.9, 2.0, depth, PLUG_D / 2 + 0.3, 0, z0 + depth / 2)
+
+
 def lug(apothem, z0, length=10.0, reach=8.0, thick=4.0):
     """Suspension eye on the +x flat of a part printed along z. The pull acts within the layers
     and the underside slopes, so it prints without support."""
@@ -414,6 +425,7 @@ def crew_front():
     m = crew_build(feat, clear, feat2, grooves) - crew_inner()
     # forward cockpit windows: five panes separated by 1.2 mm mullions
     panes = [box(5.5, 7.2, CREW_R, 7.75, -16.8 + i * 8.4, zc + 10 + CREW_R / 2) for i in range(5)]
+    m += box(1.9, 1.8, 4.0, -(CREW_R - CREW_WALL) + 0.75, 0, 2.0)          # alignment rib, ship underside
     return m - union(panes)
 
 
@@ -448,6 +460,8 @@ def crew_rear():
     m = union(body) - crew_inner() - rz(lg_hole, 180)
     m -= cyl(z_top + 1, WIRE_D / 2, seg=32)                                   # wire channel
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=z_top - PLUG_L - 0.5)  # socket
+    m -= rz(socket_key(z_top - PLUG_L - 0.5, PLUG_L + 0.6), 180)             # keyway on the ship's upper side
+    m += box(1.9, 1.8, 4.0, (CREW_R - CREW_WALL) - 0.75, 0, 2.0)            # alignment rib, ship underside
     return m, z_top
 
 
@@ -520,7 +534,7 @@ def cockpit_interior():
 
 def crew_joiner():
     r = math.sqrt((CREW_R - CREW_WALL) ** 2 - 16.0) - CLEAR   # fits 4 mm into each half
-    return cyl(8, r) - cyl(9, r - 1.2, z=-0.5)
+    return cyl(8, r) - cyl(9, r - 1.2, z=-0.5) - box(4.0, 2.4, 10, r - 0.6, 0, 4.0)   # slot for the alignment ribs
 
 
 # ----------------------------------------------------------------------- spine
@@ -583,7 +597,7 @@ def spine_drum(z0, length=24.0):
 
 def spine_segment(kinds, antenna_hole=False, lug_at=None):
     ap = SPINE_R * math.cos(math.radians(22.5))
-    parts = [octa(SEG_L, SPINE_R), cyl(PLUG_L, PLUG_D / 2, seg=64, z=SEG_L - 0.01)]
+    parts = [octa(SEG_L, SPINE_R), cyl(PLUG_L, PLUG_D / 2, seg=64, z=SEG_L - 0.01), plug_key(SEG_L - 0.01)]
     cuts = []
     z = 20.0
     for i, kind in enumerate(kinds):
@@ -619,6 +633,7 @@ def spine_segment(kinds, antenna_hole=False, lug_at=None):
         m -= union(cuts)
     m -= cyl(SEG_L + PLUG_L + 2, WIRE_D / 2, seg=32, z=-1)
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=-0.1)
+    m -= socket_key(-0.1, PLUG_L + 0.6)
     if lug_at is not None:
         lg, lg_hole = lug(ap, lug_at)
         m = (m + lg) - lg_hole
@@ -779,7 +794,23 @@ def engine_block():
     m += box(0.8, 12.6, 0.8, xw, -4.0, Z_BAY - 8.6) + box(0.8, 12.6, 0.8, xw, -4.0, Z_BAY + 8.6)   # switch guard rails
     # suspension lug on the upper side (print +x)
     lg, lg_hole = lug(-xw, Z_LUG)
-    return (m + lg) - lg_hole
+    m = (m + lg) - lg_hole
+    return m - box(6.0, 4.2, 4.4, -xw, 0, Z_TOP - 2.1)      # notch for the adapter tooth (upper side)
+
+
+Z_SPLIT = Z_FLOOR + 6.0      # the block is printed as two parts, split here
+
+
+def split_block(blk):
+    """Engine housing (lower) with a keyed lip, and the reactor tube (upper), printed split face down."""
+    r_lip = BLOCK_CAV_R - 0.2
+    lower = blk.trim_by_plane([0, 0, -1], -Z_SPLIT)
+    lip = octa(6.0, r_lip, z=Z_SPLIT - 0.05) - octa(8.0, r_lip - 1.6, z=Z_SPLIT - 1.0)
+    lip -= box(6.0, 8.0, 8.0, -r_lip * math.cos(math.radians(22.5)), 0, Z_SPLIT + 3.0)     # gap for the key tab
+    upper = blk.trim_by_plane([0, 0, 1], Z_SPLIT).translate([0, 0, -Z_SPLIT])
+    ap_c = BLOCK_CAV_R * math.cos(math.radians(22.5))
+    upper += box(1.6, 6.0, 6.2, -ap_c + 0.7, 0, 3.1)                                       # key tab (ship underside)
+    return lower + lip, upper
 
 
 def bell_r(x):
@@ -815,10 +846,12 @@ def adapter():
     rl = BLOCK_CAV_R - 0.2
     lip = octa(4.1, rl)
     body = hull(octa(0.05, rl, z=4.0), octa(1.8, BLOCK_R, z=6.2), octa(0.05, SPINE_R + 0.5, z=29.95))
-    plug = cyl(PLUG_L, PLUG_D / 2, seg=64, z=29.99)
+    plug = cyl(PLUG_L, PLUG_D / 2, seg=64, z=29.99) + plug_key(29.99)
+    ap_l = rl * math.cos(math.radians(22.5))
+    tooth = box(BLOCK_R * math.cos(math.radians(22.5)) - ap_l + 0.1, 3.8, 4.1, (BLOCK_R * math.cos(math.radians(22.5)) + ap_l) / 2, 0, 2.05)
     ribs = [rz(hull(box(1.4, 1.6, 0.1, BLOCK_R * 0.92 - 0.3, 0, 8.0), box(1.4, 1.6, 0.1, SPINE_R * 0.92 + 0.6, 0, 29.9)),
                k * 45) for k in range(8)]
-    m = union([lip, body, plug] + ribs)
+    m = union([lip, body, plug, tooth] + ribs)
     m -= hull(octa(6.1, rl - 1.6, z=-0.1), octa(0.05, 3.0, z=27.0))
     m -= cyl(40, WIRE_D / 2, seg=32)
     return m
@@ -831,21 +864,25 @@ def main():
     front = crew_front()
     rear, neck_top = crew_rear()
     join = crew_joiner()
-    seg_a = spine_segment(["pods", "tanks", "pods", "drum", "pods", "fins", "pods"], antenna_hole=True)
-    seg_p = spine_segment(["pods", "fins", "pods", "tanks", "pods", "drum", "pods"], lug_at=SEG_L - 14.0)
+    segs = [spine_segment(["pods", "tanks", "pods"]),
+            spine_segment(["drum", "pods", "fins"], antenna_hole=True),
+            spine_segment(["pods", "fins", "pods"], lug_at=SEG_L - 14.0),
+            spine_segment(["tanks", "pods", "drum"])]
     dishes = antenna_dishes()
     mast = antenna_mast()
     adp = adapter()
     blk = engine_block()
+    housing, reactor = split_block(blk)
     noz = nozzle()
     cock = cockpit_interior()
 
     for m, n in [(front, "01_crew_front.stl"), (rear, "02_crew_rear.stl"), (join, "03_crew_joiner_ring.stl"),
-                 (seg_a, "04_spine_front_antenna.stl"), (seg_p, "05_spine_rear.stl"),
-                 (dishes, "06_antenna_dishes.stl"), (mast, "07_antenna_mast.stl"),
-                 (adp, "08_adapter_collar.stl"), (blk, "09_engine_block.stl"),
-                 (noz, "10_engine_nozzle_6x.stl"),
-                 (cock, "11_cockpit_interior.stl")]:
+                 (cock, "04_cockpit_interior.stl"),
+                 (segs[0], "05_spine_A.stl"), (segs[1], "06_spine_B_antenna.stl"),
+                 (segs[2], "07_spine_C_lug.stl"), (segs[3], "08_spine_D.stl"),
+                 (adp, "09_adapter_collar.stl"), (reactor, "10_reactor_block.stl"),
+                 (housing, "11_engine_housing.stl"), (noz, "12_engine_nozzle_6x.stl"),
+                 (dishes, "13_antenna_dishes.stl"), (mast, "14_antenna_mast.stl")]:
         write_stl(m, n)
 
     # ---- assembled preview (ship axis = x, nose at x = 0, +z = up)
@@ -855,7 +892,7 @@ def main():
     def aft(m, c):   # print z -> ship +x
         return m.rotate([0, 90, 0]).translate([c, 0, 0])
 
-    ANT_SEG = 0                      # antenna sits at the rear end of the front segment
+    ANT_SEG = 1                      # antenna sits at the rear end of the second segment
     x_mid = CREW_CYL + CREW_R
     x1 = x_mid + neck_top            # neck end = start of spine
     x3 = x1 + N_SEG * SEG_L          # end of spine
@@ -864,7 +901,7 @@ def main():
     xa = x1 + (ANT_SEG + 1) * SEG_L - 12.0
     za = ap - 4.0 + MAST_H - MAST_AX
     asm = [fwd(front, x_mid), aft(rear, x_mid)]
-    asm += [fwd(seg_a if i == ANT_SEG else seg_p, x1 + (i + 1) * SEG_L) for i in range(N_SEG)]
+    asm += [fwd(segs[i], x1 + (i + 1) * SEG_L) for i in range(N_SEG)]
     xr = x4 + Z_TOP                  # rear face of the engine housing
     asm += [fwd(noz, xr + NOZ_L + NOZ_FLANGE).translate([0, c * ENG_COL, sx * ENG_OFF])
             for sx in (-1, 1) for c in (-1, 0, 1)]
@@ -875,8 +912,29 @@ def main():
     print("cockpit vs hull overlap volume:", round((cock_ship ^ union(asm[:2])).volume(), 3))
     full = Manifold.compose(asm + [cock_ship])
     write_stl(full, "00_assembly_preview_only.stl")
-    lugs_x = [x_mid + neck_top - NECK_L + 2.0 + 5.0 + 5.0, x1 + 2 * SEG_L - (SEG_L - 14.0 + 6.0), x4 + Z_TOP - (Z_LUG + 6.0)]
+    lugs_x = [x_mid + neck_top - NECK_L + 2.0 + 5.0 + 5.0, x1 + 3 * SEG_L - (SEG_L - 14.0 + 6.0), x4 + Z_TOP - (Z_LUG + 6.0)]
     print("suspension eyes at x =", [round(v) for v in lugs_x], "mm from the nose")
+    if os.environ.get("EXPLODED"):                   # optional exploded view for the assembly guide
+        import json
+        ex = [("01", fwd(front, x_mid), -62), ("04", cock_ship, -30), ("03", fwd(join, x_mid + 4), -8), ("02", aft(rear, x_mid), 12)]
+        ex += [("%02d" % (5 + i), fwd(segs[i], x1 + (i + 1) * SEG_L), 40 + 26 * i) for i in range(N_SEG)]
+        ex += [("09", fwd(adp, x3 + 30.0), 146), ("10", fwd(reactor, x4 + Z_TOP - Z_SPLIT), 174),
+               ("11", fwd(housing, x4 + Z_TOP), 206)]
+        labels, solids = [], []
+        for name, m, dx in ex:
+            m = m.translate([dx, 0, 0]); solids.append(m); b = m.bounding_box()
+            labels.append([name, (b[0] + b[3]) / 2, 0, b[5] + 16])
+        nz = [n.translate([240, 0, 0]) for n in asm[2 + N_SEG:8 + N_SEG]]
+        solids += nz; labels.append(["12 (6x)", xr + 250, 0, 40])
+        solids += [asm[-1].translate([66, 0, 62]), asm[-2].translate([66, 0, 26])]
+        labels += [["13", xa + 40, 0, 150], ["14", xa + 96, 0, 62]]
+        write_stl(Manifold.compose(solids), os.environ["EXPLODED"] + ".stl")
+        json.dump(labels, open(os.path.join(OUT, os.environ["EXPLODED"] + ".json"), "w"))
+    # joints: the two block halves must mate without interference
+    print("housing vs reactor overlap volume:", round((housing ^ reactor.translate([0, 0, Z_SPLIT])).volume(), 3))
+    print("adapter vs block overlap volume:", round((fwd(adp, x3 + 30.0) ^ fwd(blk, x4 + Z_TOP)).volume(), 3))
+    print("spine joint overlap volume:", round((asm[2] ^ asm[3]).volume(), 3), "/ neck:", round((asm[1] ^ asm[2]).volume(), 3),
+          "/ adapter:", round((asm[1 + N_SEG] ^ fwd(adp, x3 + 30.0)).volume(), 3))
     print(f"overall length: {xr + NOZ_L + NOZ_FLANGE:.0f} mm, sphere {2 * CREW_R:.0f} mm")
     print("nozzles vs block overlap volume:", round((union(asm[2 + N_SEG:8 + N_SEG]) ^ fwd(blk, x4 + Z_TOP)).volume(), 3))
     # sanity: no part may intersect the antenna assembly or the spine it sits above
