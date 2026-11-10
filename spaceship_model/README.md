@@ -7,7 +7,7 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit vier Triebwerken. 
 
 ![Details](details.png)
 
-- Gesamtlänge: 497 mm, größtes Einzelteil 148 mm hoch (passt auf jeden Anycubic Kobra)
+- Gesamtlänge 721 mm bei 72 mm Kugeldurchmesser (Verhältnis 1:10), größtes Einzelteil 134 mm hoch
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
 
@@ -18,14 +18,27 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit vier Triebwerken. 
 | 01_crew_front | Crew-Kugel vordere Hälfte, Cockpit mit 5 Fenstern nach vorn | Öffnung nach unten |
 | 02_crew_rear | Crew-Kugel hintere Hälfte mit Hals | Öffnung nach unten |
 | 03_crew_joiner_ring | Verbindungsring | in eine Hälfte einkleben |
-| 04_spine_segment_A_antenna | Wirbelsäule vorn, Loch für Antenne | stehend, Brim 5 mm |
-| 05_spine_segment_B | Wirbelsäule hinten | stehend, Brim 5 mm |
-| 06_antenna_dish | Antenne | Brim 5 mm, langsam drucken |
-| 07_adapter_collar | Übergang Wirbelsäule → Block | breite Seite unten |
-| 08_engine_block | Reaktorblock + 4 Triebwerke | Düsen nach unten |
-| 09_stand_engine | Ständer hinten mit Kabelkanal | |
-| 10_stand_front | Ständer vorn (Gabel unter dem Hals) | |
+| 04_spine_segment_antenna_1x | Wirbelsäule mit Loch für den Antennenmast | 1× drucken, stehend, Brim 5 mm; zweites Segment von vorn |
+| 05_spine_segment_3x | Wirbelsäule | **3× drucken**, stehend, Brim 5 mm |
+| 06_antenna_dishes | Träger mit 1 großen und 2 kleinen Schüsseln | Schüsseln öffnen nach oben, langsam drucken |
+| 07_antenna_mast | Mast mit Gabel | kopfüber (Gabel unten), Brim 5 mm |
+| 08_adapter_collar | Übergang Wirbelsäule → Block | breite Seite unten |
+| 09_engine_block | Reaktorblock + 4 Triebwerke | Düsen nach unten |
+| 10_stand_engine | Ständer hinten mit Kabelkanal | |
+| 11_stand_front | Ständer vorn (Gabel unter dem Hals) | |
 | 00_assembly_preview_only | Nur Vorschau | **nicht drucken** |
+
+## Antenne (beweglich)
+
+- Die Schüsseln zeigen nach vorn. Der Träger kippt um ca. ±40° auf einem Scharnier, der Mast dreht sich im Loch der Wirbelsäule.
+- Scharnierstift: ein 12 mm langes Stück **1,75-mm-Filament** durch Gabel und Träger schieben (sitzt in der Gabel stramm, im Träger locker).
+- Mast nur einstecken, nicht kleben, wenn er drehbar bleiben soll.
+
+## Stabilität
+
+Die Wirbelsäule ist 504 mm lang und nur an den Enden gestützt. Steckverbindungen mit Sekundenkleber oder 2K-Kleber
+verkleben und zusätzlich einen **2-mm-Stahldraht oder Carbonstab (ca. 520 mm)** durch den Kabelkanal schieben;
+daneben bleibt Platz für die zwei LED-Litzen.
 
 ## Druckeinstellungen (0,2-mm-Düse)
 

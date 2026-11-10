@@ -29,7 +29,8 @@ NECK_R = 8.0
 NECK_L = 16.0
 
 SPINE_R = 8.0         # circumradius of octagonal spine core
-SEG_L = 140.0         # length of one spine segment
+SEG_L = 126.0         # length of one spine segment
+N_SEG = 4             # number of spine segments (sphere diameter : length = 1 : 10)
 
 BLOCK_R = 25.0        # circumradius of octagonal reactor block
 BLOCK_L = 70.0
@@ -269,17 +270,54 @@ def spine_segment(antenna_hole=False):
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=-0.1)
     if antenna_hole:
         ap = SPINE_R * math.cos(math.radians(22.5))
-        m -= cyl(3.5 + 1, 1.65, seg=32).rotate([0, 90, 0]).translate([ap - 3.5, 0, 12.0])
+        m -= cyl(4.0 + 1, 2.0 + CLEAR, seg=32).rotate([0, 90, 0]).translate([ap - 4.0, 0, 12.0])
     return m
 
 
-def antenna():
-    stem = cyl(13, 1.5, seg=32)
-    outer = cyl(15.5, 1.5, 17.0, seg=96, z=12)
-    inner = cyl(15.5, 1.5, 17.0, seg=96, z=13.1)
-    dish = outer - inner
-    horn = cyl(9, 1.0, seg=24, z=12.5)
-    return union([stem, dish, horn]).trim_by_plane([0, 0, -1], -27.5)
+def dish(r, stem_r, z0):
+    """Conical dish opening upward (45 deg wall, prints without support)."""
+    h = r - stem_r
+    shell = cyl(h, stem_r, r, seg=96, z=z0) - cyl(h, stem_r, r, seg=96, z=z0 + 1.1)
+    rim = cyl(0.8, r + 0.5, seg=96, z=z0 + h - 0.8) - cyl(2, r - 0.3, seg=96, z=z0 + h - 1.4)
+    horn = cyl(h * 0.6, 0.9, seg=24, z=z0 + 0.5)
+    tip = cyl(1.2, 1.5, seg=24, z=z0 + h * 0.6 + 0.4)
+    return union([shell, rim, horn, tip]).trim_by_plane([0, 0, -1], -(z0 + h))
+
+
+AX_Z = 3.2            # hinge axis height in the dish carrier (print coords)
+
+
+def antenna_dishes():
+    """One large and two small dishes on a tilting carrier.
+    Print coords: +z = ship forward (dishes open upward), +x = ship up, hinge along y."""
+    hub = box(6, 6, 6.4, 0, 0, 3.2)
+    web = box(3.0, 6, 6.4, 4.4, 0, 3.2)
+    bar = box(4.0, 64, 4.0, 7.8, 0, 2.0)
+    parts = [hub, web, bar]
+    for y, r, sr in ((0, 19.0, 2.0), (-29, 9.0, 1.4), (29, 9.0, 1.4)):
+        parts.append(cyl(3.2, sr + 0.6, sr, seg=32, z=3.9).translate([7.8, y, 0]))
+        parts.append(dish(r, sr, 7.0).translate([7.8, y, 0]))
+    for y in (-14.5, 14.5):                                  # small equipment boxes on the bar
+        parts.append(box(3.0, 5, 1.2, 7.8, y, 4.5))
+    m = union(parts)
+    m -= cyl(10, 1.1, seg=24, z=-5).rotate([90, 0, 0]).translate([0, 0, AX_Z])   # hinge bore (1.75 mm filament)
+    return m
+
+
+MAST_AX = 4.0         # hinge axis height above the arm tips (mast is printed upside down)
+MAST_H = 30.5
+
+
+def antenna_mast():
+    """Mast with fork. Printed upside down: fork arms on the bed, pin on top."""
+    arms = [box(6, 2.0, 9.05, 0, sy * 4.25, 4.525) for sy in (-1, 1)]
+    bridge = box(6, 10.5, 2.5, 0, 0, 10.25)
+    col = cyl(15.0, 3.0, seg=48, z=11.49)
+    collar = cyl(1.2, 3.8, seg=48, z=24.0)
+    pin = cyl(4.0, 2.0, seg=48, z=26.49)
+    m = union(arms + [bridge, col, collar, pin])
+    m -= cyl(14, 0.95, seg=24, z=-7).rotate([90, 0, 0]).translate([0, 0, MAST_AX])  # press fit for the filament pin
+    return m
 
 
 # ------------------------------------------------------------- reactor / engines
@@ -392,18 +430,20 @@ def main():
     front = crew_front()
     rear, neck_top = crew_rear()
     join = crew_joiner()
-    seg1 = spine_segment(antenna_hole=True)
-    seg2 = spine_segment()
-    ant = antenna()
+    seg_a = spine_segment(antenna_hole=True)
+    seg_p = spine_segment()
+    dishes = antenna_dishes()
+    mast = antenna_mast()
     adp = adapter()
     blk = engine_block()
     st_e = stand_engine()
     st_f = stand_front()
 
     for m, n in [(front, "01_crew_front.stl"), (rear, "02_crew_rear.stl"), (join, "03_crew_joiner_ring.stl"),
-                 (seg1, "04_spine_segment_A_antenna.stl"), (seg2, "05_spine_segment_B.stl"),
-                 (ant, "06_antenna_dish.stl"), (adp, "07_adapter_collar.stl"), (blk, "08_engine_block.stl"),
-                 (st_e, "09_stand_engine.stl"), (st_f, "10_stand_front.stl")]:
+                 (seg_a, "04_spine_segment_antenna_1x.stl"), (seg_p, "05_spine_segment_3x.stl"),
+                 (dishes, "06_antenna_dishes.stl"), (mast, "07_antenna_mast.stl"),
+                 (adp, "08_adapter_collar.stl"), (blk, "09_engine_block.stl"),
+                 (st_e, "10_stand_engine.stl"), (st_f, "11_stand_front.stl")]:
         write_stl(m, n)
 
     # ---- assembled preview (ship axis = x, nose at x = 0, table at z = -AXIS_H)
@@ -413,20 +453,28 @@ def main():
     def aft(m, c):   # print z -> ship +x
         return m.rotate([0, 90, 0]).translate([c, 0, 0])
 
+    ANT_SEG = 1                      # antenna sits on the second segment from the front
     x_mid = CREW_CYL + CREW_R
     x1 = x_mid + neck_top            # neck end = start of spine
-    x2 = x1 + SEG_L
-    x3 = x2 + SEG_L                  # end of spine
+    x3 = x1 + N_SEG * SEG_L          # end of spine
     x4 = x3 + 30.0 - 4.0             # block front face (adapter lip sits 4 mm inside)
     ap = SPINE_R * math.cos(math.radians(22.5))
-    asm = [fwd(front, x_mid), aft(rear, x_mid), fwd(seg1, x2), fwd(seg2, x3),
-           fwd(adp, x3 + 30.0), fwd(blk, x4 + Z_TOP),
-           ant.translate([x2 - 12.0, 0, ap - 3.5]),
-           st_e.translate([x4 + Z_TOP - Z_STAND, 0, -AXIS_H]),
-           st_f.translate([x_mid + CREW_R + NECK_L / 2 + 1, 0, -AXIS_H])]
+    xa = x1 + (ANT_SEG + 1) * SEG_L - 12.0
+    za = ap - 4.0 + MAST_H - MAST_AX
+    asm = [fwd(front, x_mid), aft(rear, x_mid)]
+    asm += [fwd(seg_a if i == ANT_SEG else seg_p, x1 + (i + 1) * SEG_L) for i in range(N_SEG)]
+    asm += [fwd(adp, x3 + 30.0), fwd(blk, x4 + Z_TOP),
+            mast.rotate([180, 0, 0]).translate([xa, 0, ap - 4.0 + MAST_H]),
+            fwd(dishes, xa + AX_Z).translate([0, 0, za]),
+            st_e.translate([x4 + Z_TOP - Z_STAND, 0, -AXIS_H]),
+            st_f.translate([x_mid + CREW_R + NECK_L / 2 + 1, 0, -AXIS_H])]
     full = Manifold.compose(asm)
     write_stl(full, "00_assembly_preview_only.stl")
-    print(f"overall length: {x4 + Z_TOP:.0f} mm")
+    print(f"overall length: {x4 + Z_TOP:.0f} mm, sphere {2 * CREW_R:.0f} mm")
+    # sanity: no part may intersect the antenna assembly or the spine it sits above
+    others = union([a for i, a in enumerate(asm) if i not in (len(asm) - 4, len(asm) - 3)])
+    print("dish carrier vs rest overlap volume:", round((asm[-3] ^ others).volume(), 3))
+    print("dish carrier vs mast overlap volume:", round((asm[-3] ^ asm[-4]).volume(), 3))
 
 
 if __name__ == "__main__":
