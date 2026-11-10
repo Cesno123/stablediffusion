@@ -32,7 +32,7 @@ NOTES = os.path.join(POSTED, "flux-notes.tsv")
 DELETED = os.path.join(POSTED, "flux-geloescht.tsv")
 
 MAX_BYTES = 300 * 1024 * 1024
-POST_TIMES = "9:07, 13:07, 18:07, 21:07"
+POST_TIMES = "12:07, 15:07, 18:07, 20:07"
 
 PAGE = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>SpaceAge Uploads</title>
