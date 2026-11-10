@@ -639,24 +639,30 @@ def dish(r, stem_r, z0):
 AX_Z = 3.2            # hinge axis height in the dish carrier (print coords)
 
 
+DISH_BIG_UP = 12.0    # how far the large dish sits above the two small ones
+
+
 def antenna_dishes():
-    """One large and two small dishes on a tilting carrier.
+    """Large dish on top, two small dishes below left and right, on a tilting carrier.
     Print coords: +z = ship forward (dishes open upward), +x = ship up, hinge along y."""
+    xb, xt = 7.8, 7.8 + DISH_BIG_UP
     hub = box(6, 6, 6.4, 0, 0, 3.2)
     web = box(3.0, 6, 6.4, 4.4, 0, 3.2)
-    bar = box(4.0, 64, 4.0, 7.8, 0, 2.0)
-    parts = [hub, web, bar]
-    for y, r, sr in ((0, 19.0, 2.0), (-29, 9.0, 1.7), (29, 9.0, 1.7)):
-        parts.append(cyl(3.2, sr + 0.6, sr, seg=32, z=3.9).translate([7.8, y, 0]))
-        parts.append(dish(r, sr, 7.0).translate([7.8, y, 0]))
+    bar = box(4.0, 64, 4.0, xb, 0, 2.0)
+    riser = box(DISH_BIG_UP + 2.0, 4.0, 4.0, xb + DISH_BIG_UP / 2 + 1.0, 0, 2.0)
+    parts = [hub, web, bar, riser]
+    seats = ((xt, 0, 19.0, 2.0), (xb, -29, 9.0, 1.7), (xb, 29, 9.0, 1.7))
+    for x, y, r, sr in seats:
+        parts.append(cyl(3.2, sr + 0.6, sr, seg=32, z=3.9).translate([x, y, 0]))
+        parts.append(dish(r, sr, 7.0).translate([x, y, 0]))
     for y in (-14.5, 14.5):                                  # small equipment boxes on the bar
-        parts.append(box(3.0, 5, 1.2, 7.8, y, 4.5))
+        parts.append(box(3.0, 5, 1.2, xb, y, 4.5))
     m = union(parts)
     m -= cyl(10, 1.1, seg=24, z=-5).rotate([90, 0, 0]).translate([0, 0, AX_Z])   # hinge bore (1.75 mm filament)
-    for y in (0, -29, 29):                                   # LED wire bores up into each dish
-        m -= cyl(9.0, 0.45, seg=16, z=0.5).translate([7.8, y, 0])
-    m -= box(1.4, 59.4, 1.8, 7.8, 0, 0)                      # wire groove on the back of the bar
-    m -= box(11.5, 1.4, 1.8, 2.55, 0, 0)                     # ... and down to the hinge
+    for x, y, r, sr in seats:                                # LED wire bores up into each dish
+        m -= cyl(9.0, 0.45, seg=16, z=0.5).translate([x, y, 0])
+    m -= box(1.4, 59.4, 1.8, xb, 0, 0)                       # wire groove on the back of the bar
+    m -= box(xt + 3.9, 1.4, 1.8, (xt + 0.7 - 3.2) / 2, 0, 0)  # ... up the riser and down to the hinge
     return m
 
 
