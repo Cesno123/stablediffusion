@@ -7,6 +7,8 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit breitem Triebwerks
 
 ![Details](details.png)
 
+![Cockpit](cockpit.png)
+
 - Gesamtlänge 748 mm bei 72 mm Kugeldurchmesser (Verhältnis ca. 1:10), größtes Einzelteil 260 mm hoch (für Anycubic Kobra Plus, 300 × 300 × 350 mm)
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
@@ -27,7 +29,17 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit breitem Triebwerks
 | 10_engine_nozzle_6x | Glockendüse (Trichter, Ø 22 mm, Wand 0,8 mm) | **6× drucken**, Rand unten, langsam; Zapfen ins Heck kleben |
 | 11_stand_engine | Ständer hinten mit Kabelkanal | |
 | 12_stand_front | Ständer vorn (Gabel unter dem Hals) | |
+| 13_cockpit_interior | Cockpit-Einsatz: Deck, 2 Sitze, Instrumentenpult, Mittelkonsole, Rückwand mit Tür und Geräteschränken | Deck nach unten; 0,08 mm Schichthöhe |
 | 00_assembly_preview_only | Nur Vorschau | **nicht drucken** |
+
+## Cockpit einbauen
+
+1. Einsatz (13) vor dem Verkleben bemalen, z. B. Sitze dunkel, Bildschirme farbig.
+2. Warmweiße LED von hinten in das Loch über der Tür stecken (Ø 3,2 mm), sie leuchtet nach vorn ins Cockpit.
+3. Einsatz von der offenen Seite in die vordere Kugelhälfte (01) schieben, bis das Pult vorn unter den Fenstern anliegt
+   (Rückwand sitzt 6 mm hinter der Kugelmitte), und mit wenigen Tropfen Kleber fixieren.
+4. Erst danach den Verbindungsring (03) einsetzen; er wird in die **hintere** Hälfte (02) geklebt.
+5. Fenster vorher von innen mit klarer Folie hinterkleben.
 
 ## Antenne (beweglich)
 
@@ -65,7 +77,7 @@ Alle Details sind aus einem Baukasten erzeugt und so ausgelegt, dass sie ohne St
 
 - 6 × kaltweiß oder blau: von innen durch den offenen Block in die Sitze stecken (Ø 3,2 mm). Die LED leuchtet durch den Düsenhals in den Trichter.
   Die Kanäle der vier äußeren Düsen laufen schräg: LED mit angelöteten Litzen voran einschieben.
-- 1 × warmweiß: ins Crew-Modul, leuchtet durch die Cockpitfenster (Fenster innen mit Transparentpapier hinterkleben)
+- 1 × warmweiß: in die Rückwand des Cockpit-Einsatzes (siehe „Cockpit einbauen“)
 - Versorgung 5 V (USB): **jede LED bekommt einen eigenen Vorwiderstand**, alle parallel
   - weiß/blau (ca. 3,0 V, 15 mA): 150 Ω
   - warmweiß (ca. 3,0 V, 15 mA): 150 Ω, für gedimmtes Licht 330 Ω
