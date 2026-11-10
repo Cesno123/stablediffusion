@@ -13,7 +13,7 @@ import random
 import struct
 
 import numpy as np
-from manifold3d import Manifold, OpType
+from manifold3d import CrossSection, Manifold, OpType
 
 # ----------------------------------------------------------------- parameters
 CLEAR = 0.15          # radial clearance for plug/socket fits
@@ -39,8 +39,12 @@ ENG_OFF = 11.5        # vertical nozzle offset (two rows)
 ENG_COL = 23.0        # horizontal spacing of the three nozzle columns
 ENG_R = 10.0
 ENG_L = 30.0
-BELL_R = 8.5
-BELL_D = 8.0
+NOZ_L = 16.0          # length of the bell nozzle
+NOZ_RT = 2.2          # throat radius (inner)
+NOZ_WALL = 0.8
+NOZ_FLANGE = 3.5      # flange height between bell and plug
+NOZ_PLUG_R = 3.4
+NOZ_PLUG_L = 5.0
 
 AXIS_H = 95.0         # height of ship axis above the table on its stands
 SEED = 2001
@@ -378,9 +382,11 @@ def engine_block():
     # interior
     cuts.append(octa(BLOCK_L, BLOCK_CAV_R, z=Z_FLOOR))
     for x, y in corners:
-        z_led1 = BELL_D + 4.4
-        cuts.append(cyl(BELL_D + 0.01, BELL_R, LED_D / 2, seg=64, z=-0.01).translate([x, y, 0]))  # bell
-        cuts.append(cyl(5.0, LED_D / 2, seg=32, z=BELL_D - 0.2).translate([x, y, 0]))          # LED seat
+        z_led1 = NOZ_PLUG_L + NOZ_PLUG_R + CLEAR - LED_D / 2 + 3.4
+        rs = NOZ_PLUG_R + CLEAR
+        cuts.append(cyl(NOZ_PLUG_L + 0.21, rs, seg=48, z=-0.01).translate([x, y, 0]))             # nozzle socket
+        cuts.append(cyl(rs - LED_D / 2, rs, LED_D / 2, seg=48, z=NOZ_PLUG_L + 0.19).translate([x, y, 0]))
+        cuts.append(cyl(4.0, LED_D / 2, seg=32, z=NOZ_PLUG_L + rs - LED_D / 2).translate([x, y, 0]))  # LED seat
         y_top = y * 13.5 / ENG_COL                         # outer bores slant inward to reach the cavity
         cuts.append(hull(cyl(0.5, 3.25, seg=32, z=z_led1).translate([x, y, 0]),
                          cyl(0.5, 3.25, seg=32, z=Z_FLOOR).translate([x, y_top, 0])))             # wire bore
@@ -393,6 +399,33 @@ def engine_block():
     m += boss
     m -= cyl(14, 4.0 + CLEAR, seg=48).rotate([0, 90, 0]).translate([-BLOCK_R - 1.5, 0, Z_STAND])
     return m
+
+
+def bell_r(x):
+    """Inner radius of the bell, x = distance from the throat (38 deg at throat, 10 deg at exit)."""
+    a, e = math.tan(math.radians(38)), math.tan(math.radians(10))
+    return NOZ_RT + a * x + (e - a) / (2 * NOZ_L) * x * x
+
+
+def nozzle():
+    """Bell nozzle, printed rim down. The plug on top goes into the engine housing."""
+    n = 40
+    zs = [NOZ_L * i / n for i in range(n + 1)]                       # print z, rim at z = 0
+    prof = [(bell_r(NOZ_L - z), z) for z in zs]
+    z1, z2 = NOZ_L + NOZ_FLANGE, NOZ_L + NOZ_FLANGE + NOZ_PLUG_L
+    ro_t = NOZ_RT + NOZ_WALL
+    outer_pts = [(0, 0)] + [(r + NOZ_WALL, z) for r, z in prof] + \
+                [(ro_t + 2.0, NOZ_L + 2.0), (ro_t + 2.0, z1), (NOZ_PLUG_R, z1), (NOZ_PLUG_R, z2), (0, z2)]
+    inner_pts = [(0, -1)] + [(prof[0][0], -1)] + prof + [(NOZ_RT, z2 + 1), (0, z2 + 1)]
+    outer = Manifold.revolve(CrossSection([outer_pts]), 96)
+    inner = Manifold.revolve(CrossSection([inner_pts]), 96)
+    rings = [cyl(1.0, prof[0][0] + NOZ_WALL + 0.45, seg=96)]          # rim band
+    for z in (4.5, 8.5, 12.0):                                        # stiffening hoops
+        rings.append(cyl(0.7, bell_r(NOZ_L - z) + NOZ_WALL + 0.4, bell_r(NOZ_L - z - 0.7) + NOZ_WALL + 0.4, seg=96, z=z))
+    for k in range(8):                                                # bolts on the flange
+        a = math.radians(45 * k)
+        rings.append(cyl(1.0, 0.55, seg=12, z=NOZ_L + 1.6).translate([(ro_t + 2.0) * math.cos(a), (ro_t + 2.0) * math.sin(a), 0]))
+    return union([outer] + rings) - inner
 
 
 def adapter():
@@ -446,6 +479,7 @@ def main():
     mast = antenna_mast()
     adp = adapter()
     blk = engine_block()
+    noz = nozzle()
     st_e = stand_engine()
     st_f = stand_front()
 
@@ -453,7 +487,8 @@ def main():
                  (seg_a, "04_spine_segment_antenna_1x.stl"), (seg_p, "05_spine_segment_3x.stl"),
                  (dishes, "06_antenna_dishes.stl"), (mast, "07_antenna_mast.stl"),
                  (adp, "08_adapter_collar.stl"), (blk, "09_engine_block.stl"),
-                 (st_e, "10_stand_engine.stl"), (st_f, "11_stand_front.stl")]:
+                 (noz, "10_engine_nozzle_6x.stl"),
+                 (st_e, "11_stand_engine.stl"), (st_f, "12_stand_front.stl")]:
         write_stl(m, n)
 
     # ---- assembled preview (ship axis = x, nose at x = 0, table at z = -AXIS_H)
@@ -473,6 +508,9 @@ def main():
     za = ap - 4.0 + MAST_H - MAST_AX
     asm = [fwd(front, x_mid), aft(rear, x_mid)]
     asm += [fwd(seg_a if i == ANT_SEG else seg_p, x1 + (i + 1) * SEG_L) for i in range(N_SEG)]
+    xr = x4 + Z_TOP                  # rear face of the engine housing
+    asm += [fwd(noz, xr + NOZ_L + NOZ_FLANGE).translate([0, c * ENG_COL, sx * ENG_OFF])
+            for sx in (-1, 1) for c in (-1, 0, 1)]
     asm += [fwd(adp, x3 + 30.0), fwd(blk, x4 + Z_TOP),
             mast.rotate([180, 0, 0]).translate([xa, 0, ap - 4.0 + MAST_H]),
             fwd(dishes, xa + AX_Z).translate([0, 0, za]),
@@ -480,7 +518,8 @@ def main():
             st_f.translate([x_mid + CREW_R + NECK_L / 2 + 1, 0, -AXIS_H])]
     full = Manifold.compose(asm)
     write_stl(full, "00_assembly_preview_only.stl")
-    print(f"overall length: {x4 + Z_TOP:.0f} mm, sphere {2 * CREW_R:.0f} mm")
+    print(f"overall length: {xr + NOZ_L + NOZ_FLANGE:.0f} mm, sphere {2 * CREW_R:.0f} mm")
+    print("nozzles vs block overlap volume:", round((union(asm[2 + N_SEG:8 + N_SEG]) ^ fwd(blk, x4 + Z_TOP)).volume(), 3))
     # sanity: no part may intersect the antenna assembly or the spine it sits above
     others = union([a for i, a in enumerate(asm) if i not in (len(asm) - 4, len(asm) - 3)])
     print("dish carrier vs rest overlap volume:", round((asm[-3] ^ others).volume(), 3))
