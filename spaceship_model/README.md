@@ -66,7 +66,7 @@ Mit Auftrag 1 prüfst du zuerst die Passung (Zapfen von 09 in die Buchse eines W
 
 Vor dem Kleben **alles trocken zusammenstecken**. Kleber: 2K-Epoxid für tragende Verbindungen, Sekundenkleber für Kleinteile.
 
-1. **Trockenprobe:** 02 – 05 – 06 – 07 – 08 – 09 – 10 – 11 zusammenstecken, Holzstab (Ø 5 mm) durchschieben und auf Länge sägen (ca. 550 mm), Akkuwanne 15 probeweise einsetzen.
+1. **Trockenprobe:** 02 – 05 – 06 – 07 – 08 – 09 – 10 – 11 zusammenstecken, Holzstab (Ø 10 mm) durchschieben und auf Länge sägen (ca. 550 mm), Akkuwanne 15 probeweise einsetzen.
 2. **Cockpit:** Einsatz 04 bemalen, warmweiße LED mit zwei 70 cm langen Litzen in die Rückwand stecken, Fenster von 01 mit Folie hinterkleben, 04 in 01 kleben.
 3. **Antenne:** die drei roten LEDs in 13 setzen, Drähte in die Nut legen, durch 14 fädeln, Scharnierstift (Filament) einsetzen.
 4. **Wirbelsäule:** 05 bis 08 mit Epoxid verkleben, dabei den Stab einschieben. Antennendrähte durch das Loch in 06 nach hinten, Cockpit-Litzen von vorn nach hinten durchziehen. Flach liegend aushärten lassen.
@@ -89,9 +89,11 @@ Drei Ösen (Loch Ø 3,2 mm) sitzen auf der Oberseite, gemessen von der Schiffssp
 - Vorn und hinten tragen das Gewicht; die mittlere Öse verhindert Durchhängen und sollte nur leicht gespannt sein.
 - Die Ösen sind so gedruckt, dass der Zug **in** den Druckschichten liegt, nicht quer dazu.
 - Empfohlen: Nylonschnur 0,4–0,5 mm oder dünnes Stahlseil, an drei Deckenhaken. Schnurlängen so einstellen, dass das Schiff waagerecht hängt.
-- **Holzkern:** ein **Buchenrundstab Ø 5 mm, 550 mm lang** läuft durch Kugelhals, alle vier Wirbelsäulenteile und das Übergangsstück bis in den Reaktorblock.
-  Die Bohrung hat 5,4 mm; darüber liegt ein eigener Kabelkanal (3,2 mm breit), sodass Stab und Leitungen sich nicht stören.
+- **Holzkern:** ein **Buchenrundstab Ø 10 mm, 550 mm lang** läuft durch Kugelhals, alle vier Wirbelsäulenteile und das Übergangsstück bis in den Reaktorblock.
+  Die Bohrung hat 10,4 mm; darüber liegt ein eigener Kabelkanal (3,4 mm breit), sodass Stab und Leitungen sich nicht stören.
+  Dafür ist der Kern der Wirbelsäule 23 mm dick (über die Tankmodule gemessen rund 35 mm), die Steckzapfen haben 15 mm Durchmesser.
   Den Stab beim Verkleben der Wirbelsäule mit Epoxid oder Holzleim einkleben. Er trägt die Biegung, die Kunststoffteile sind nur noch Verkleidung.
+  Rundstäbe haben oft 0,2–0,3 mm Übermaß oder sind leicht krumm: Stab vor dem Kleben durch alle Teile schieben und bei Bedarf abschleifen.
   Der Stabdurchmesser steht als `ROD_D` oben im Skript.
 - Die Teile unter Last sind PLA mit 4 Wandlinien. Vor dem Aufhängen jede Öse von Hand mit etwa 1 kg Zug prüfen.
 

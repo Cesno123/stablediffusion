@@ -19,19 +19,19 @@ from manifold3d import CrossSection, Manifold, OpType
 # ----------------------------------------------------------------- parameters
 CLEAR = 0.15          # radial clearance for plug/socket fits
 LED_D = 3.2           # hole for a 3 mm LED
-ROD_D = 5.0           # wooden core rod (beech dowel) through neck, spine and adapter
-WIRE_R = 1.6          # wire channel running along the top of the rod
-WIRE_OFF = 3.2        # its centre distance from the axis
-PLUG_D = 11.0         # spine connector plug diameter
+ROD_D = 10.0          # wooden core rod (beech dowel) through neck, spine and adapter
+WIRE_R = 1.7          # wire channel running along the top of the rod
+WIRE_OFF = 5.9        # its centre distance from the axis
+PLUG_D = 15.0         # spine connector plug diameter
 PLUG_L = 8.0
 
 CREW_R = 36.0         # crew module radius (sphere)
 CREW_CYL = 0.0        # optional cylindrical stretch per half; 0 = pure sphere
 CREW_WALL = 1.6
-NECK_R = 9.5
+NECK_R = 12.5
 NECK_L = 16.0
 
-SPINE_R = 9.5         # circumradius of octagonal spine core
+SPINE_R = 12.5        # circumradius of octagonal spine core
 SEG_L = 126.0         # length of one spine segment
 N_SEG = 4             # number of spine segments (sphere diameter : length = 1 : 10)
 
@@ -285,12 +285,12 @@ def core_bore(h, z=0.0):
 def plug_key(z0, length=None):
     """Rib on a round plug (at +x) so that the joint only fits in one orientation."""
     length = PLUG_L if length is None else length
-    return box(1.6, 1.6, length, PLUG_D / 2 + 0.2, 0, z0 + length / 2)
+    return box(1.6, 3.4, length, PLUG_D / 2 + 0.2, 0, z0 + length / 2)
 
 
 def socket_key(z0, depth):
     """Matching keyway for plug_key (at +x), with clearance."""
-    return box(1.9, 2.0, depth, PLUG_D / 2 + 0.3, 0, z0 + depth / 2)
+    return box(1.9, 3.8, depth, PLUG_D / 2 + 0.3, 0, z0 + depth / 2)
 
 
 def lug(apothem, z0, length=10.0, reach=8.0, thick=4.0):
