@@ -120,11 +120,15 @@ Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
 
 ## Abziehbilder (Wasserschiebefolie)
 
-![Decal-Bogen](decals_preview.png)
+![Decal-Bogen 1](decals_preview.png)
 
-`decals.pdf` ist ein A4-Bogen im Maßstab 1:1 mit Schiffsname **PERIHELION**, Kennung **DSV-27**, Warnzeichen, Schleusenschildern,
-Tanknummern, Warnstreifen und Typenschildern. Name und Kennung stehen als `NAME` und `REGISTRY` oben in `decals.py`; nach dem Ändern
-`python3 decals.py` ausführen und die erzeugte `decals.svg` im Browser als PDF drucken.
+![Decal-Bogen 2](decals_preview_2.png)
+
+`decals.pdf` enthält zwei A4-Bögen im Maßstab 1:1. **Bogen 1:** Schiffsname **PERIHELION**, Kennung **DSV-27**, Warnzeichen, Schleusenschilder,
+Tanknummern, Warnstreifen und Typenschilder. **Bogen 2:** Warndreiecke mit 13 Motiven in drei Größen, Dreiecksmarken mit Spitze nach unten,
+Verbots- und Gebotszeichen, Gefahrstoff-Rauten, Andockziele, Passmarken, rundes Missionsabzeichen und dreieckiges Schiffsemblem,
+nummerierte Sektionsdreiecke, Sechsecke, Feldnummern, Richtungsbänder, Schachbrettstreifen, Skalen, Drehpfeile, Wimpel und Strichcodes. Name und Kennung stehen als `NAME` und `REGISTRY` oben in `decals.py`; nach dem Ändern
+`python3 decals.py` ausführen und die erzeugten Dateien `decals.svg` und `decals_2.svg` im Browser als PDF drucken.
 
 ### Glatte Freiflächen am Modell
 
