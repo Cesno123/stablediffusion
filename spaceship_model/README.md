@@ -1,11 +1,11 @@
 # Raumschiff-Modell mit LED-Beleuchtung (eigenes Design)
 
-Eigenes Hard-SF-Raumschiff im Stil der klassischen "Wirbelsäulen"-Schiffe: Crew-Modul vorn,
+Eigenes Hard-SF-Raumschiff im Stil der klassischen "Wirbelsäulen"-Schiffe: kugelförmiges Crew-Modul (Ø 72 mm) vorn,
 lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit vier Triebwerken. Keine Kopie eines Filmmodells.
 
 ![Vorschau](preview.png)
 
-- Gesamtlänge: 519 mm, größtes Einzelteil 148 mm hoch (passt auf jeden Anycubic Kobra)
+- Gesamtlänge: 497 mm, größtes Einzelteil 148 mm hoch (passt auf jeden Anycubic Kobra)
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
 
@@ -13,8 +13,8 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit vier Triebwerken. 
 
 | Datei | Teil | Hinweis |
 |---|---|---|
-| 01_crew_front | Crew-Modul vorn, 16 Fenster | Öffnung nach unten |
-| 02_crew_rear | Crew-Modul hinten mit Hals | Öffnung nach unten |
+| 01_crew_front | Crew-Kugel vordere Hälfte, 16 Fenster | Öffnung nach unten |
+| 02_crew_rear | Crew-Kugel hintere Hälfte mit Hals | Öffnung nach unten |
 | 03_crew_joiner_ring | Verbindungsring | in eine Hälfte einkleben |
 | 04_spine_segment_A_antenna | Wirbelsäule vorn, Loch für Antenne | stehend, Brim 5 mm |
 | 05_spine_segment_B | Wirbelsäule hinten | stehend, Brim 5 mm |

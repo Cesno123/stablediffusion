@@ -22,8 +22,8 @@ WIRE_D = 4.5          # wire channel through the spine
 PLUG_D = 9.0          # spine connector plug diameter
 PLUG_L = 8.0
 
-CREW_R = 32.0         # crew module radius
-CREW_CYL = 15.0       # cylindrical length of each crew half
+CREW_R = 36.0         # crew module radius (sphere)
+CREW_CYL = 0.0        # optional cylindrical stretch per half; 0 = pure sphere
 CREW_WALL = 1.6
 NECK_R = 8.0
 NECK_L = 16.0
@@ -114,8 +114,18 @@ def face_greebles(apothem, half_w, z0, z1, n_per_face, faces=8, skip=None):
 # ----------------------------------------------------------------- crew module
 def crew_shell(solid_extra=0.0):
     r = CREW_R + solid_extra
-    return union([cyl(CREW_CYL, r), Manifold.sphere(r, 128).translate([0, 0, CREW_CYL])]) \
-        .trim_by_plane([0, 0, 1], 0)
+    parts = [Manifold.sphere(r, 128).translate([0, 0, CREW_CYL])]
+    if CREW_CYL > 0:
+        parts.append(cyl(CREW_CYL, r))
+    return union(parts).trim_by_plane([0, 0, 1], 0)
+
+
+def crew_inner():
+    r = CREW_R - CREW_WALL
+    parts = [Manifold.sphere(r, 128).translate([0, 0, CREW_CYL])]
+    if CREW_CYL > 0:
+        parts.append(cyl(CREW_CYL + 0.2, r, z=-0.1))
+    return union(parts)
 
 
 def crew_band(z, h=1.4, lift=0.5):
@@ -132,9 +142,7 @@ def crew_front():
     body.append(cyl(1.2, 6.5, seg=64, z=CREW_CYL + CREW_R - 0.6))
     body.append(cyl(1.8, 2.5, seg=32, z=CREW_CYL + CREW_R - 0.6))
     m = union(body)
-    inner = union([cyl(CREW_CYL + 0.2, CREW_R - CREW_WALL, z=-0.1),
-                   Manifold.sphere(CREW_R - CREW_WALL, 128).translate([0, 0, CREW_CYL])])
-    m -= inner
+    m -= crew_inner()
     # illuminated window band
     wins = [rz(box(6, 5.0, 3.0, CREW_R - 1, 0, 8.0), i * 360 / 16) for i in range(16)]
     return m - union(wins)
@@ -144,22 +152,21 @@ def crew_rear():
     body = [crew_shell(), crew_band(0.0, 2.0), crew_band(13.0, 1.6), crew_band(24.0, 1.2)]
     for i in range(22):  # panels on the cylindrical part
         a = rng.uniform(0, 360)
-        body.append(rz(box(1.2, rng.uniform(3, 8), rng.uniform(2, 6), CREW_R, 0, rng.uniform(4.5, 10)), a))
+        slab = box(12, rng.uniform(3, 8), rng.uniform(2, 6), CREW_R - 4, 0, rng.uniform(4.5, 10))
+        body.append(rz(slab, a) ^ crew_shell(0.5))
     z_neck0 = CREW_CYL + CREW_R - 2.0
     z_top = CREW_CYL + CREW_R + NECK_L - 2.0
     body.append(cyl(z_top - z_neck0, NECK_R, seg=64, z=z_neck0))
     body.append(cyl(3.0, NECK_R + 3.0, NECK_R, seg=64, z=z_neck0))  # fillet cone
     m = union(body)
-    inner = union([cyl(CREW_CYL + 0.2, CREW_R - CREW_WALL, z=-0.1),
-                   Manifold.sphere(CREW_R - CREW_WALL, 128).translate([0, 0, CREW_CYL])])
-    m -= inner
+    m -= crew_inner()
     m -= cyl(z_top + 1, WIRE_D / 2, seg=32)                                   # wire channel
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=z_top - PLUG_L - 0.5)  # socket
     return m, z_top
 
 
 def crew_joiner():
-    r = CREW_R - CREW_WALL - CLEAR
+    r = math.sqrt((CREW_R - CREW_WALL) ** 2 - 16.0) - CLEAR   # fits 4 mm into each half
     return cyl(8, r) - cyl(9, r - 1.2, z=-0.5)
 
 
