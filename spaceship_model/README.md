@@ -81,7 +81,7 @@ Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
 
 ## Beleuchtung und Stromversorgung
 
-**10 LEDs, 1 × 18650-Akku im Reaktorblock, Schalter und USB-C-Ladebuchse auf der Unterseite des Blocks.**
+**10 LEDs, 1 × 18650-Akku im Reaktorblock, Schalter und USB-C-Ladebuchse auf der Unterseite des Blocks. Die drei roten Antennen-LEDs blinken etwa einmal pro Sekunde.**
 
 ### Einkaufsliste
 
@@ -94,9 +94,10 @@ Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
 | 1 | Mini-Wippschalter KCD11, 2-polig, Einbauausschnitt 13,5 × 9 mm | Ein/Aus | rastet von außen in die Blockunterseite |
 | 6 | LED 3 mm kaltweiß oder blau, klar | Triebwerke | |
 | 1 | LED 3 mm warmweiß, diffus | Cockpit | |
-| 3 | SMD-LED 0402, vorverdrahtet mit Kupferlackdraht, **50 cm**, **ohne** eingebauten Widerstand (3-V-Typ) | Antennenschüsseln | Sets mit Widerstand für 9–18 V sind bei 5 V zu dunkel |
+| 3 | SMD-LED 0402 **rot**, vorverdrahtet mit Kupferlackdraht, **50 cm**, **ohne** eingebauten Widerstand | Antennenschüsseln (blinkend) | Sets mit Widerstand für 9–18 V sind bei 5 V zu dunkel |
 | 6 / 1 / 3 | Widerstand 150 Ω / 220 Ω / 330 Ω, 0,25 W | Triebwerke / Cockpit / Antennen | je LED einer |
-| 1 | Stück Lochrasterplatine ca. 30 × 15 mm | Verteiler | |
+| 1 | NE555 (DIP-8), dazu 10 kΩ, 68 kΩ, Elko 10 µF / 16 V, Kondensator 100 nF | Blinkgeber, ca. 1 Hz | optional IC-Sockel 8-polig |
+| 1 | Stück Lochrasterplatine ca. 30 × 25 mm | Verteiler + Blinkgeber | |
 | 2 m | Litze 0,14 mm², rot und schwarz | Verbindungen | |
 | 1 | Multimeter | 5 V einstellen, Polung prüfen | unverzichtbar |
 | – | Schrumpfschlauch 1,5 mm, Lötkolben, Heißkleber, doppelseitiges Klebeband | | |
@@ -111,18 +112,31 @@ Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
                                                  MT3608 OUT− (GND)  ──► GND-Schiene ┘ im Reaktorblock
    5 V ──150 Ω──►|── GND   (6 ×, Triebwerke)
    5 V ──220 Ω──►|── GND   (1 ×, Cockpit; zwei Litzen durch die Wirbelsäule nach vorn)
-   5 V ──330 Ω──►|── GND   (3 ×, Antennen; Lackdrähte durch Mast und Wirbelsäule nach hinten)
+   5 V ──330 Ω──►|── NE555 Pin 3   (3 ×, Antennen rot, blinkend; Lackdrähte durch Mast und Wirbelsäule)
 ```
 
-Alle LEDs liegen parallel, jede mit eigenem Widerstand. Geschätzter Verbrauch: ca. 100 mA bei 5 V, rund 170 mA aus dem Akku,
+Blinkgeber (NE555 als Taktgeber, auf derselben Lochrasterplatine):
+
+```
+Pin 8 und Pin 4 ── 5 V          Pin 1 ── GND          100 nF zwischen Pin 8 und Pin 1
+5 V ── 10 kΩ ── Pin 7 ── 68 kΩ ── Pin 6 und Pin 2 (verbunden) ── Elko 10 µF (+ an Pin 6) ── GND
+Pin 3 = Ausgang: hier enden die Kathoden (Minus-Seiten) der drei Antennen-LEDs
+```
+
+Frequenz = 1,44 / ((10 kΩ + 2 × 68 kΩ) × 10 µF) ≈ 1 Hz; die LEDs leuchten knapp die Hälfte der Zeit.
+Schneller blinken: 68 kΩ durch 33 kΩ ersetzen (ca. 2 Hz). Langsamer: Elko 22 µF (ca. 0,45 Hz).
+Fertige NE555-Impulsmodule eignen sich nicht: laut Händlerangaben beginnen sie erst bei 4–5 Hz, das flackert statt zu blinken.
+
+Alle LEDs haben einen eigenen Widerstand; Triebwerke und Cockpit leuchten dauerhaft, die Antennen blinken. Geschätzter Verbrauch: ca. 100 mA bei 5 V, rund 170 mA aus dem Akku,
 grob 12–18 Stunden Leuchtdauer pro Ladung (Schätzung, nicht gemessen).
 
 ### Anordnung im Reaktorblock (Hohlraum 42 mm breit, 108 mm lang, von vorn zugänglich)
 
 Von hinten (Triebwerke) nach vorn (Übergangsstück):
 
-1. **6 mm Kabelraum** direkt über den Triebwerkskanälen, hier sitzt auch die Verteilerplatine (hochkant).
-2. **Akkuhalter** (79 mm) oben an der Decke des Hohlraums, mit Klebeband fixiert. Darunter liegt der **MT3608** auf dem Boden.
+1. **6 mm Kabelraum** direkt über den Triebwerkskanälen.
+2. **Akkuhalter** (79 mm) oben an der Decke des Hohlraums, mit Klebeband fixiert. Darunter liegen hintereinander der **MT3608** (37 mm)
+   und die **Lochrasterplatine** mit Verteiler und Blinkgeber (30 mm) auf dem Boden; die freie Höhe dort beträgt rund 20 mm.
 3. **Elektronikraum** (16 mm) ganz vorn: der **Schalter** rastet von außen in den Ausschnitt auf der Unterseite; das **TP4056** steht hochkant
    daneben, seine USB-C-Buchse zeigt nach unten in den zweiten Ausschnitt (5 × 11 mm). Mit Heißkleber fixieren.
 
