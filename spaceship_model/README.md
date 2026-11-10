@@ -22,7 +22,7 @@ Das Modell wird **frei hängend** montiert; Akku, Elektronik und Schalter sitzen
 
 | Datei | Teil | Höhe beim Druck | Hinweis |
 |---|---|---|---|
-| 01_crew_front | Crew-Kugel vordere Hälfte, Cockpit mit 5 Fenstern | 42 mm | Öffnung nach unten |
+| 01_crew_front | Crew-Kugel vordere Hälfte, Cockpit mit 5 Fenstern, drei eckige Schleusen (links, rechts, unten) | 42 mm | Öffnung nach unten |
 | 02_crew_rear | Crew-Kugel hintere Hälfte mit Hals und **Aufhängeöse** | 55 mm | Öffnung nach unten |
 | 03_crew_joiner_ring | Verbindungsring mit Schlitz | 9 mm | |
 | 04_cockpit_interior | Cockpit-Einsatz | 30 mm | Deck nach unten; 0,08 mm Schichthöhe |
