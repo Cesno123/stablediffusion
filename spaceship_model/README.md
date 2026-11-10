@@ -1,13 +1,13 @@
 # Raumschiff-Modell mit LED-Beleuchtung (eigenes Design)
 
 Eigenes Hard-SF-Raumschiff im Stil der klassischen "Wirbelsäulen"-Schiffe: kugelförmiges Crew-Modul (Ø 72 mm) vorn,
-lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit vier Triebwerken. Keine Kopie eines Filmmodells.
+lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit breitem Triebwerksgehäuse und sechs Düsen (3 Spalten, je 2 übereinander). Keine Kopie eines Filmmodells.
 
 ![Vorschau](preview.png)
 
 ![Details](details.png)
 
-- Gesamtlänge 721 mm bei 72 mm Kugeldurchmesser (Verhältnis 1:10), größtes Einzelteil 134 mm hoch
+- Gesamtlänge 728 mm bei 72 mm Kugeldurchmesser (Verhältnis ca. 1:10), größtes Einzelteil 134 mm hoch
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
 
@@ -23,7 +23,7 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit vier Triebwerken. 
 | 06_antenna_dishes | Träger mit 1 großen und 2 kleinen Schüsseln | Schüsseln öffnen nach oben, langsam drucken |
 | 07_antenna_mast | Mast mit Gabel | kopfüber (Gabel unten), Brim 5 mm |
 | 08_adapter_collar | Übergang Wirbelsäule → Block | breite Seite unten |
-| 09_engine_block | Reaktorblock + 4 Triebwerke | Düsen nach unten |
+| 09_engine_block | Reaktorblock + breites Gehäuse mit 6 Düsen (67 mm breit) | Düsen nach unten |
 | 10_stand_engine | Ständer hinten mit Kabelkanal | |
 | 11_stand_front | Ständer vorn (Gabel unter dem Hals) | |
 | 00_assembly_preview_only | Nur Vorschau | **nicht drucken** |
@@ -49,9 +49,10 @@ daneben bleibt Platz für die zwei LED-Litzen.
 - Geschwindigkeit Außenwand max. 40 mm/s, stehende Wirbelsäulenteile 30 mm/s
 - Stützen aus, Brim wie in der Tabelle
 
-## Beleuchtung (5 LEDs, 3 mm)
+## Beleuchtung (7 LEDs, 3 mm)
 
-- 4 × kaltweiß oder blau: von innen durch den offenen Block in die Triebwerke stecken (Sitz Ø 3,2 mm)
+- 6 × kaltweiß oder blau: von innen durch den offenen Block in die Triebwerke stecken (Sitz Ø 3,2 mm).
+  Die Kanäle der vier äußeren Düsen laufen schräg: LED mit angelöteten Litzen voran einschieben.
 - 1 × warmweiß: ins Crew-Modul, leuchtet durch die Cockpitfenster (Fenster innen mit Transparentpapier hinterkleben)
 - Versorgung 5 V (USB): **jede LED bekommt einen eigenen Vorwiderstand**, alle parallel
   - weiß/blau (ca. 3,0 V, 15 mA): 150 Ω

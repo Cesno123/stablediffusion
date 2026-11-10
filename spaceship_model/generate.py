@@ -35,7 +35,8 @@ N_SEG = 4             # number of spine segments (sphere diameter : length = 1 :
 BLOCK_R = 25.0        # circumradius of octagonal reactor block
 BLOCK_L = 70.0
 BLOCK_CAV_R = 23.0
-ENG_OFF = 11.5        # nozzle centre offset (2 x 2 cluster)
+ENG_OFF = 11.5        # vertical nozzle offset (two rows)
+ENG_COL = 23.0        # horizontal spacing of the three nozzle columns
 ENG_R = 10.0
 ENG_L = 30.0
 BELL_R = 8.5
@@ -322,14 +323,16 @@ def antenna_mast():
 
 # ------------------------------------------------------------- reactor / engines
 Z_T0 = ENG_L                 # start of transition
-Z_OCT = ENG_L + 5.0          # start of octagonal block
+Z_OCT = ENG_L + 12.0         # start of octagonal block
 Z_TOP = Z_OCT + BLOCK_L      # open top (front of block)
 Z_FLOOR = Z_OCT + 3.0        # cavity floor
 Z_STAND = Z_OCT + BLOCK_L / 2
 
 
 def engine_block():
-    corners = [(sx * ENG_OFF, sy * ENG_OFF) for sx in (-1, 1) for sy in (-1, 1)]
+    # six nozzles: three columns side by side (print y), two stacked per column (print x = ship up)
+    corners = [(sx * ENG_OFF, c * ENG_COL) for sx in (-1, 1) for c in (-1, 0, 1)]
+    hx, hy = ENG_OFF + ENG_R, ENG_COL + ENG_R
 
     def rsq(h, z):
         return hull(*[cyl(h, ENG_R, seg=64, z=z).translate([x, y, 0]) for x, y in corners])
@@ -347,8 +350,10 @@ def engine_block():
                         w_rng=(5.0, 14.0), l_rng=(8.0, 22.0), heights=(0.4,))
     gre += face_greebles(ap, half_w, Z_OCT + 3, Z_TOP - 3, 18, skip=skip,
                          w_rng=(1.4, 5.0), l_rng=(1.4, 7.0), heights=(0.7, 0.9, 1.2))
-    gre += face_greebles(ENG_OFF + ENG_R, ENG_OFF - 0.5, 0.0, ENG_L - 0.5, 7, faces=4,
-                         w_rng=(1.5, 7.0), l_rng=(2.0, 9.0), heights=(0.4, 0.6))
+    gre += face_greebles(hx, ENG_COL - 0.5, 0.0, ENG_L - 0.5, 16, faces=2,
+                         w_rng=(1.5, 8.0), l_rng=(2.0, 9.0), heights=(0.4, 0.6))
+    gre += [rz(g, 90) for g in face_greebles(hy, ENG_OFF - 0.5, 0.0, ENG_L - 0.5, 8, faces=2,
+                                             w_rng=(1.5, 7.0), l_rng=(2.0, 9.0), heights=(0.4, 0.6))]
     for k in range(8):                                     # conduits along the block edges
         a = math.radians(22.5 + 45 * k)
         gre.append(cyl(BLOCK_L - 4.0, 0.9, seg=12, z=Z_OCT + 2.0)
@@ -357,23 +362,28 @@ def engine_block():
     m = union([housing, trans, block] + gre + rings)
 
     # engine housing detail: side grooves + one belt groove
-    half = ENG_OFF + ENG_R
     cuts = []
-    for a in range(4):
-        cuts.append(rz(box(2.0, 1.4, ENG_L + 2, half, 0, ENG_L / 2), a * 90))
-    belt = rsq(1.2, 14.0).scale([1.08, 1.08, 1]) - rsq(1.4, 13.9).scale([(half - 0.9) / half, (half - 0.9) / half, 1])
+    for sx in (-1, 1):                                     # grooves between the nozzle columns
+        for y in (-ENG_COL / 2, ENG_COL / 2):
+            cuts.append(box(2.0, 1.4, ENG_L + 2, sx * hx, y, ENG_L / 2))
+    for sy in (-1, 1):
+        cuts.append(box(1.4, 2.0, ENG_L + 2, 0, sy * hy, ENG_L / 2))
+    belt = rsq(1.2, 14.0).scale([1.08, 1.08, 1]) - rsq(1.4, 13.9).scale([(hx - 0.9) / hx, (hy - 0.9) / hy, 1])
     cuts.append(belt)
     for x, y in corners:                                   # engraved rings on the rear face
         cuts.append((cyl(0.45, 9.7, seg=64, z=-0.01) - cyl(1, 9.2, seg=64, z=-0.3)).translate([x, y, 0]))
-    cuts.append(box(2 * half, 0.5, 0.9, 0, 0, 0))
-    cuts.append(box(0.5, 2 * half, 0.9, 0, 0, 0))
+    cuts.append(box(0.5, 2 * hy, 0.9, 0, 0, 0))
+    for y in (-ENG_COL / 2, ENG_COL / 2):
+        cuts.append(box(2 * hx, 0.5, 0.9, 0, y, 0))
     # interior
     cuts.append(octa(BLOCK_L, BLOCK_CAV_R, z=Z_FLOOR))
     for x, y in corners:
         z_led1 = BELL_D + 4.4
         cuts.append(cyl(BELL_D + 0.01, BELL_R, LED_D / 2, seg=64, z=-0.01).translate([x, y, 0]))  # bell
         cuts.append(cyl(5.0, LED_D / 2, seg=32, z=BELL_D - 0.2).translate([x, y, 0]))          # LED seat
-        cuts.append(cyl(Z_FLOOR - z_led1 + 0.2, 3.25, seg=32, z=z_led1).translate([x, y, 0]))  # wire bore
+        y_top = y * 13.5 / ENG_COL                         # outer bores slant inward to reach the cavity
+        cuts.append(hull(cyl(0.5, 3.25, seg=32, z=z_led1).translate([x, y, 0]),
+                         cyl(0.5, 3.25, seg=32, z=Z_FLOOR).translate([x, y_top, 0])))             # wire bore
     m -= union(cuts)
 
     # stand socket boss inside the cavity on the -x wall (underside sloped for printing)
