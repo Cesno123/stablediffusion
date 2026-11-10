@@ -699,13 +699,20 @@ def spine_segment(kinds, antenna_hole=False, lug_at=None):
 
 
 def dish(r, stem_r, z0):
-    """Conical dish opening upward (45 deg wall, prints without support) with a feed horn."""
+    """Parabolic dish opening upward. The front is a smooth bowl; the back is a 45 deg cone,
+    so it prints without support. A slim feed strut with a small sub-reflector sits in the centre."""
     h = r - stem_r
-    shell = cyl(h, stem_r, r, seg=96, z=z0) - cyl(h, stem_r, r, seg=96, z=z0 + 1.1)
-    rim = cyl(0.8, r + 0.5, seg=96, z=z0 + h - 0.8) - cyl(2, r - 0.3, seg=96, z=z0 + h - 1.4)
-    horn = cyl(h * 0.6, 0.9, seg=24, z=z0 + 0.5)
-    tip = cyl(1.2, 1.5, seg=24, z=z0 + h * 0.6 + 0.4)
-    return union([shell, rim, horn, tip]).trim_by_plane([0, 0, -1], -(z0 + h))
+    zr = z0 + h                                              # rim height
+    d = 0.40 * r                                             # depth of the bowl
+    n = 24
+    front = [(r * i / n, zr + 0.5 - d * (1 - (i / n) ** 2)) for i in range(n, -1, -1)]   # from the rim to the centre
+    prof = [(0, z0), (stem_r, z0), (r + 0.5, zr - 0.4), (r + 0.5, zr + 0.5)] + front
+    bowl = Manifold.revolve(CrossSection([prof]), 96)
+    zc = zr + 0.5 - d
+    ring = cyl(0.55, r * 0.55, seg=64, z=zc + d * 0.55 ** 2 - 0.3) - cyl(40, r * 0.55 - 0.5, seg=64, z=zc - 1)   # panel ring
+    feed = cyl(d * 0.95, 0.7, seg=20, z=zc - 0.2)
+    sub = cyl(0.9, 1.5, 1.0, seg=24, z=zc + d * 0.95 - 0.3)
+    return union([bowl, ring, feed, sub])
 
 
 AX_Z = 3.2            # hinge axis height in the dish carrier (print coords)
@@ -719,28 +726,39 @@ def led_post(height, r_out, r_pocket):
     return post, cyl(1.3, r_pocket, seg=24, z=height - 1.2), cyl(height + 2, 0.45, seg=16, z=0.5)
 
 
+def strut(p0, r0, h0, p1, r1, h1):
+    """Tapered arm between two points of the carrier (rounded sides, flat on the print bed)."""
+    return hull(cyl(h0, r0, seg=32).translate([p0[0], p0[1], 0]), cyl(h1, r1, seg=32).translate([p1[0], p1[1], 0]))
+
+
 def antenna_dishes():
     """Large dish in the middle, a small dish on each side, on a tilting carrier.
-    Three red LEDs: a larger one on the tower tip, two small ones at the ends of the cross bar.
+    Slim tapered arms with diagonal braces; three red LEDs: a larger one on the tower tip,
+    two small ones at the ends of the arms.
     Print coords: +z = ship forward (dishes open upward), +x = ship up, hinge along y."""
     xb = 7.8
-    parts = [box(6, 6, 6.4, 0, 0, 3.2), box(3.0, 6, 6.4, 4.4, 0, 3.2),              # hub + web
-             box(4.0, 2 * BAR_HALF, 4.0, xb, 0, 2.0),                               # cross bar
-             box(TOWER_TOP - xb + 2.0, 4.0, 4.0, (TOWER_TOP + xb) / 2 + 1.0, 0, 2.0)]  # tower behind the big dish
+    yl = BAR_HALF - 2.0                                      # LED posts at the arm ends
+    hub = hull(box(6, 6, 6.4, 0, 0, 3.2), box(4.4, 4.4, 6.4, 0, 0, 3.2).translate([0.8, 0, 0]))
+    neck = hull(box(0.1, 6, 6.4, 3.0, 0, 3.2), cyl(4.4, 2.7, seg=32).translate([xb, 0, 0]))
+    parts = [hub, neck,
+             strut((xb, 0), 2.7, 4.4, (xb, -yl), 1.7, 3.0), strut((xb, 0), 2.7, 4.4, (xb, yl), 1.7, 3.0),      # arms
+             strut((xb, 0), 2.6, 4.4, (TOWER_TOP, 0), 1.8, 3.0)]                                            # tower
+    for sy in (-1, 1):                                       # diagonal braces tower -> arms
+        parts.append(strut((xb + 17.0, 0), 1.0, 2.4, (xb, sy * 24.0), 1.0, 2.4))
+        parts.append(strut((xb + 9.0, 0), 0.8, 2.0, (xb, sy * 12.0), 0.8, 2.0))
     for y, r, sr in ((0, 19.0, 2.0), (-29, 9.0, 1.4), (29, 9.0, 1.4)):
-        parts.append(cyl(3.2, sr + 0.6, sr, seg=32, z=3.9).translate([xb, y, 0]))
+        parts.append(cyl(3.2, sr + 0.9, sr, seg=32, z=3.9).translate([xb, y, 0]))
         parts.append(dish(r, sr, 7.0).translate([xb, y, 0]))
-    for y in (-14.5, 14.5):                                  # small equipment boxes on the bar
-        parts.append(box(3.0, 5, 1.2, xb, y, 4.5))
     cuts = []
-    for x, y, h, ro, rp in ((TOWER_TOP, 0, 8.0, 2.3, 1.6), (xb, -BAR_HALF + 2.0, 11.0, 1.9, 1.2), (xb, BAR_HALF - 2.0, 11.0, 1.9, 1.2)):
+    for x, y, h, ro, rp in ((TOWER_TOP, 0, 8.0, 2.3, 1.6), (xb, -yl, 11.0, 1.9, 1.2), (xb, yl, 11.0, 1.9, 1.2)):
         post, pocket, bore = led_post(h, ro, rp)
         parts.append(post.translate([x, y, 0]))
+        parts.append(cyl(0.7, ro + 0.55, seg=32, z=h - 3.0).translate([x, y, 0]))     # collar below the lamp
         cuts += [pocket.translate([x, y, 0]), bore.translate([x, y, 0])]
     m = union(parts) - union(cuts)
     m -= cyl(10, 1.1, seg=24, z=-5).rotate([90, 0, 0]).translate([0, 0, AX_Z])   # hinge bore (1.75 mm filament)
-    m -= box(1.4, 2 * BAR_HALF - 4.6, 1.8, xb, 0, 0)         # wire groove on the back of the bar
-    m -= box(TOWER_TOP + 3.9, 1.4, 1.8, (TOWER_TOP + 0.7 - 3.2) / 2, 0, 0)  # ... along the tower and down to the hinge
+    m -= box(1.4, 2 * yl, 1.8, xb, 0, 0)                     # wire groove on the back of the arms
+    m -= box(TOWER_TOP + 3.2, 1.4, 1.8, (TOWER_TOP - 3.2) / 2, 0, 0)  # ... along the tower and down to the hinge
     return m
 
 
@@ -750,13 +768,15 @@ MAST_H = 26.5 + MAST_PIN
 
 
 def antenna_mast():
-    """Mast with fork. Printed upside down: fork arms on the bed, pin on top."""
-    arms = [box(6, 2.0, 9.05, 0, sy * 4.25, 4.525) for sy in (-1, 1)]
-    bridge = box(6, 10.5, 2.5, 0, 0, 10.25)
-    col = cyl(15.0, 3.0, seg=48, z=11.49)
-    collar = cyl(1.2, 3.8, seg=48, z=24.0)
+    """Slim tapered mast with fork and a flared foot. Printed upside down: fork arms on the bed, pin on top."""
+    arms = [box(6, 2.0, 9.05, 0, sy * 4.25, 4.525) + hull(box(6, 2.0, 0.1, 0, sy * 4.25, 9.0), box(4.4, 2.0, 0.1, 0, sy * 3.6, 11.4))
+            for sy in (-1, 1)]
+    bridge = hull(box(6, 10.5, 0.1, 0, 0, 9.05), box(5.2, 6.4, 0.1, 0, 0, 11.6))
+    col = cyl(13.4, 2.3, 2.8, seg=48, z=11.5)                # widens towards the foot
+    rings = [cyl(0.7, 2.95, seg=48, z=15.0), cyl(0.7, 3.1, seg=48, z=19.5)]
+    foot = cyl(1.4, 2.8, 4.1, seg=48, z=23.7) + cyl(1.4, 4.1, seg=48, z=25.09)
     pin = cyl(MAST_PIN, 2.0, seg=48, z=26.49)
-    m = union(arms + [bridge, col, collar, pin])
+    m = union(arms + [bridge, col, foot, pin] + rings)
     m -= cyl(14, 0.95, seg=24, z=-7).rotate([90, 0, 0]).translate([0, 0, MAST_AX])  # press fit for the filament pin
     m -= cyl(23.0, 0.65, seg=16, z=8.9)                      # wire channel from the fork down through the pin
     return m

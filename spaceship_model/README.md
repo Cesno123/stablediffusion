@@ -34,7 +34,7 @@ Das Modell wird **frei hängend** montiert; Akku, Elektronik und Schalter sitzen
 | 10_reactor_block | Reaktorblock: Rohr für Elektronik, Öffnung für die Akkuwanne, Schalterausschnitt, **Aufhängeöse** | 115 mm | Trennfläche nach unten |
 | 11_engine_housing | Triebwerksgehäuse mit 6 Düsensockeln und Stecklippe | 57 mm | Heckfläche nach unten |
 | 12_engine_nozzle_6x | Glockendüse mit LED-Sitz im Düsenhals | 25 mm | **6× drucken**, Rand unten, langsam |
-| 13_antenna_dishes | Antennenträger mit 3 Schüsseln, Turm und LED-Sitzen | 24 mm | Schüsseln öffnen nach oben, langsam |
+| 13_antenna_dishes | Antennenträger: 3 Parabolschüsseln, schlanke Arme mit Diagonalstreben, Turm und LED-Sitze | 25 mm | Schüsseln öffnen nach oben, langsam |
 | 14_antenna_mast | Mast mit Gabel und Kabelkanal | 31 mm | kopfüber (Gabel unten), Brim 5 mm |
 | 15_battery_tray | Akkuwanne: abnehmbare Unterseite des Reaktorblocks, trägt den Akkuhalter | 16 mm | flache Unterseite nach unten |
 | 00_assembly_preview_only | Nur Vorschau | – | **nicht drucken** |
