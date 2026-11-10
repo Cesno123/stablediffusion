@@ -5,6 +5,8 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit vier Triebwerken. 
 
 ![Vorschau](preview.png)
 
+![Details](details.png)
+
 - Gesamtlänge: 497 mm, größtes Einzelteil 148 mm hoch (passt auf jeden Anycubic Kobra)
 - Alle Teile liegen bereits in Druckausrichtung und brauchen **keine Stützstrukturen**
 - `generate.py` erzeugt alle Dateien neu (`pip install manifold3d numpy`); Maße stehen oben im Skript
@@ -13,7 +15,7 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit vier Triebwerken. 
 
 | Datei | Teil | Hinweis |
 |---|---|---|
-| 01_crew_front | Crew-Kugel vordere Hälfte, 16 Fenster | Öffnung nach unten |
+| 01_crew_front | Crew-Kugel vordere Hälfte, Cockpit mit 5 Fenstern nach vorn | Öffnung nach unten |
 | 02_crew_rear | Crew-Kugel hintere Hälfte mit Hals | Öffnung nach unten |
 | 03_crew_joiner_ring | Verbindungsring | in eine Hälfte einkleben |
 | 04_spine_segment_A_antenna | Wirbelsäule vorn, Loch für Antenne | stehend, Brim 5 mm |
@@ -27,7 +29,9 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit vier Triebwerken. 
 
 ## Druckeinstellungen (0,2-mm-Düse)
 
-- Schichthöhe 0,10 mm (0,08 mm für Crew-Modul und Antenne), Linienbreite 0,22 mm
+- Schichthöhe 0,08 mm für Crew-Kugel, Reaktorblock und Antenne, sonst 0,10 mm; Linienbreite 0,22 mm
+- Die Hüllenplatten sind 0,3–0,8 mm erhaben, die Fugen 0,45 mm breit: im Slicer "dünne Wände erkennen" einschalten
+- Beim vorderen Kugelteil die Naht (Z-Seam) nach hinten legen, die Fensterstege sind 1,2 mm breite Brücken
 - 4 Wandlinien, 15 % Füllung, PLA weiß oder hellgrau
 - Geschwindigkeit Außenwand max. 40 mm/s, stehende Wirbelsäulenteile 30 mm/s
 - Stützen aus, Brim wie in der Tabelle
@@ -35,7 +39,7 @@ lange Wirbelsäule mit Tankmodulen, Antenne, Reaktorblock mit vier Triebwerken. 
 ## Beleuchtung (5 LEDs, 3 mm)
 
 - 4 × kaltweiß oder blau: von innen durch den offenen Block in die Triebwerke stecken (Sitz Ø 3,2 mm)
-- 1 × warmweiß: ins Crew-Modul, leuchtet durch die Fenster (Fenster innen mit Transparentpapier hinterkleben)
+- 1 × warmweiß: ins Crew-Modul, leuchtet durch die Cockpitfenster (Fenster innen mit Transparentpapier hinterkleben)
 - Versorgung 5 V (USB): **jede LED bekommt einen eigenen Vorwiderstand**, alle parallel
   - weiß/blau (ca. 3,0 V, 15 mA): 150 Ω
   - warmweiß (ca. 3,0 V, 15 mA): 150 Ω, für gedimmtes Licht 330 Ω

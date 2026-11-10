@@ -94,21 +94,34 @@ def write_stl(m, name):
     return path
 
 
-def face_greebles(apothem, half_w, z0, z1, n_per_face, faces=8, skip=None):
+def face_greebles(apothem, half_w, z0, z1, n_per_face, faces=8, skip=None,
+                  w_rng=(2.0, 9.0), l_rng=(2.5, 14.0), heights=(0.4, 0.6, 0.8)):
     """Random raised panels on the flats of a prism (print axis = z)."""
     out = []
     step = 360.0 / faces
     for k in range(faces):
         for _ in range(n_per_face):
-            w = rng.uniform(2.0, min(9.0, 2 * half_w - 1))
-            l = rng.uniform(2.5, 14.0)
-            h = rng.choice([0.4, 0.6, 0.8])
+            w = rng.uniform(w_rng[0], min(w_rng[1], 2 * half_w - 1))
+            l = rng.uniform(*l_rng)
+            h = rng.choice(heights)
             t = rng.uniform(-(half_w - w / 2 - 0.4), half_w - w / 2 - 0.4)
             z = rng.uniform(z0 + l / 2, z1 - l / 2)
             if skip and skip(k, t, z, w, l):
                 continue
             out.append(rz(box(2 * h, w, l, apothem, t, z), k * step))
     return out
+
+
+def wedge(a0, a1, z0, z1, reach=200.0):
+    """Pie-slice prism around the z axis between two azimuths (deg, span < 180)."""
+    pts = []
+    for z in (z0, z1):
+        pts.append((0.0, 0.0, z))
+        n = max(2, int((a1 - a0) / 20) + 2)
+        for i in range(n):
+            a = math.radians(a0 + (a1 - a0) * i / (n - 1))
+            pts.append((reach * math.cos(a), reach * math.sin(a), z))
+    return Manifold.hull_points(pts)
 
 
 # ----------------------------------------------------------------- crew module
@@ -128,38 +141,81 @@ def crew_inner():
     return union(parts)
 
 
+_LIFT = {}
+
+
+def lifted(l):
+    if l not in _LIFT:
+        _LIFT[l] = crew_shell(l)
+    return _LIFT[l]
+
+
 def crew_band(z, h=1.4, lift=0.5):
     """Raised belt following the hull between heights z and z+h."""
-    return crew_shell(lift).trim_by_plane([0, 0, 1], z).trim_by_plane([0, 0, -1], -(z + h))
+    return lifted(lift).trim_by_plane([0, 0, 1], z).trim_by_plane([0, 0, -1], -(z + h))
+
+
+def crew_plating(z_edges):
+    """Tiled hull plates of varying height, separated by fine panel gaps."""
+    out = []
+    for za, zb in zip(z_edges[:-1], z_edges[1:]):
+        zm = CREW_CYL + 0.5 * (za + zb)
+        r_here = math.sqrt(max(CREW_R ** 2 - (0.5 * (za + zb) - CREW_CYL) ** 2, 9.0))
+        gap = math.degrees(0.45 / r_here)
+        a = rng.uniform(0, 30)
+        end = a + 360
+        while a < end - 1:
+            span = min(rng.uniform(7.0, 34.0) * (CREW_R / r_here) ** 0.5, end - a)
+            lift = rng.choice([0, 0, 0.3, 0.3, 0.3, 0.5, 0.5, 0.8])
+            if lift and span > 2 * gap + 1:
+                # occasionally split a plate into two rows for finer detail
+                rows = [(za, zb)] if rng.random() < 0.6 or zb - za < 3 else \
+                    [(za, (za + zb) / 2), ((za + zb) / 2, zb)]
+                for ra, rb in rows:
+                    out.append(lifted(lift) ^ wedge(a + gap, a + span - gap, ra + 0.22, rb - 0.22))
+                if rng.random() < 0.35 and span > 6:      # small box on top of the plate
+                    c = a + span * rng.uniform(0.25, 0.75)
+                    w = min(span * 0.3, 6)
+                    out.append(lifted(lift + 0.5) ^ wedge(c - w / 2, c + w / 2, za + 0.8, min(zb - 0.8, za + 2.6)))
+            a += span
+    return out
+
+
+FRONT_BANDS = [2.0, 6.5, 11.0, 15.5, 19.5, 23.0, 26.0, 29.0, 31.5, 33.5]
+REAR_BANDS = [2.0, 6.5, 11.0, 15.5, 19.5, 23.0, 26.0, 29.0, 31.5]
 
 
 def crew_front():
-    body = [crew_shell(), crew_band(0.0, 2.0), crew_band(13.0, 1.6), crew_band(30.0, 1.2)]
-    # sensor ports on the dome and a nose cap
-    for a in (30, 150, 270):
-        port = cyl(4, 4.5, seg=48, z=CREW_R - 3.3).rotate([0, 50, 0])
-        body.append(rz(port, a).translate([0, 0, CREW_CYL]))
-    body.append(cyl(1.2, 6.5, seg=64, z=CREW_CYL + CREW_R - 0.6))
-    body.append(cyl(1.8, 2.5, seg=32, z=CREW_CYL + CREW_R - 0.6))
-    m = union(body)
-    m -= crew_inner()
-    # illuminated window band
-    wins = [rz(box(6, 5.0, 3.0, CREW_R - 1, 0, 8.0), i * 360 / 16) for i in range(16)]
-    return m - union(wins)
+    """Front hemisphere. Print coords: +z = ship forward, +x = ship up."""
+    zc = CREW_CYL
+    body = [crew_shell(), crew_band(0.0, 2.0, 0.6)] + crew_plating(FRONT_BANDS)
+
+    def slab(x0, x1, hy, lift):
+        return lifted(lift) ^ box(x1 - x0, 2 * hy, CREW_R, (x0 + x1) / 2, 0, zc + 10 + CREW_R / 2)
+
+    body.append(slab(3.4, 12.1, 23.0, 0.9))               # cockpit frame
+    body.append(slab(12.1, 13.9, 24.5, 1.7))              # brow above the windows
+    body.append(slab(1.8, 3.4, 20.0, 1.3))                # sill below the windows
+    body.append(lifted(0.9) ^ wedge(168, 192, zc + 13, zc + 24))          # ventral hatch
+    body.append(lifted(1.3) ^ wedge(172, 188, zc + 15, zc + 17))
+    for a in (118, 242):                                   # two sensor ports
+        port = cyl(4, 4.0, seg=48, z=CREW_R - 3.1).rotate([0, 52, 0])
+        ring = cyl(4.6, 2.0, seg=32, z=CREW_R - 3.1).rotate([0, 52, 0])
+        body += [rz(port, a).translate([0, 0, zc]), rz(ring, a).translate([0, 0, zc])]
+    m = union(body) - crew_inner()
+    # forward cockpit windows: five panes separated by 1.2 mm mullions
+    panes = [box(5.5, 7.2, CREW_R, 7.75, -16.8 + i * 8.4, zc + 10 + CREW_R / 2) for i in range(5)]
+    return m - union(panes)
 
 
 def crew_rear():
-    body = [crew_shell(), crew_band(0.0, 2.0), crew_band(13.0, 1.6), crew_band(24.0, 1.2)]
-    for i in range(22):  # panels on the cylindrical part
-        a = rng.uniform(0, 360)
-        slab = box(12, rng.uniform(3, 8), rng.uniform(2, 6), CREW_R - 4, 0, rng.uniform(4.5, 10))
-        body.append(rz(slab, a) ^ crew_shell(0.5))
+    body = [crew_shell(), crew_band(0.0, 2.0, 0.6)] + crew_plating(REAR_BANDS)
     z_neck0 = CREW_CYL + CREW_R - 2.0
     z_top = CREW_CYL + CREW_R + NECK_L - 2.0
     body.append(cyl(z_top - z_neck0, NECK_R, seg=64, z=z_neck0))
-    body.append(cyl(3.0, NECK_R + 3.0, NECK_R, seg=64, z=z_neck0))  # fillet cone
-    m = union(body)
-    m -= crew_inner()
+    body.append(cyl(4.0, NECK_R + 5.0, NECK_R, seg=64, z=z_neck0 - 1.0))  # fillet cone
+    body.append(cyl(1.2, NECK_R + 0.6, seg=64, z=z_top - 4.0))            # neck collar
+    m = union(body) - crew_inner()
     m -= cyl(z_top + 1, WIRE_D / 2, seg=32)                                   # wire channel
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=z_top - PLUG_L - 0.5)  # socket
     return m, z_top
@@ -177,8 +233,17 @@ def pod(z0, length, width, height):
     base = box(0.02, width, length, r0, 0, z0 + length / 2)
     top = box(0.02, width - 1.5, length - 2 * height, r0 + height, 0, z0 + length / 2)
     body = hull(base, top)
-    cap = box(1.0, width - 4.5, (length - 2 * height) * 0.6, r0 + height, 0, z0 + length / 2)
-    return body + cap
+    top_l = length - 2 * height
+    extra = []
+    for _ in range(4):                                     # small equipment boxes on top
+        w, l = rng.uniform(1.4, 3.6), rng.uniform(1.4, 4.5)
+        extra.append(box(2 * rng.choice([0.4, 0.6, 0.9]), w, l, r0 + height,
+                         rng.uniform(-(width - 1.5 - w) / 2, (width - 1.5 - w) / 2),
+                         z0 + length / 2 + rng.uniform(-(top_l - l) / 2, (top_l - l) / 2)))
+    m = union([body] + extra)
+    for dz in (-top_l / 2 + 0.2, top_l / 2 - 0.2):         # panel grooves across the pod
+        m -= box(0.9, width + 1, 0.45, r0 + height, 0, z0 + length / 2 + dz)
+    return m
 
 
 def spine_segment(antenna_hole=False):
@@ -192,6 +257,13 @@ def spine_segment(antenna_hole=False):
         parts.append(octa(1.6, SPINE_R + 0.8, z=z - 3.8))
         z += 30.0
         i += 1
+    for k in range(8):                                     # conduits along the eight edges
+        a = math.radians(22.5 + 45 * k)
+        parts.append(cyl(SEG_L, 0.7, seg=12).translate([(SPINE_R - 0.25) * math.cos(a), (SPINE_R - 0.25) * math.sin(a), 0]))
+    ap = SPINE_R * math.cos(math.radians(22.5))
+    hw = SPINE_R * math.sin(math.radians(22.5))
+    parts += face_greebles(ap, hw, 1.5, 15.5, 3, skip=lambda k, t, z, w, l: k == 0,
+                           w_rng=(1.5, 4.5), l_rng=(1.5, 6.0), heights=(0.4, 0.6))
     m = union(parts)
     m -= cyl(SEG_L + PLUG_L + 2, WIRE_D / 2, seg=32, z=-1)
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=-0.1)
@@ -233,7 +305,16 @@ def engine_block():
     def skip(k, t, z, w, l):  # keep the stand socket area clean (face 4 = -x)
         return k == 4 and abs(z - Z_STAND) < 9 + l / 2 and abs(t) < 6 + w / 2
 
-    gre = face_greebles(ap, half_w, Z_OCT + 2, Z_TOP - 2, 9, skip=skip)
+    gre = face_greebles(ap, half_w, Z_OCT + 3, Z_TOP - 3, 5, skip=skip,
+                        w_rng=(5.0, 14.0), l_rng=(8.0, 22.0), heights=(0.4,))
+    gre += face_greebles(ap, half_w, Z_OCT + 3, Z_TOP - 3, 18, skip=skip,
+                         w_rng=(1.4, 5.0), l_rng=(1.4, 7.0), heights=(0.7, 0.9, 1.2))
+    gre += face_greebles(ENG_OFF + ENG_R, ENG_OFF - 0.5, 0.0, ENG_L - 0.5, 7, faces=4,
+                         w_rng=(1.5, 7.0), l_rng=(2.0, 9.0), heights=(0.4, 0.6))
+    for k in range(8):                                     # conduits along the block edges
+        a = math.radians(22.5 + 45 * k)
+        gre.append(cyl(BLOCK_L - 4.0, 0.9, seg=12, z=Z_OCT + 2.0)
+                   .translate([(BLOCK_R - 0.3) * math.cos(a), (BLOCK_R - 0.3) * math.sin(a), 0]))
     rings = [octa(1.6, BLOCK_R + 0.7, z=Z_OCT + 1.0), octa(1.6, BLOCK_R + 0.7, z=Z_TOP - 2.6)]
     m = union([housing, trans, block] + gre + rings)
 
@@ -242,8 +323,12 @@ def engine_block():
     cuts = []
     for a in range(4):
         cuts.append(rz(box(2.0, 1.4, ENG_L + 2, half, 0, ENG_L / 2), a * 90))
-    belt = rsq(1.2, 14.0) - rsq(1.4, 13.9).scale([(half - 0.9) / half, (half - 0.9) / half, 1])
+    belt = rsq(1.2, 14.0).scale([1.08, 1.08, 1]) - rsq(1.4, 13.9).scale([(half - 0.9) / half, (half - 0.9) / half, 1])
     cuts.append(belt)
+    for x, y in corners:                                   # engraved rings on the rear face
+        cuts.append((cyl(0.45, 9.7, seg=64, z=-0.01) - cyl(1, 9.2, seg=64, z=-0.3)).translate([x, y, 0]))
+    cuts.append(box(2 * half, 0.5, 0.9, 0, 0, 0))
+    cuts.append(box(0.5, 2 * half, 0.9, 0, 0, 0))
     # interior
     cuts.append(octa(BLOCK_L, BLOCK_CAV_R, z=Z_FLOOR))
     for x, y in corners:
