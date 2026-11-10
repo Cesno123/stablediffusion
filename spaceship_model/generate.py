@@ -19,19 +19,19 @@ from manifold3d import CrossSection, Manifold, OpType
 # ----------------------------------------------------------------- parameters
 CLEAR = 0.15          # radial clearance for plug/socket fits
 LED_D = 3.2           # hole for a 3 mm LED
-ROD_D = 10.0          # wooden core rod (beech dowel) through neck, spine and adapter
-WIRE_R = 1.7          # wire channel running along the top of the rod
-WIRE_OFF = 5.9        # its centre distance from the axis
-PLUG_D = 15.0         # spine connector plug diameter
+ROD_D = 8.0           # wooden core rod (beech dowel) through neck, spine and adapter
+WIRE_R = 1.6          # wire channel running along the top of the rod
+WIRE_OFF = 4.65       # its centre distance from the axis
+PLUG_D = 12.0         # spine connector plug diameter
 PLUG_L = 8.0
 
 CREW_R = 36.0         # crew module radius (sphere)
 CREW_CYL = 0.0        # optional cylindrical stretch per half; 0 = pure sphere
 CREW_WALL = 1.6
-NECK_R = 12.5
+NECK_R = 10.0
 NECK_L = 16.0
 
-SPINE_R = 12.5        # circumradius of octagonal spine core
+SPINE_R = 10.0        # circumradius of octagonal spine core
 SEG_L = 126.0         # length of one spine segment
 N_SEG = 4             # number of spine segments (sphere diameter : length = 1 : 10)
 
@@ -647,7 +647,7 @@ def spine_segment(kinds, antenna_hole=False, lug_at=None):
         lg, lg_hole = lug(ap, lug_at)
         m = (m + lg) - lg_hole
     if antenna_hole:
-        m -= cyl(4.0 + 1, 2.0 + CLEAR, seg=32).rotate([0, 90, 0]).translate([ap - 4.0, 0, 12.0])
+        m -= cyl(MAST_PIN + 1, 2.0 + CLEAR, seg=32).rotate([0, 90, 0]).translate([ap - MAST_PIN, 0, 12.0])
         m -= cyl(ap, 0.8, seg=16).rotate([0, 90, 0]).translate([0, 0, 12.0])      # antenna wires into the spine channel
     return m
 
@@ -699,7 +699,8 @@ def antenna_dishes():
 
 
 MAST_AX = 4.0         # hinge axis height above the arm tips (mast is printed upside down)
-MAST_H = 30.5
+MAST_PIN = 3.0        # length of the pin that sits in the spine (stays clear of the wire channel)
+MAST_H = 26.5 + MAST_PIN
 
 
 def antenna_mast():
@@ -708,7 +709,7 @@ def antenna_mast():
     bridge = box(6, 10.5, 2.5, 0, 0, 10.25)
     col = cyl(15.0, 3.0, seg=48, z=11.49)
     collar = cyl(1.2, 3.8, seg=48, z=24.0)
-    pin = cyl(4.0, 2.0, seg=48, z=26.49)
+    pin = cyl(MAST_PIN, 2.0, seg=48, z=26.49)
     m = union(arms + [bridge, col, collar, pin])
     m -= cyl(14, 0.95, seg=24, z=-7).rotate([90, 0, 0]).translate([0, 0, MAST_AX])  # press fit for the filament pin
     m -= cyl(23.0, 0.65, seg=16, z=8.9)                      # wire channel from the fork down through the pin
@@ -941,14 +942,14 @@ def main():
     x4 = x3 + 30.0 - 4.0             # block front face (adapter lip sits 4 mm inside)
     ap = SPINE_R * math.cos(math.radians(22.5))
     xa = x1 + (ANT_SEG + 1) * SEG_L - 12.0
-    za = ap - 4.0 + MAST_H - MAST_AX
+    za = ap - MAST_PIN + MAST_H - MAST_AX
     asm = [fwd(front, x_mid), aft(rear, x_mid)]
     asm += [fwd(segs[i], x1 + (i + 1) * SEG_L) for i in range(N_SEG)]
     xr = x4 + Z_TOP                  # rear face of the engine housing
     asm += [fwd(noz, xr + NOZ_L + NOZ_FLANGE).translate([0, c * ENG_COL, sx * ENG_OFF])
             for sx in (-1, 1) for c in (-1, 0, 1)]
     asm += [fwd(adp, x3 + 30.0), fwd(blk, x4 + Z_TOP),
-            mast.rotate([180, 0, 0]).translate([xa, 0, ap - 4.0 + MAST_H]),
+            mast.rotate([180, 0, 0]).translate([xa, 0, ap - MAST_PIN + MAST_H]),
             fwd(dishes, xa + AX_Z).translate([0, 0, za])]
     cock_ship = cock.rotate([0, 0, 180]).translate([x_mid, 0, COCK_DECK])
     print("cockpit vs hull overlap volume:", round((cock_ship ^ union(asm[:2])).volume(), 3))
