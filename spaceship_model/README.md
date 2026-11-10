@@ -25,11 +25,11 @@ Das Modell wird **frei hängend** montiert; Akku, Elektronik und Schalter sitzen
 | 03_crew_joiner_ring | Verbindungsring | in die hintere Hälfte kleben |
 | 04_spine_front_antenna | Wirbelsäule vorn (252 mm), Loch für den Antennenmast am hinteren Ende | stehend, **Brim 10 mm**, max. 25 mm/s |
 | 05_spine_rear | Wirbelsäule hinten (252 mm) mit **Aufhängeöse** am vorderen Ende | stehend, **Brim 10 mm**, max. 25 mm/s |
-| 06_antenna_dishes | Träger: große Schüssel oben, zwei kleine links und rechts darunter, LED-Sitze und Kabelnut | Schüsseln öffnen nach oben, langsam drucken |
+| 06_antenna_dishes | Träger mit großer Schüssel in der Mitte und je einer kleinen links und rechts; Turm mit LED-Sitz an der Spitze, LED-Sitze an beiden Enden des Querträgers, Kabelnut auf der Rückseite | Schüsseln öffnen nach oben, langsam drucken |
 | 07_antenna_mast | Mast mit Gabel und Kabelkanal | kopfüber (Gabel unten), Brim 5 mm |
 | 08_adapter_collar | Übergang Wirbelsäule → Block | breite Seite unten; **nur stecken, nicht kleben** (Zugang zum Akku) |
 | 09_engine_block | Reaktorblock (153 mm) mit Akku-/Elektronikraum, Ausschnitten für Schalter und USB-C, **Aufhängeöse**, 6 Düsensockeln | Heckfläche nach unten |
-| 10_engine_nozzle_6x | Glockendüse (Ø 22 mm, Wand 0,8 mm) | **6× drucken**, Rand unten, langsam; Zapfen ins Heck kleben |
+| 10_engine_nozzle_6x | Glockendüse (Ø 21 mm, Wand 0,8 mm) mit LED-Sitz im Düsenhals | **6× drucken**, Rand unten, langsam; Zapfen ins Heck kleben |
 | 11_cockpit_interior | Cockpit-Einsatz: Deck, 2 Sitze, Instrumentenpult, Mittelkonsole, Rückwand | Deck nach unten; 0,08 mm Schichthöhe |
 | 00_assembly_preview_only | Nur Vorschau | **nicht drucken** |
 
@@ -92,11 +92,11 @@ Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
 | 1 | TP4056-Lademodul **mit Schutzschaltung** (DW01), USB-C, ca. 28 × 17 mm | Laden + Tiefentlade-/Kurzschlussschutz | Anschlüsse B+/B− und OUT+/OUT− |
 | 1 | MT3608 Step-up-Modul (36 × 17 mm) | macht aus 3–4,2 V stabile 5 V | **vor dem Anschließen der LEDs auf 5,0 V einstellen** |
 | 1 | Mini-Wippschalter KCD11, 2-polig, Einbauausschnitt 13,5 × 9 mm | Ein/Aus | rastet von außen in die Blockunterseite |
-| 6 | LED 3 mm **warmweiß**, klar | Triebwerke, je eine mittig hinter jeder Düse | |
+| 6 | LED 3 mm **warmweiß**, klar | Triebwerke: sitzt im Düsenhals, die Spitze ist als Lichtpunkt mittig in der Düse sichtbar | |
 | 1 | LED 3 mm **warmweiß**, diffus | Cockpit | |
-| 1 | SMD-LED 0805 **rot**, vorverdrahtet, **50 cm**, **ohne** eingebauten Widerstand | große Schüssel oben (blinkend) | etwas größer und heller als 0402 |
-| 2 | SMD-LED 0402 **rot**, vorverdrahtet mit Kupferlackdraht, **50 cm**, **ohne** eingebauten Widerstand | kleine Schüsseln links und rechts unten (blinkend) | Sets mit Widerstand für 9–18 V sind bei 5 V zu dunkel |
-| 6 / 1 / 1 / 2 | Widerstand 150 Ω / 220 Ω / 220 Ω / 330 Ω, 0,25 W | Triebwerke / Cockpit / große Schüssel / kleine Schüsseln | je LED einer |
+| 1 | SMD-LED 0805 **rot**, vorverdrahtet, **50 cm**, **ohne** eingebauten Widerstand | Spitze des Antennenturms (blinkend) | etwas größer und heller als 0402 |
+| 2 | SMD-LED 0402 **rot**, vorverdrahtet mit Kupferlackdraht, **50 cm**, **ohne** eingebauten Widerstand | linkes und rechtes Ende des Querträgers (blinkend) | Sets mit Widerstand für 9–18 V sind bei 5 V zu dunkel |
+| 6 / 1 / 1 / 2 | Widerstand 150 Ω / 220 Ω / 220 Ω / 330 Ω, 0,25 W | Triebwerke / Cockpit / Turmspitze / Trägerenden | je LED einer |
 | 1 | NE555 (DIP-8), dazu 10 kΩ, 68 kΩ, Elko 10 µF / 16 V, Kondensator 100 nF | Blinkgeber, ca. 1 Hz | optional IC-Sockel 8-polig |
 | 1 | Stück Lochrasterplatine ca. 30 × 25 mm | Verteiler + Blinkgeber | |
 | 2 m | Litze 0,14 mm², rot und schwarz | Verbindungen | |
@@ -113,8 +113,8 @@ Radiatorrippen und ein Schleusenmodul an der Wirbelsäule.
                                                  MT3608 OUT− (GND)  ──► GND-Schiene ┘ im Reaktorblock
    5 V ──150 Ω──►|── GND   (6 ×, Triebwerke warmweiß)
    5 V ──220 Ω──►|── GND   (1 ×, Cockpit warmweiß; zwei Litzen durch die Wirbelsäule nach vorn)
-   5 V ──220 Ω──►|── NE555 Pin 3   (1 ×, große Schüssel oben, rot 0805, blinkend)
-   5 V ──330 Ω──►|── NE555 Pin 3   (2 ×, kleine Schüsseln, rot 0402, blinkend; Lackdrähte durch Mast und Wirbelsäule)
+   5 V ──220 Ω──►|── NE555 Pin 3   (1 ×, Turmspitze, rot 0805, blinkend)
+   5 V ──330 Ω──►|── NE555 Pin 3   (2 ×, Trägerenden links/rechts, rot 0402, blinkend; Lackdrähte durch Mast und Wirbelsäule)
 ```
 
 Blinkgeber (NE555 als Taktgeber, auf derselben Lochrasterplatine):
@@ -147,11 +147,13 @@ Akkuwechsel: Übergangsstück (08) abziehen, Halter nach vorn herausziehen. Norm
 
 ### Leitungswege
 
-- **Triebwerke:** sechs LEDs von innen in die Sitze stecken; die Kanäle der vier äußeren Düsen laufen schräg.
+- **Triebwerke:** an jede LED zwei Litzen löten, die Litzen von hinten durch den Düsensockel in den Block fädeln (die Kanäle der vier äußeren Düsen laufen schräg),
+  die LED von hinten in die Düse stecken, bis der Kragen anliegt (die Spitze ragt 1,5 mm in den Trichter), dann die Düse in den Sockel kleben.
 - **Cockpit:** zwei Litzen vom Block durch Übergangsstück und Wirbelsäule (Kanal Ø 4,5 mm) in die Kugel, LED in das Loch über der Cockpittür.
-- **Antennen:** jede Schüssel hat in der Mitte einen Sitz mit Bohrung (Ø 0,9 mm) nach hinten: Ø 3 mm in der großen Schüssel (für 0805), Ø 2,4 mm in den kleinen (für 0402). Die Lackdrähte laufen in der Nut
-  auf der Rückseite des Trägers zur Mitte, mit einer **lockeren Schlaufe** (ca. 15 mm) über das Scharnier, durch den Mast (Ø 1,3 mm) und das Loch
-  in der Wirbelsäule in den Hauptkanal und nach hinten in den Block. Bohrungen nach dem Druck mit einem 0,8–1-mm-Bohrer freimachen.
+- **Antennen:** die rote 0805-LED sitzt in der Mulde (Ø 3,2 mm) an der Spitze des Turms hinter der großen Schüssel, die beiden 0402-LEDs in den Mulden (Ø 2,4 mm)
+  auf den Pfosten an den Enden des Querträgers; alle drei leuchten nach vorn. Jede Mulde hat eine Bohrung (Ø 0,9 mm) nach hinten. Die Lackdrähte laufen in der Nut
+  auf der Rückseite von Turm und Querträger zur Mitte, mit einer **lockeren Schlaufe** (ca. 15 mm) über das Scharnier, durch den Mast (Ø 1,3 mm) und das Loch
+  in der Wirbelsäule in den Hauptkanal und nach hinten in den Block. Bohrungen nach dem Druck mit einem 0,8–1-mm-Bohrer freimachen, LEDs mit einem Tropfen Klarlack fixieren.
 - **Reihenfolge:** erst alle Leitungen einziehen und am Verteiler testen, dann kleben.
 
 ### Sicherheit

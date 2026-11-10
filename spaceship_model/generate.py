@@ -41,7 +41,9 @@ ENG_COL = 23.0        # horizontal spacing of the three nozzle columns
 ENG_R = 10.0
 ENG_L = 30.0
 NOZ_L = 16.0          # length of the bell nozzle
-NOZ_RT = 2.2          # throat radius (inner)
+NOZ_RT = 1.6          # throat radius = 3 mm LED, which sits in the throat
+NOZ_LED_OUT = 1.5     # how far the LED tip protrudes into the bell
+NOZ_WIRE_R = 2.2      # passage for the LED legs and wires behind the nozzle
 NOZ_WALL = 0.8
 NOZ_FLANGE = 3.5      # flange height between bell and plug
 NOZ_PLUG_R = 3.4
@@ -627,42 +629,48 @@ def spine_segment(kinds, antenna_hole=False, lug_at=None):
 
 
 def dish(r, stem_r, z0):
-    """Conical dish opening upward (45 deg wall, prints without support).
-    The flat centre is the seat for a pre-wired 0402 LED; its wires leave through a bore below."""
+    """Conical dish opening upward (45 deg wall, prints without support) with a feed horn."""
     h = r - stem_r
     shell = cyl(h, stem_r, r, seg=96, z=z0) - cyl(h, stem_r, r, seg=96, z=z0 + 1.1)
     rim = cyl(0.8, r + 0.5, seg=96, z=z0 + h - 0.8) - cyl(2, r - 0.3, seg=96, z=z0 + h - 1.4)
-    hood = cyl(0.8, stem_r, seg=32, z=z0 + 1.0) - cyl(2, stem_r - 0.5, seg=32, z=z0 + 0.5)
-    return union([shell, rim, hood]).trim_by_plane([0, 0, -1], -(z0 + h))
+    horn = cyl(h * 0.6, 0.9, seg=24, z=z0 + 0.5)
+    tip = cyl(1.2, 1.5, seg=24, z=z0 + h * 0.6 + 0.4)
+    return union([shell, rim, horn, tip]).trim_by_plane([0, 0, -1], -(z0 + h))
 
 
 AX_Z = 3.2            # hinge axis height in the dish carrier (print coords)
+TOWER_TOP = 34.0      # height of the tower tip above the hinge (carries the larger red LED)
+BAR_HALF = 43.0       # half length of the cross bar (small red LEDs at both ends)
 
 
-DISH_BIG_UP = 12.0    # how far the large dish sits above the two small ones
+def led_post(height, r_out, r_pocket):
+    """Post with a pocket on top for a pre-wired SMD LED and a wire bore down to the back."""
+    post = cyl(height, r_out + 0.5, r_out, seg=32)
+    return post, cyl(1.3, r_pocket, seg=24, z=height - 1.2), cyl(height + 2, 0.45, seg=16, z=0.5)
 
 
 def antenna_dishes():
-    """Large dish on top, two small dishes below left and right, on a tilting carrier.
+    """Large dish in the middle, a small dish on each side, on a tilting carrier.
+    Three red LEDs: a larger one on the tower tip, two small ones at the ends of the cross bar.
     Print coords: +z = ship forward (dishes open upward), +x = ship up, hinge along y."""
-    xb, xt = 7.8, 7.8 + DISH_BIG_UP
-    hub = box(6, 6, 6.4, 0, 0, 3.2)
-    web = box(3.0, 6, 6.4, 4.4, 0, 3.2)
-    bar = box(4.0, 64, 4.0, xb, 0, 2.0)
-    riser = box(DISH_BIG_UP + 2.0, 4.0, 4.0, xb + DISH_BIG_UP / 2 + 1.0, 0, 2.0)
-    parts = [hub, web, bar, riser]
-    seats = ((xt, 0, 19.0, 2.0), (xb, -29, 9.0, 1.7), (xb, 29, 9.0, 1.7))
-    for x, y, r, sr in seats:
-        parts.append(cyl(3.2, sr + 0.6, sr, seg=32, z=3.9).translate([x, y, 0]))
-        parts.append(dish(r, sr, 7.0).translate([x, y, 0]))
+    xb = 7.8
+    parts = [box(6, 6, 6.4, 0, 0, 3.2), box(3.0, 6, 6.4, 4.4, 0, 3.2),              # hub + web
+             box(4.0, 2 * BAR_HALF, 4.0, xb, 0, 2.0),                               # cross bar
+             box(TOWER_TOP - xb + 2.0, 4.0, 4.0, (TOWER_TOP + xb) / 2 + 1.0, 0, 2.0)]  # tower behind the big dish
+    for y, r, sr in ((0, 19.0, 2.0), (-29, 9.0, 1.4), (29, 9.0, 1.4)):
+        parts.append(cyl(3.2, sr + 0.6, sr, seg=32, z=3.9).translate([xb, y, 0]))
+        parts.append(dish(r, sr, 7.0).translate([xb, y, 0]))
     for y in (-14.5, 14.5):                                  # small equipment boxes on the bar
         parts.append(box(3.0, 5, 1.2, xb, y, 4.5))
-    m = union(parts)
+    cuts = []
+    for x, y, h, ro, rp in ((TOWER_TOP, 0, 8.0, 2.3, 1.6), (xb, -BAR_HALF + 2.0, 11.0, 1.9, 1.2), (xb, BAR_HALF - 2.0, 11.0, 1.9, 1.2)):
+        post, pocket, bore = led_post(h, ro, rp)
+        parts.append(post.translate([x, y, 0]))
+        cuts += [pocket.translate([x, y, 0]), bore.translate([x, y, 0])]
+    m = union(parts) - union(cuts)
     m -= cyl(10, 1.1, seg=24, z=-5).rotate([90, 0, 0]).translate([0, 0, AX_Z])   # hinge bore (1.75 mm filament)
-    for x, y, r, sr in seats:                                # LED wire bores up into each dish
-        m -= cyl(9.0, 0.45, seg=16, z=0.5).translate([x, y, 0])
-    m -= box(1.4, 59.4, 1.8, xb, 0, 0)                       # wire groove on the back of the bar
-    m -= box(xt + 3.9, 1.4, 1.8, (xt + 0.7 - 3.2) / 2, 0, 0)  # ... up the riser and down to the hinge
+    m -= box(1.4, 2 * BAR_HALF - 4.6, 1.8, xb, 0, 0)         # wire groove on the back of the bar
+    m -= box(TOWER_TOP + 3.9, 1.4, 1.8, (TOWER_TOP + 0.7 - 3.2) / 2, 0, 0)  # ... along the tower and down to the hinge
     return m
 
 
@@ -754,11 +762,11 @@ def engine_block():
     # interior
     cuts.append(octa(BLOCK_L, BLOCK_CAV_R, z=Z_FLOOR))
     for x, y in corners:
-        z_led1 = NOZ_PLUG_L + NOZ_PLUG_R + CLEAR - LED_D / 2 + 3.4
+        z_led1 = NOZ_PLUG_L + NOZ_PLUG_R + CLEAR - NOZ_WIRE_R + 3.4
         rs = NOZ_PLUG_R + CLEAR
         cuts.append(cyl(NOZ_PLUG_L + 0.21, rs, seg=48, z=-0.01).translate([x, y, 0]))             # nozzle socket
-        cuts.append(cyl(rs - LED_D / 2, rs, LED_D / 2, seg=48, z=NOZ_PLUG_L + 0.19).translate([x, y, 0]))
-        cuts.append(cyl(4.0, LED_D / 2, seg=32, z=NOZ_PLUG_L + rs - LED_D / 2).translate([x, y, 0]))  # LED seat
+        cuts.append(cyl(rs - NOZ_WIRE_R, rs, NOZ_WIRE_R, seg=48, z=NOZ_PLUG_L + 0.19).translate([x, y, 0]))
+        cuts.append(cyl(4.0, NOZ_WIRE_R, seg=32, z=NOZ_PLUG_L + rs - NOZ_WIRE_R).translate([x, y, 0]))  # wire passage
         y_top = y * 13.5 / ENG_COL                         # outer bores slant inward to reach the cavity
         cuts.append(hull(cyl(0.5, 3.25, seg=32, z=z_led1).translate([x, y, 0]),
                          cyl(0.5, 3.25, seg=32, z=Z_FLOOR).translate([x, y_top, 0])))             # wire bore
@@ -789,7 +797,8 @@ def nozzle():
     ro_t = NOZ_RT + NOZ_WALL
     outer_pts = [(0, 0)] + [(r + NOZ_WALL, z) for r, z in prof] + \
                 [(ro_t + 2.0, NOZ_L + 2.0), (ro_t + 2.0, z1), (NOZ_PLUG_R, z1), (NOZ_PLUG_R, z2), (0, z2)]
-    inner_pts = [(0, -1)] + [(prof[0][0], -1)] + prof + [(NOZ_RT, z2 + 1), (0, z2 + 1)]
+    z_sh = NOZ_L - NOZ_LED_OUT + 4.3                                 # shoulder for the LED flange (LED body = 4.3 mm)
+    inner_pts = [(0, -1)] + [(prof[0][0], -1)] + prof + [(NOZ_RT, z_sh), (2.05, z_sh), (2.05, z2 + 1), (0, z2 + 1)]
     outer = Manifold.revolve(CrossSection([outer_pts]), 96)
     inner = Manifold.revolve(CrossSection([inner_pts]), 96)
     rings = [cyl(1.0, prof[0][0] + NOZ_WALL + 0.45, seg=96)]          # rim band
