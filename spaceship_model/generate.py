@@ -592,7 +592,10 @@ def crew_joiner():
 
 def _crew_joiner():
     r = math.sqrt((CREW_R - CREW_WALL) ** 2 - 16.0) - CLEAR   # fits 4 mm into each half
-    return cyl(8, r) - cyl(9, r - 1.2, z=-0.5) - box(4.0, 2.4, 10, r - 0.6, 0, 4.0)   # slot for the alignment ribs
+    ring = cyl(8, r) - cyl(9, r - 1.6, z=-0.5)                 # 1.6 mm wall = whole number of 0.44 mm lines at 100 cm
+    bridge = box(1.9, 7.0, 8, r - 2.25, 0, 4.0)                # keeps the ring closed behind the slot
+    slot = box(3.1, 2.4, 10, r - 0.15, 0, 4.0)                 # slot for the alignment ribs (does not cut through any more)
+    return (ring + bridge) - slot
 
 
 # ----------------------------------------------------------------------- spine
