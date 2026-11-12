@@ -8,8 +8,9 @@ no extra packages, little memory):
   main subject (mood.layout_of); below the horizon the ground comes nearer towards the bottom, the
   sky stays far, and the subject stands at the depth of the ground at its feet. Without Claude the
   bottom of the picture counts as near and the top as far.
-- camera: one of three moves per picture (push in, drift sideways, rise), eased in and out. Near
-  parts move and grow more than far parts, which is what makes the picture feel deep.
+- camera: one of three moves per picture (push in, drift sideways, rise), eased in and out. With
+  parallax=True near parts move more than far parts; that is off by default, because a depth map
+  guessed from the layout morphs rigid objects.
 - particles: dust, embers, ash or sparks that suit the mood, in three depths, plus a faint
   breathing of the light.
 """
@@ -76,13 +77,15 @@ def _sprite(r):
     return np.exp(-(g[:, None] ** 2 + g[None, :] ** 2) / (2 * (r / 1.6) ** 2))
 
 
-def frames(img, seconds, fps, seed, mood=None, horizon=None, box=None):
+def frames(img, seconds, fps, seed, mood=None, horizon=None, box=None, parallax=False):
     """img: PIL RGB image already in reel size. Yields uint8 HxWx3 frames."""
     rng = np.random.default_rng(seed)
     src = np.asarray(img, dtype=np.uint8)
     h, w = src.shape[:2]
     flat = src.reshape(-1, 3)
-    depth = depth_map(w, h, horizon, box)
+    # The camera moves the picture as one rigid plane. A depth map from the layout alone bent rigid
+    # things (a saucer, a face) like rubber, so parallax stays off until a real depth model is used.
+    depth = np.full((h, w), 0.6, dtype=np.float32) if not parallax else depth_map(w, h, horizon, box)
     cx, cy = (w - 1) / 2, (h - 1) / 2
     dxrow = np.arange(w, dtype=np.float32) - cx
     STRIP = 160  # rows warped at once: keeps the memory small (the server has 1 GB)
