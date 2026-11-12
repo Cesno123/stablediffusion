@@ -115,9 +115,12 @@ landing), arch (a journey), wave (drifting, dreamy), valley (tension that resolv
 Judge the content and the feeling, not the painting technique.
 Finally write `line`: one English sentence of at most 110 characters for the Instagram caption. Say what is
 happening in this picture, vivid and a little poetic, like the blurb on an old science fiction paperback.
-Only what is really visible in the picture. No hashtags, no emoji, no quotation marks."""
+Only what is really visible in the picture. No hashtags, no emoji, no quotation marks, no question.
+Last, the `layout` for a gentle camera move through the picture, as fractions of width and height from the
+top left: `horizon` is the height of the horizon line (-1 if there is none, for example a close view or an
+interior), and `subject` is the box around the main subject that stands in front (x0, y0, x1, y1)."""
 SCHEMA = {"type": "object", "additionalProperties": False,
-          "required": ["cues", "lead", "contour", "sounds", "reason", "line"],
+          "required": ["cues", "lead", "contour", "sounds", "reason", "line", "layout"],
           "properties": {"cues": {"type": "array", "items": {
                              "type": "object", "additionalProperties": False, "required": ["cue", "fit"],
                              "properties": {"cue": {"type": "string", "enum": list(FITS)}, "fit": {"type": "integer"}}}},
@@ -125,8 +128,13 @@ SCHEMA = {"type": "object", "additionalProperties": False,
                          "contour": {"type": "string", "enum": CONTOURS},
                          "sounds": {"type": "array", "items": {"type": "string", "enum": SOUNDS}},
                          "reason": {"type": "string", "description": "a few words on what the picture shows"},
-                         "line": {"type": "string", "description": "one caption sentence about this picture"}}}
-_SEEN = {}  # path -> (result of ask_claude, caption line): one Claude call per picture serves both
+                         "line": {"type": "string", "description": "one caption sentence about this picture"},
+                         "layout": {"type": "object", "additionalProperties": False, "required": ["horizon", "subject"],
+                                    "properties": {"horizon": {"type": "number"}, "subject": {
+                                        "type": "object", "additionalProperties": False,
+                                        "required": ["x0", "y0", "x1", "y1"],
+                                        "properties": {k: {"type": "number"} for k in ("x0", "y0", "x1", "y1")}}}}}}
+_SEEN = {}  # path -> (result of ask_claude, caption line, layout): one Claude call per picture serves all
 
 
 def ask_claude(path):
@@ -134,21 +142,36 @@ def ask_claude(path):
     The caption line Claude writes in the same answer is kept for caption_line()."""
     if path in _SEEN:
         return _SEEN[path][0]
-    result, line = _ask(path)
-    if result is not None or line:
-        _SEEN[path] = (result, line)
+    result, line, layout = _ask(path)
+    if result is not None or line or layout:
+        _SEEN[path] = (result, line, layout)
     return result
 
 
 def caption_line(path):
     """One sentence about this picture for the caption, written by Claude; None without Claude."""
     ask_claude(path)
-    return _SEEN.get(path, (None, None))[1]
+    return _SEEN.get(path, (None, None, None))[1]
+
+
+def layout_of(path):
+    """(horizon or None, subject box or None) as fractions, for motion.py; (None, None) without Claude."""
+    ask_claude(path)
+    lay = _SEEN.get(path, (None, None, None))[2] or {}
+    h = lay.get("horizon")
+    horizon = float(h) if isinstance(h, (int, float)) and 0.05 < h < 0.95 else None
+    b = lay.get("subject") or {}
+    try:
+        box = tuple(min(1.0, max(0.0, float(b[k]))) for k in ("x0", "y0", "x1", "y1"))
+        box = box if box[2] - box[0] > 0.03 and box[3] - box[1] > 0.03 else None
+    except (KeyError, TypeError, ValueError):
+        box = None
+    return horizon, box
 
 
 def _ask(path):
     if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
-        return None, None
+        return None, None, None
     try:
         import anthropic
 
@@ -176,15 +199,16 @@ def _ask(path):
         tune += [f"contour:{out['contour']}"] if out.get("contour") in CONTOURS else []
         tune += [f"sound:{x}" for x in out.get("sounds", []) if x in SOUNDS][:4]
         line = " ".join(str(out.get("line", "")).replace('"', "").split())[:140] or None
+        layout = out.get("layout") if isinstance(out.get("layout"), dict) else None
         if cues:
             scores = ", ".join(f"{c['cue']} {c.get('fit')}" for c in good[:3])
             return (cues[0].split(":")[0], f"claude: {str(out.get('reason', ''))[:80]} -> {scores}; "
                     f"{out.get('lead')} {out.get('contour')}; sounds {', '.join(out.get('sounds', []))}",
-                    cues + tune), line
-        return None, line
+                    cues + tune), line, layout
+        return None, line, layout
     except Exception as e:  # never let the soundtrack stop a post
         print(f"mood: claude failed ({type(e).__name__}: {e}), using words and colors", file=sys.stderr, flush=True)
-    return None, None
+    return None, None, None
 
 
 def mood_of(path, caption=""):

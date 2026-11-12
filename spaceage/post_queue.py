@@ -41,7 +41,7 @@ INTROS = [
     "landscapes to futuristic worlds, our gallery brings the thrill of space exploration "
     "to life. ✨",
     "🌌 Another world from the SpaceAge42 archive – painted like the old paperback covers "
-    "we used to stare at for hours. Where would you land? 🚀",
+    "we used to stare at for hours. 🚀",
     "✨ Giant machines, strange skies, tiny travellers. A new vision from SpaceAge42 – "
     "the future as the 70s and 80s dreamed it. 🪐",
     "🛸 Somewhere out there, this is just an ordinary day. SpaceAge42 – cosmic art and "
@@ -50,9 +50,9 @@ INTROS = [
     "SpaceAge42, a gallery of worlds that never were – yet. 🚀",
     "🌠 Turn the volume up, let the picture pull you in. SpaceAge42 – interstellar "
     "landscapes and futuristic worlds, one transmission at a time. 📡",
-    "🚀 Ready for departure? SpaceAge42 brings you sci-fi art inspired by the golden age "
+    "🚀 Ready for departure. SpaceAge42 brings you sci-fi art inspired by the golden age "
     "of space paintings – for everyone who still looks up at night. 🌌",
-    "🌌 A postcard from the far future. Which detail do you spot first? SpaceAge42 – "
+    "🌌 A postcard from the far future. SpaceAge42 – "
     "cosmic art and sci-fi visions. ✨",
 ]
 HASHTAGS = (
@@ -78,7 +78,8 @@ QUESTIONS = [
 
 def default_caption(src):
     """Intro and hashtags for one file. The intro is Claude's sentence about the picture when Claude
-    is reachable, else one of INTROS; the same file always gets the same tags and question."""
+    is reachable, else one of INTROS; the same file always gets the same tags. No questions to the viewers:
+    Instagram does not monetize content posted to make people answer questions."""
     import hashlib
     import random
 
@@ -92,8 +93,6 @@ def default_caption(src):
         line = None
     if line:
         intro = f"{rng.choice(LINE_EMOJI)} {line}"
-    if rng.random() < 0.5:
-        intro += "\n\n" + rng.choice(QUESTIONS)
     return intro + "\n\n" + " ".join(tags)
 
 
@@ -175,7 +174,6 @@ def ffmpeg_exe():
         return "ffmpeg"
 
 
-ZOOM = 0.08  # total zoom over the clip: slow and subtle
 
 
 def cover(img, w, h):
@@ -200,7 +198,7 @@ def reel_frame(img):
 
 
 def to_reel(src, dst, seed):
-    """Still image -> 9:16 MP4 with a slow centered zoom and ambient sound."""
+    """Still image -> 9:16 MP4 with a 2.5D camera move, drifting particles (motion.py) and music."""
     from music import pick  # numpy; only needed for images
 
     img = Image.open(src).convert("RGB")
@@ -213,18 +211,26 @@ def to_reel(src, dst, seed):
     mood, why, cues = mood_of(src, caption_for(src) if os.path.exists(own) else "")
     print(f"mood: {mood} ({why})", file=sys.stderr, flush=True)
     print(f"music: {pick(wav, REEL_SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood, cues)}", file=sys.stderr, flush=True)
-    frames = REEL_SECONDS * FPS
-    # zoompan on a 4x upscaled frame avoids the jitter of integer crop steps
-    zoom = (f"scale={REEL_W * 4}:{REEL_H * 4}:flags=lanczos,"
-            f"zoompan=z='1+{ZOOM}*on/{frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-            f":d={frames}:s={REEL_W}x{REEL_H}:fps={FPS},format=yuv420p")
-    subprocess.run([
-        ffmpeg_exe(), "-y", "-loglevel", "error", "-i", frame, "-i", wav, "-vf", zoom,
+    import motion
+    from mood import layout_of
+
+    horizon, box = layout_of(src)
+    print(f"motion: horizon {horizon}, subject {box}", file=sys.stderr, flush=True)
+    enc = subprocess.Popen([
+        ffmpeg_exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
+        "-s", f"{REEL_W}x{REEL_H}", "-r", str(FPS), "-i", "-", "-i", wav,
         "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-maxrate", "12M", "-bufsize", "24M",
-        "-profile:v", "high", "-level", "4.1", "-r", str(FPS),
+        "-profile:v", "high", "-level", "4.1", "-pix_fmt", "yuv420p", "-r", str(FPS),
         "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-t", str(REEL_SECONDS),
         "-movflags", "+faststart", dst,
-    ], check=True)
+    ], stdin=subprocess.PIPE)
+    try:
+        for f in motion.frames(Image.open(frame).convert("RGB"), REEL_SECONDS, FPS, seed, mood, horizon, box):
+            enc.stdin.write(f.tobytes())
+    finally:
+        enc.stdin.close()
+    if enc.wait():
+        raise RuntimeError("ffmpeg failed while encoding the reel")
     os.remove(frame)
     os.remove(wav)
 
