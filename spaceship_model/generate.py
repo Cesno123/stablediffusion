@@ -609,6 +609,8 @@ def crew_rear():
     body.append(rz(lg, 180))
     m = union(body) - rz(lg_hole, 180)
     m -= rz(core_bore(z_top + 1), 180)                                       # rod + wire channel (upper side = print -x)
+    m -= cyl(8.0, 12.0, 4.0, seg=64, z=dome(NECK_R + 5.0) - 0.7)             # 45 deg cone under the neck: prints without support
+    m = max(m.decompose(), key=lambda c: c.volume())                         # drop loose slivers left by the cone cut
     m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR + FIT, seg=64, z=z_top - PLUG_L - 0.5)  # socket (takes the plug of spine A)
     if FIT:
         m -= rz(box(1.9 + FIT, 3.8 + 2 * FIT, PLUG_L + 0.6, PLUG_D / 2 + 0.3 + FIT / 2, 0, z_top - PLUG_L - 0.5 + (PLUG_L + 0.6) / 2), 180)
@@ -628,7 +630,7 @@ def cockpit_interior():
 
 def _seat(x, y, ang, w=4.4, back_h=7.6, arms=True):
     """Bridge chair on a round pedestal, facing +x before it is turned by ang and moved to x, y."""
-    p = [cyl(1.5, 1.1, seg=24), cyl(0.5, 1.9, seg=24)]                          # pedestal + foot
+    p = [hull(box(w - 2.8, w - 2.8, 0.1, 0, 0, 0.05), box(w, w, 0.1, 0, 0, 1.5))]   # foot widens at 45 deg: no overhang
     p.append(box(w, w, 1.5, 0, 0, 2.25))                                        # cushion
     back = hull(box(1.5, w, 0.1, -w / 2 - 0.1, 0, 1.6), box(1.3, w - 1.2, 0.1, -w / 2 - 0.5, 0, 1.5 + back_h))
     p.append(back)
@@ -947,6 +949,22 @@ X_PIN = TRAY_CUT + 2.0
 Z_LUG = Z_OCT + BLOCK_L / 2 - 5.0
 
 
+def tray_opening(g):
+    """Battery tray opening in block coordinates, shrunk by g for the tray itself. The front end
+    (top when the block is printed) is a roof: the wall closes from both sides at 45 deg measured
+    along the hull and ends in a short flat bridge, so nothing is printed into thin air."""
+    yb = BLOCK_R * math.sin(math.radians(22.5))            # half width of the flat underside
+    flat = 6.5                                             # half width of the bridge in the middle
+    pts = []
+    for sy in (-1, 1):
+        for y, drop in ((flat, 0.0), (yb, yb - flat), (26.0, yb - flat + (26.0 - yb) * math.sqrt(2))):
+            for x in (TRAY_CUT - g, TRAY_CUT - 40):
+                pts.append((x, sy * (y - g), Z_TRAY1 - g * 1.5 - drop))
+        for x in (TRAY_CUT - g, TRAY_CUT - 40):
+            pts.append((x, sy * (26.0 - g), Z_TRAY0 + g))
+    return Manifold.hull_points(pts)
+
+
 def engine_block():
     # six nozzles: three columns side by side (print y), two stacked per column (print x = ship up)
     corners = [(sx * ENG_OFF, c * ENG_COL) for sx in (-1, 1) for c in (-1, 0, 1)]
@@ -1029,7 +1047,7 @@ def engine_block():
     m -= box(6, SWITCH_CUT[0], SWITCH_CUT[1], xw, 0, Z_BAY)
     m += box(0.8, 12.6, 0.8, xw, 0, Z_BAY - 8.6) + box(0.8, 12.6, 0.8, xw, 0, Z_BAY + 8.6)          # switch guard rails
     # battery tray opening: everything below TRAY_CUT between Z_TRAY0 and Z_TRAY1
-    m -= box(40, 80, TRAY_L, TRAY_CUT - 20, 0, (Z_TRAY0 + Z_TRAY1) / 2)
+    m -= tray_opening(0.0)
     m -= cyl(70, PIN_D / 2 + 0.08, seg=16, z=-35).rotate([90, 0, 0]).translate([X_PIN, 0, Z_PIN])    # locking pin holes
     # suspension lug on the upper side (print +x)
     lg, lg_hole = lug(-xw, Z_LUG)
@@ -1043,7 +1061,7 @@ def battery_tray():
     Built in block coordinates; exported lying on its flat underside."""
     g = 0.2 + FIT                                             # clearance to the opening
     shell = octa(BLOCK_L, BLOCK_R, z=Z_OCT) - octa(BLOCK_L + 2, BLOCK_CAV_R, z=Z_OCT - 1)
-    tray = shell ^ box(40, 80, TRAY_L - 2 * g, TRAY_CUT - g - 20, 0, (Z_TRAY0 + Z_TRAY1) / 2)
+    tray = shell ^ tray_opening(g)
     xi = -BLOCK_CAV_R * math.cos(math.radians(22.5))          # inner face of the underside wall
     tongue = hull(box(1.4, 12, 3.8, xi + 0.7, 0, Z_TRAY1 - g - 1.9),
                   box(1.2, 12, 0.1, xi + 3.0, 0, Z_TRAY1 + 1.95))
@@ -1067,6 +1085,8 @@ def split_block(blk):
     lower = blk.trim_by_plane([0, 0, -1], -Z_SPLIT)
     lip = octa(6.0, r_lip, z=Z_SPLIT - 0.05) - octa(8.0, r_lip - 1.6, z=Z_SPLIT - 1.0)
     lip -= box(6.0, 8.0, 8.0, -r_lip * math.cos(math.radians(22.5)), 0, Z_SPLIT + 3.0)     # gap for the key tab
+    lip += (octa(Z_SPLIT - Z_FLOOR + 0.05, BLOCK_CAV_R + 0.1, z=Z_FLOOR - 0.05)                # foot of the lip: stands on the
+            - octa(Z_SPLIT - Z_FLOOR + 2, r_lip - 1.6, z=Z_FLOOR - 1.0))                       # cavity floor, fused to the wall
     upper = blk.trim_by_plane([0, 0, 1], Z_SPLIT).translate([0, 0, -Z_SPLIT])
     ap_c = BLOCK_CAV_R * math.cos(math.radians(22.5))
     upper += box(1.6, 6.0, 6.2, -ap_c + 0.7, 0, 3.1)                                       # key tab (ship underside)
