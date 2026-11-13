@@ -21,6 +21,9 @@ CLEAR = 0.15          # radial clearance for plug/socket fits
 # Overall scale: SHIP_SCALE=1.2346 gives a 100 cm ship. Everything grows with it except the features that must
 # match real parts (LEDs, switch, filament pins, core rod); those are divided by K here and come out at true size.
 K = float(os.environ.get("SHIP_SCALE", "1"))
+# FIT_MM: extra radial play (real mm) for parts that still have to be printed, so that they fit parts already printed too tight.
+# New plugs, the adapter lip and the battery tray get smaller by FIT; the neck socket (takes an already printed plug) gets larger.
+FIT = float(os.environ.get("FIT_MM", "0")) / K
 LED_D = 3.2 / K       # hole for a 3 mm LED
 ROD_D = 8.0 if K == 1 else 10.0 / K           # wooden core rod (beech dowel) through neck, spine and adapter
 WIRE_R = 1.6          # wire channel running along the top of the rod
@@ -292,12 +295,18 @@ def core_bore(h, z=0.0):
 def plug_key(z0, length=None):
     """Rib on a round plug (at +x) so that the joint only fits in one orientation."""
     length = PLUG_L if length is None else length
-    return box(1.6, 3.4, length, PLUG_D / 2 + 0.2, 0, z0 + length / 2)
+    return box(1.6, 3.4 - 2 * FIT, length, PLUG_D / 2 + 0.2 - FIT, 0, z0 + length / 2)
 
 
 def socket_key(z0, depth):
     """Matching keyway for plug_key (at +x), with clearance."""
     return box(1.9, 3.8, depth, PLUG_D / 2 + 0.3, 0, z0 + depth / 2)
+
+
+def plug(z0):
+    """Round plug with a chamfered tip; FIT makes it slimmer."""
+    r = PLUG_D / 2 - FIT
+    return cyl(PLUG_L - 1.0, r, seg=64, z=z0) + cyl(1.0, r, r - 0.6, seg=64, z=z0 + PLUG_L - 1.0)
 
 
 def lug(apothem, z0, length=10.0, reach=8.0, thick=4.0):
@@ -509,7 +518,9 @@ def crew_rear():
     body.append(rz(lg, 180))
     m = union(body) - rz(lg_hole, 180)
     m -= rz(core_bore(z_top + 1), 180)                                       # rod + wire channel (upper side = print -x)
-    m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=z_top - PLUG_L - 0.5)  # socket
+    m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR + FIT, seg=64, z=z_top - PLUG_L - 0.5)  # socket (takes the plug of spine A)
+    if FIT:
+        m -= rz(box(1.9 + FIT, 3.8 + 2 * FIT, PLUG_L + 0.6, PLUG_D / 2 + 0.3 + FIT / 2, 0, z_top - PLUG_L - 0.5 + (PLUG_L + 0.6) / 2), 180)
     m -= rz(socket_key(z_top - PLUG_L - 0.5, PLUG_L + 0.6), 180)             # keyway on the ship's upper side
     return m, z_top
 
@@ -660,7 +671,7 @@ def spine_drum(z0, length=24.0):
 
 def spine_segment(kinds, antenna_hole=False, lug_at=None):
     ap = SPINE_R * math.cos(math.radians(22.5))
-    parts = [octa(SEG_L, SPINE_R), cyl(PLUG_L, PLUG_D / 2, seg=64, z=SEG_L - 0.01), plug_key(SEG_L - 0.01)]
+    parts = [octa(SEG_L, SPINE_R), plug(SEG_L - 0.01), plug_key(SEG_L - 0.01)]
     cuts = []
     z = 20.0
     for i, kind in enumerate(kinds):
@@ -898,7 +909,7 @@ def battery_tray():
     """Removable belly pan of the reactor block. The 18650 holder is glued into it, so the cell
     comes out with the tray. A wedge tongue hooks under the front edge, a filament pin locks the rear.
     Built in block coordinates; exported lying on its flat underside."""
-    g = 0.2                                                   # clearance to the opening
+    g = 0.2 + FIT                                             # clearance to the opening
     shell = octa(BLOCK_L, BLOCK_R, z=Z_OCT) - octa(BLOCK_L + 2, BLOCK_CAV_R, z=Z_OCT - 1)
     tray = shell ^ box(40, 80, TRAY_L - 2 * g, TRAY_CUT - g - 20, 0, (Z_TRAY0 + Z_TRAY1) / 2)
     xi = -BLOCK_CAV_R * math.cos(math.radians(22.5))          # inner face of the underside wall
@@ -960,12 +971,12 @@ def nozzle():
 
 def adapter():
     """Tapered collar between spine and block. Printed wide side down."""
-    rl = BLOCK_CAV_R - 0.2
+    rl = BLOCK_CAV_R - 0.2 - FIT
     lip = octa(4.1, rl)
     body = hull(octa(0.05, rl, z=4.0), octa(1.8, BLOCK_R, z=6.2), octa(0.05, SPINE_R + 0.5, z=29.95))
-    plug = cyl(PLUG_L, PLUG_D / 2, seg=64, z=29.99) + plug_key(29.99)
+    plug = globals()['plug'](29.99) + plug_key(29.99)
     ap_l = rl * math.cos(math.radians(22.5))
-    tooth = box(BLOCK_R * math.cos(math.radians(22.5)) - ap_l + 0.1, 3.8, 4.1, (BLOCK_R * math.cos(math.radians(22.5)) + ap_l) / 2, 0, 2.05)
+    tooth = box(BLOCK_R * math.cos(math.radians(22.5)) - ap_l + 0.1, 3.8 - 2 * FIT, 4.1, (BLOCK_R * math.cos(math.radians(22.5)) + ap_l) / 2, 0, 2.05)
     ribs = [rz(hull(box(1.4, 1.6, 0.1, BLOCK_R * 0.92 - 0.3, 0, 8.0), box(1.4, 1.6, 0.1, SPINE_R * 0.92 + 0.6, 0, 29.9)),
                k * 45) for k in range(8)]
     m = union([lip, body, plug, tooth] + ribs)
