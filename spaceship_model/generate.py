@@ -428,20 +428,15 @@ def sph_hatch(feat2, clear, R, theta, phi):
 
 
 def rect_door(feat2, clear, a, z0, z1, hw=13.0):
-    """Rectangular airlock on the sphere at azimuth a: bold frame, recessed door with a raised
-    centre panel, window, handle and hinges."""
+    """Rectangular airlock on the sphere at azimuth a, kept calm: low frame, slightly raised door
+    panel, window surround and handle. All steps are low so no hard edges stand out."""
     area = wedge(a - hw - 1.5, a + hw + 1.5, z0 - 1.0, z1 + 1.0)
     clear.append(area)
-    for a0, a1 in ((a - hw, a - hw + 3.8), (a + hw - 3.8, a + hw)):                # frame sides
-        feat2[1.3].append(wedge(a0, a1, z0, z1))
-    for za, zb in ((z0, z0 + 2.1), (z1 - 2.1, z1)):                                # frame top and bottom
-        feat2[1.3].append(wedge(a - hw, a + hw, za, zb))
-    feat2[0.6].append(wedge(a - hw + 5.2, a + hw - 5.2, z0 + 3.0, z1 - 3.0))       # raised door panel
-    feat2[1.0].append(wedge(a - 3.6, a + 3.6, z1 - 6.6, z1 - 4.2))                 # window surround
-    feat2[1.1].append(wedge(a + hw - 7.6, a + hw - 6.2, z0 + 3.8, z0 + 7.6))       # handle
-    for zh in (z0 + 2.6, z1 - 5.0):                                                # hinges
-        feat2[1.7].append(wedge(a - hw - 0.9, a - hw + 2.0, zh, zh + 2.4))
-    feat2[1.0].append(wedge(a - hw + 2.0, a + hw - 2.0, z0 - 1.0, z0 - 0.1))       # sill below the door
+    feat2[0.5].append(wedge(a - hw, a + hw, z0, z1)
+                      - wedge(a - hw + 3.8, a + hw - 3.8, z0 + 2.1, z1 - 2.1))     # frame
+    feat2[0.25].append(wedge(a - hw + 5.2, a + hw - 5.2, z0 + 3.0, z1 - 3.0))      # door panel
+    feat2[0.5].append(wedge(a - 3.6, a + 3.6, z1 - 6.6, z1 - 4.2))                 # window surround
+    feat2[0.5].append(wedge(a + hw - 7.6, a + hw - 6.2, z0 + 3.8, z0 + 7.6))       # handle
     return area
 
 
@@ -536,36 +531,23 @@ def _crew_front():
     for ph in (135, 225):
         sph_rings(feat, lines, 55, ph, (3.2, 6.2))
 
-    def slab(x0, x1, hy):
-        return box(x1 - x0, 2 * hy, CREW_R, (x0 + x1) / 2, 0, zc + 10 + CREW_R / 2)
+    def stadium(off):
+        """Window outline: one continuous band with round ends, grown by off."""
+        r = 2.75 + off
+        return hull(*[cyl(CREW_R + 6, r, seg=48).translate([7.75, y, 0]) for y in (-17.65, 17.65)])
 
-    cockpit = slab(1.6, 14.1, 25.0)
-    clear.append(cockpit)
-    feat2[0.9].append(slab(3.4, 12.1, 23.0))               # cockpit frame
-    feat2[1.7].append(slab(12.1, 13.9, 24.5))              # brow above the windows
-    feat2[1.3].append(slab(1.8, 3.4, 20.0))                # sill below the windows
+    clear.append(stadium(2.6))
+    feat2[0.3].append(stadium(1.9))                        # low, two-step window frame with round ends
+    feat2[0.6].append(stadium(1.0))
     # three rectangular airlocks spread around the hull: underside, left and right
-    doors = union([rect_door(feat2, clear, 180, zc + 12, zc + 26),
-                   rect_door(feat2, clear, 90, zc + 6, zc + 20),
-                   rect_door(feat2, clear, 270, zc + 6, zc + 20)])
+    rect_door(feat2, clear, 180, zc + 12, zc + 26)
+    rect_door(feat2, clear, 90, zc + 6, zc + 20)
+    rect_door(feat2, clear, 270, zc + 6, zc + 20)
     equipment_belt(feat2, clear, 2.3, 4.9)
-    for ph in (45, 315, 135, 225):
-        rcs_quad(feat2, clear, 78, ph)
-    for a in (58, 302):
-        vent_grille(feat2, clear, a, zc + 21.5, zc + 26.5)
-    for a in (90 - 17.5, 90 + 17.5, 270 - 17.5, 270 + 17.5):
-        handrail(feat2, a, zc + 7.0, zc + 19.0)
-    for a in (180 - 17.5, 180 + 17.5):
-        handrail(feat2, a, zc + 13.0, zc + 25.0)
-    sensor_dome(feat2, clear, 22, 180, 4.0)
-    for ph in (148, 212):
-        sensor_dome(feat2, clear, 31, ph, 2.0)
     grooves = [union(lines) - union(clear)]
     m = crew_build(feat, clear, feat2, grooves) - crew_inner()
-    # forward cockpit windows: five panes separated by 1.2 mm mullions
-    panes = [box(5.5, 7.2, CREW_R, 7.75, -16.8 + i * 8.4, zc + 10 + CREW_R / 2) for i in range(5)]
     m += box(1.9, 1.8, 4.0, -(CREW_R - CREW_WALL) + 0.75, 0, 2.0)          # alignment rib, ship underside
-    return m - union(panes)
+    return m - stadium(0)                                  # one continuous cockpit window
 
 
 def crew_rear():
