@@ -103,7 +103,14 @@ class SpotifyFernbedienung(
      * Gibt false zurück, wenn Spotify gerade nicht erreichbar ist.
      */
     fun spiele(weg: Int = 0): Boolean {
-        val c = waehle() ?: return false
+        val c = waehle()
+        if (c == null) {
+            // Spotify hat seine Sitzung nach langer Pause beendet: Play wie eine Kopfhörertaste
+            // ans System senden, das weckt die zuletzt benutzte Musik-App (Spotify) wieder auf.
+            if (!sitzungenLesbar()) return false
+            systemTaste(KeyEvent.KEYCODE_MEDIA_PLAY)
+            return true
+        }
         letztesLied = titel(c.metadata)
         when (weg) {
             0 -> c.transportControls.play()
@@ -111,12 +118,22 @@ class SpotifyFernbedienung(
                 c.dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY))
                 c.dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY))
             }
-            else -> {
-                audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY))
-                audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY))
-            }
+            else -> systemTaste(KeyEvent.KEYCODE_MEDIA_PLAY)
         }
         return true
+    }
+
+    private fun systemTaste(taste: Int) {
+        audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, taste))
+        audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, taste))
+    }
+
+    /** Ohne Benachrichtigungszugriff ist keine Steuerung erlaubt. */
+    private fun sitzungenLesbar() = try {
+        sitzungen.getActiveSessions(zugriff)
+        true
+    } catch (e: SecurityException) {
+        false
     }
 
     fun pausiere() {

@@ -29,7 +29,7 @@
     <string name="music_seconds_info">Reklamlarda ileri geri mi atlıyor? Artır. Radyodaki şarkıdan çok mu duyuyorsun? Azalt.\nİstasyon şarkı adı bildirirse uygulama 3 saniyede geçer.\nReklam gibi hareketli bölümlerde uygulama en az 20 saniye bekler.</string>
     <string name="news_hour">Saat başı haberleri dinle</string>
     <string name="news_half">Buçuklarda haberleri dinle</string>
-    <string name="news_info">Bu saatlerde yeni Spotify şarkısı başlamaz. Çalan şarkı, radyoda gerçekten konuşma başlayınca durur. İstasyon haber veya reklam bildirirse de öyle.</string>
+    <string name="news_info">Saat başından (buçuktan) itibaren, radyoda gerçekten konuşma başlayınca Spotify durur, anında dönüş kapalı olsa bile. Asla öncesinde.</string>
     <string name="language_header">DİL</string>
     <string name="language_title">Uygulama dili</string>
     <string name="language_system">Telefonla aynı</string>

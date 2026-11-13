@@ -31,7 +31,7 @@
     <string name="music_seconds_info">Jumping back and forth during ads? Increase. Hearing too much of the radio song? Decrease.\nIf the station reports a song title, the app switches after just 3 seconds.\nDuring restless passages like ad breaks the app waits at least 20 seconds.</string>
     <string name="news_hour">Hear the news on the hour</string>
     <string name="news_half">Hear the news on the half hour</string>
-    <string name="news_info">Around that time no new Spotify song starts. A song already playing stops as soon as the radio actually starts talking. Same if the station itself reports news or ads.</string>
+    <string name="news_info">From the full (half) hour on, Spotify stops as soon as the radio really starts talking, even if \"Back to radio as soon as they talk\" is off. Never before the hour.</string>
     <string name="language_header">LANGUAGE</string>
     <string name="language_title">App language</string>
     <string name="language_system">System default</string>

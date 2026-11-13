@@ -29,7 +29,7 @@
     <string name="music_seconds_info">Springt es bei Werbung hin und her? Wert erhöhen. Hörst du zu viel vom Radio-Lied? Wert senken.\nMeldet der Sender einen Liedtitel, schaltet die App schon nach 3 Sekunden um.\nBei Unruhe wie in Werbeblöcken wartet die App mindestens 20 Sekunden.</string>
     <string name="news_hour">Nachrichten zur vollen Stunde hören</string>
     <string name="news_half">Nachrichten zur halben Stunde hören</string>
-    <string name="news_info">Um diese Zeit startet kein neues Spotify-Lied. Ein laufendes stoppt erst, wenn im Radio wirklich gesprochen wird. Meldet der Sender selbst Nachrichten oder Werbung, ebenfalls.</string>
+    <string name="news_info">Ab der vollen (halben) Stunde stoppt Spotify, sobald im Radio wirklich gesprochen wird, auch wenn „sofort zum Radio“ aus ist. Nie vorher.</string>
     <string name="language_header">SPRACHE</string>
     <string name="language_title">App-Sprache</string>
     <string name="language_system">Wie das Handy</string>

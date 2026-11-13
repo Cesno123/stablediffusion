@@ -75,13 +75,9 @@ class RadioService : Service() {
         // ... dann muss Musik mindestens so lange am Stück laufen
         private const val SEKUNDEN_WENN_UNRUHIG = 20
         private const val FRISCHER_TITEL_MS = 30_000L
-        // Nachrichtenfenster um die volle/halbe Stunde. Großzügig nach hinten, weil der Stream
-        // der echten Uhrzeit oft 10–60 s hinterherläuft.
+        // Nachrichtenfenster ab der vollen/halben Stunde (nie davor). Großzügig nach hinten,
+        // weil der Stream der echten Uhrzeit oft 10–60 s hinterherläuft.
         private const val NACHRICHTEN_SEKUNDEN = 6 * 60
-        // Ab hier startet kein neues Spotify-Lied mehr
-        private const val NACHRICHTEN_VORLAUF_SEKUNDEN = 30
-        // Im Nachrichtenfenster reicht so viel Sprache, um Spotify anzuhalten
-        private const val SEKUNDEN_BIS_NACHRICHTEN = 2
         // Kommt eins dieser Wörter im Sendertitel vor, laufen Nachrichten/Werbung (mehrsprachig)
         private val NACHRICHTEN_WOERTER = listOf(
             "nachrichten", "news", "wetter", "verkehr", "werbung", "spot",
@@ -89,8 +85,10 @@ class RadioService : Service() {
         )
         // Musik zählt nur, wenn sie klar erkannt wird und deutlich vor Sprache liegt.
         // So zählt Werbung mit Sprecher über Hintergrundmusik nicht als Musik.
-        private const val MUSIK_MINDESTWERT = 0.5f
-        private const val MUSIK_VORSPRUNG = 0.15f
+        private const val MUSIK_MINDESTWERT = 0.4f
+        private const val MUSIK_VORSPRUNG = 0.1f
+        // Anteil der Sekunden im Fenster, die Musik sein müssen (Rest darf schwanken)
+        private const val MUSIK_ANTEIL = 0.8f
         // So lange darf Spotify still sein, bevor wir zum Radio zurückgehen
         private const val SPOTIFY_STILL_SEKUNDEN = 10
         // Danach so lange nicht erneut Spotify starten, damit es nicht hin und her springt
@@ -226,23 +224,17 @@ class RadioService : Service() {
         }
         verlauf.addLast(istMusik)
         while (verlauf.size > fenster) verlauf.removeFirst()
-        // Musik erst glauben, wenn das ganze Fenster voll ist und höchstens eine Sekunde abweicht
-        if (!radioSpieltMusik && verlauf.size >= fenster && verlauf.count { it } >= fenster - 1) {
+        // Musik erst glauben, wenn das ganze Fenster voll ist und überwiegend Musik war
+        if (!radioSpieltMusik && verlauf.size >= fenster && verlauf.count { it } >= fenster * MUSIK_ANTEIL) {
             radioSpieltMusik = true
         }
         if (radioSpieltMusik && sprachFolge >= SEKUNDEN_BIS_SPRACHE) radioSpieltMusik = false
 
-        if (nachrichtenZeit()) {
-            // Kein neues Spotify-Lied starten. Ein laufendes erst anhalten, wenn im Radio
-            // wirklich gesprochen wird – nicht nach der Uhr, die dem Stream voraus ist.
-            if (modus == Modus.SPOTIFY && sprachFolge >= SEKUNDEN_BIS_NACHRICHTEN) {
-                zurueckZumRadio(spotifyPausieren = true)
-            }
-            aktualisiere()
-            return
-        }
         when (modus) {
             Modus.RADIO -> {
+                // Spotify soll jetzt still sein. Hat ein Pause-Befehl nicht gegriffen (z. B. weil
+                // er genau beim Liedwechsel kam), nochmal pausieren, sonst läuft beides gleichzeitig.
+                if (spotify?.spieltGerade() == true) spotify?.pausiere()
                 if (spotifySperre > 0) {
                     spotifySperre--
                 } else if (radioSpieltMusik) {
@@ -250,7 +242,9 @@ class RadioService : Service() {
                 }
             }
             Modus.SPOTIFY -> {
-                if (!radioSpieltMusik && Einstellungen.sofortZurueck(this)) {
+                // Bei Sprache zurück zum Radio: immer, wenn so eingestellt, und zu Nachrichtenzeiten
+                // auch sonst. Entscheidend ist echte Sprache im Radio, nicht die Uhr.
+                if (!radioSpieltMusik && (Einstellungen.sofortZurueck(this) || nachrichtenZeit())) {
                     zurueckZumRadio(spotifyPausieren = true)
                     aktualisiere()
                     return
@@ -292,8 +286,7 @@ class RadioService : Service() {
         if (titel != null && " - " !in titel && NACHRICHTEN_WOERTER.any { it in titel }) return true
         val jetzt = Calendar.getInstance()
         val sekunde = jetzt.get(Calendar.MINUTE) * 60 + jetzt.get(Calendar.SECOND)
-        fun um(start: Int) = (sekunde - start + NACHRICHTEN_VORLAUF_SEKUNDEN + 3600) % 3600 <
-            NACHRICHTEN_SEKUNDEN + NACHRICHTEN_VORLAUF_SEKUNDEN
+        fun um(start: Int) = (sekunde - start + 3600) % 3600 < NACHRICHTEN_SEKUNDEN
         return (Einstellungen.nachrichtenVoll(this) && um(0)) || (Einstellungen.nachrichtenHalb(this) && um(1800))
     }
 
