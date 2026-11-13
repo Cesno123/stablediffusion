@@ -669,7 +669,7 @@ def spine_drum(z0, length=24.0):
     return adds, cuts
 
 
-def spine_segment(kinds, antenna_hole=False, lug_at=None):
+def spine_segment(kinds, antenna_hole=False, lug_at=None, wide_socket=False):
     ap = SPINE_R * math.cos(math.radians(22.5))
     parts = [octa(SEG_L, SPINE_R), plug(SEG_L - 0.01), plug_key(SEG_L - 0.01)]
     cuts = []
@@ -706,8 +706,12 @@ def spine_segment(kinds, antenna_hole=False, lug_at=None):
     if cuts:
         m -= union(cuts)
     m -= core_bore(SEG_L + PLUG_L + 2, -1)
-    m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR, seg=64, z=-0.1)
+    sf = FIT if wide_socket else 0.0                      # wider socket where the mating plug is already printed
+    m -= cyl(PLUG_L + 0.6, PLUG_D / 2 + CLEAR + sf, seg=64, z=-0.1)
     m -= socket_key(-0.1, PLUG_L + 0.6)
+    if sf:
+        m -= box(1.9 + sf, 3.8 + 2 * sf, PLUG_L + 0.6, PLUG_D / 2 + 0.3 + sf / 2, 0, -0.1 + (PLUG_L + 0.6) / 2)
+        m -= cyl(1.2, PLUG_D / 2 + CLEAR + sf + 0.8, PLUG_D / 2 + CLEAR + sf, seg=64, z=-0.01)   # lead-in chamfer
     if lug_at is not None:
         lg, lg_hole = lug(ap, lug_at)
         m = (m + lg) - lg_hole
@@ -931,7 +935,7 @@ Z_SPLIT = Z_FLOOR + 6.0      # the block is printed as two parts, split here
 
 def split_block(blk):
     """Engine housing (lower) with a keyed lip, and the reactor tube (upper), printed split face down."""
-    r_lip = BLOCK_CAV_R - 0.2
+    r_lip = BLOCK_CAV_R - 0.2 - FIT
     lower = blk.trim_by_plane([0, 0, -1], -Z_SPLIT)
     lip = octa(6.0, r_lip, z=Z_SPLIT - 0.05) - octa(8.0, r_lip - 1.6, z=Z_SPLIT - 1.0)
     lip -= box(6.0, 8.0, 8.0, -r_lip * math.cos(math.radians(22.5)), 0, Z_SPLIT + 3.0)     # gap for the key tab
@@ -995,7 +999,7 @@ def main():
     segs = [spine_segment(["pods", "tanks", "pods"]),
             spine_segment(["drum", "pods", "fins"], antenna_hole=True),
             spine_segment(["pods", "fins", "pods"], lug_at=SEG_L - 14.0),
-            spine_segment(["tanks", "pods", "drum"])]
+            spine_segment(["tanks", "pods", "drum"], wide_socket=True)]
     dishes = antenna_dishes()
     mast = antenna_mast()
     adp = adapter()
