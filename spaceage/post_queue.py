@@ -212,10 +212,11 @@ def to_reel(src, dst, seed):
     print(f"mood: {mood} ({why})", file=sys.stderr, flush=True)
     print(f"music: {pick(wav, REEL_SECONDS, seed, os.path.join(POSTED, 'used_sounds.txt'), mood, cues)}", file=sys.stderr, flush=True)
     import motion
-    from mood import layout_of
+    from mood import layout_of, particles_of
 
     horizon, box = layout_of(src)
-    print(f"motion: horizon {horizon}, subject {box}", file=sys.stderr, flush=True)
+    particles = particles_of(src)
+    print(f"motion: horizon {horizon}, subject {box}, particles {particles}", file=sys.stderr, flush=True)
     enc = subprocess.Popen([
         ffmpeg_exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
         "-s", f"{REEL_W}x{REEL_H}", "-r", str(FPS), "-i", "-", "-i", wav,
@@ -225,7 +226,7 @@ def to_reel(src, dst, seed):
         "-movflags", "+faststart", dst,
     ], stdin=subprocess.PIPE)
     try:
-        for f in motion.frames(Image.open(frame).convert("RGB"), REEL_SECONDS, FPS, seed, mood, horizon, box):
+        for f in motion.frames(Image.open(frame).convert("RGB"), REEL_SECONDS, FPS, seed, particles, horizon, box):
             enc.stdin.write(f.tobytes())
     finally:
         enc.stdin.close()

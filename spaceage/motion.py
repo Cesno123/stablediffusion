@@ -11,8 +11,8 @@ no extra packages, little memory):
 - camera: one of three moves per picture (push in, drift sideways, rise), eased in and out. With
   parallax=True near parts move more than far parts; that is off by default, because a depth map
   guessed from the layout morphs rigid objects.
-- particles: dust, embers, ash or sparks that suit the mood, in three depths, plus a faint
-  breathing of the light.
+- particles: only what Claude says really floats in this scene's air (dust, embers, ash, snow,
+  sparks), in three depths; none at all otherwise. Plus a faint breathing of the light.
 """
 
 import math
@@ -62,13 +62,13 @@ def _ease(t):
 
 
 PARTICLES = {  # kind: (count, colour, speed (x, y) in frame heights per second, size px, twinkle)
-    "dust": (140, (255, 238, 205), (0.006, -0.004), 2.8, 0.6),
+    "dust": (110, (255, 225, 170), (0.006, -0.004), 1.8, 0.6),
     "embers": (110, (255, 160, 70), (0.004, -0.030), 3.0, 0.8),
-    "ash": (150, (230, 230, 235), (0.006, 0.022), 3.0, 0.3),
+    "ash": (120, (150, 145, 140), (0.006, 0.018), 2.4, 0.3),
+    "snow": (150, (240, 244, 250), (0.006, 0.024), 3.0, 0.3),
     "sparks": (90, (170, 225, 255), (0.010, -0.006), 2.4, 0.9),
 }
-MOOD_PARTICLES = {"action": "embers", "industry": "embers", "sorrow": "ash", "eerie": "ash",
-                  "neon": "sparks", "cosmic": "sparks", "deep": "dust"}
+
 
 
 def _sprite(r):
@@ -77,7 +77,7 @@ def _sprite(r):
     return np.exp(-(g[:, None] ** 2 + g[None, :] ** 2) / (2 * (r / 1.6) ** 2))
 
 
-def frames(img, seconds, fps, seed, mood=None, horizon=None, box=None, parallax=False):
+def frames(img, seconds, fps, seed, particles=None, horizon=None, box=None, parallax=False):
     """img: PIL RGB image already in reel size. Yields uint8 HxWx3 frames."""
     rng = np.random.default_rng(seed)
     src = np.asarray(img, dtype=np.uint8)
@@ -93,14 +93,16 @@ def frames(img, seconds, fps, seed, mood=None, horizon=None, box=None, parallax=
     side = 1 if rng.random() < 0.5 else -1
     amp = w * 0.022  # largest shift of the nearest parts, in pixels
 
-    kind = MOOD_PARTICLES.get(mood, "dust")
-    count, colour, speed, size, twinkle = PARTICLES[kind]
+    count, colour, speed, size, twinkle = PARTICLES.get(particles, PARTICLES["dust"])
+    if particles not in PARTICLES:  # nothing floats in this scene
+        count = 0
     layer = rng.choice([0.3, 0.6, 1.0], count, p=[0.5, 0.3, 0.2])  # depth of each particle
     px = rng.random(count) * w
     py = rng.random(count) * h
     vx = (speed[0] * (rng.random(count) - 0.5) * 2 + speed[0] * 0.3) * h * layer
     vy = speed[1] * h * layer * (0.6 + 0.8 * rng.random(count))
     phase = rng.random(count) * 2 * math.pi
+    light = float(rng.random()) * 2 * math.pi
     sprites = {s: _sprite(s) for s in (size * 0.6, size, size * 1.6)}
     sizes = np.where(layer < 0.5, size * 0.6, np.where(layer < 0.9, size, size * 1.6))
     col = np.array(colour, dtype=np.float32)
@@ -132,7 +134,7 @@ def frames(img, seconds, fps, seed, mood=None, horizon=None, box=None, parallax=
             top = flat[i00] * (1 - fx) + flat[i00 + 1] * fx
             bottom = flat[i00 + w] * (1 - fx) + flat[i00 + w + 1] * fx
             out[r0:r0 + d.shape[0]] = top * (1 - fy) + bottom * fy
-        out *= 1 + 0.015 * math.sin(2 * math.pi * t * 0.7 + phase[0])  # the light breathes a little
+        out *= 1 + 0.015 * math.sin(2 * math.pi * t * 0.7 + light)  # the light breathes a little
 
         # particles: move, wrap around, draw as soft dots with a gentle twinkle
         tx = (px + vx * i / fps - side * e * amp * layer * (move == "drift")) % w

@@ -118,9 +118,14 @@ happening in this picture, vivid and a little poetic, like the blurb on an old s
 Only what is really visible in the picture. No hashtags, no emoji, no quotation marks, no question.
 Last, the `layout` for a gentle camera move through the picture, as fractions of width and height from the
 top left: `horizon` is the height of the horizon line (-1 if there is none, for example a close view or an
-interior), and `subject` is the box around the main subject that stands in front (x0, y0, x1, y1)."""
+interior), and `subject` is the box around the main subject that stands in front (x0, y0, x1, y1).
+And `particles`: what may drift through the air of this very scene, or none. dust (warm motes in a sunlit,
+dusty or dry place), embers (fire, lava, burning ruins, forges), ash (falling ash after a fire or eruption),
+snow (only if it really snows or the scene is clearly winter or ice), sparks (electricity, machines, neon).
+Choose none whenever nothing would really float in this air, for example open space, clear night skies,
+water, interiors or calm landscapes. When in doubt: none."""
 SCHEMA = {"type": "object", "additionalProperties": False,
-          "required": ["cues", "lead", "contour", "sounds", "reason", "line", "layout"],
+          "required": ["cues", "lead", "contour", "sounds", "reason", "line", "layout", "particles"],
           "properties": {"cues": {"type": "array", "items": {
                              "type": "object", "additionalProperties": False, "required": ["cue", "fit"],
                              "properties": {"cue": {"type": "string", "enum": list(FITS)}, "fit": {"type": "integer"}}}},
@@ -129,6 +134,7 @@ SCHEMA = {"type": "object", "additionalProperties": False,
                          "sounds": {"type": "array", "items": {"type": "string", "enum": SOUNDS}},
                          "reason": {"type": "string", "description": "a few words on what the picture shows"},
                          "line": {"type": "string", "description": "one caption sentence about this picture"},
+                         "particles": {"type": "string", "enum": ["none", "dust", "embers", "ash", "snow", "sparks"]},
                          "layout": {"type": "object", "additionalProperties": False, "required": ["horizon", "subject"],
                                     "properties": {"horizon": {"type": "number"}, "subject": {
                                         "type": "object", "additionalProperties": False,
@@ -169,6 +175,13 @@ def layout_of(path):
     return horizon, box
 
 
+def particles_of(path):
+    """The particle kind Claude chose for this scene, or None (also without Claude: no particles)."""
+    ask_claude(path)
+    kind = (_SEEN.get(path, (None, None, None))[2] or {}).get("particles")
+    return kind if kind in ("dust", "embers", "ash", "snow", "sparks") else None
+
+
 def _ask(path):
     if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
         return None, None, None
@@ -199,7 +212,8 @@ def _ask(path):
         tune += [f"contour:{out['contour']}"] if out.get("contour") in CONTOURS else []
         tune += [f"sound:{x}" for x in out.get("sounds", []) if x in SOUNDS][:4]
         line = " ".join(str(out.get("line", "")).replace('"', "").split())[:140] or None
-        layout = out.get("layout") if isinstance(out.get("layout"), dict) else None
+        layout = dict(out["layout"]) if isinstance(out.get("layout"), dict) else {}
+        layout["particles"] = out.get("particles")
         if cues:
             scores = ", ".join(f"{c['cue']} {c.get('fit')}" for c in good[:3])
             return (cues[0].split(":")[0], f"claude: {str(out.get('reason', ''))[:80]} -> {scores}; "
