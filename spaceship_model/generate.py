@@ -626,61 +626,98 @@ def cockpit_interior():
     return m - xcyl(8, LED_D / 2, k * COCK_BACK - 2, 32).translate([0, 0, k * (-COCK_DECK + 15.5)])   # LED seat above the door
 
 
+def _seat(x, y, ang, w=4.4, back_h=7.6, arms=True):
+    """Bridge chair on a round pedestal, facing +x before it is turned by ang and moved to x, y."""
+    p = [cyl(1.5, 1.1, seg=24), cyl(0.5, 1.9, seg=24)]                          # pedestal + foot
+    p.append(box(w, w, 1.5, 0, 0, 2.25))                                        # cushion
+    back = hull(box(1.5, w, 0.1, -w / 2 - 0.1, 0, 1.6), box(1.3, w - 1.2, 0.1, -w / 2 - 0.5, 0, 1.5 + back_h))
+    p.append(back)
+    if arms:
+        for sy in (-1, 1):
+            p.append(box(w - 0.6, 0.9, 2.9, 0.1, sy * (w / 2 + 0.2), 2.95))
+    m = union(p) - box(0.4, w - 1.4, back_h - 2.5, -w / 2 + 0.55, 0, 3.4 + (back_h - 2.5) / 2)   # padding recess
+    return rz(m, ang).translate([x, y, 0])
+
+
 def _cockpit_interior():
-    """Cockpit insert for the front hemisphere. Print coords: z = up (deck on the bed),
-    x = ship forward, y = sideways. Slides in from the open side and is glued in place."""
+    """Bridge insert for the front hemisphere. Print coords: z = up (deck on the bed),
+    x = ship forward, y = sideways. Slides in from the open side and is glued in place.
+    Layout: sunken command well with the centre chair, two flight stations in front of it,
+    a raised horseshoe gallery with a rail behind it, wall stations along the hull and a rear
+    bulkhead with two lift doors and the main display."""
     up0 = -COCK_DECK                                       # print z of the ship axis
     r_in = CREW_R - CREW_WALL - 0.35
     parts, cuts = [], []
-    parts.append(box(80, 80, 1.5, 0, 0, 0.75))                                   # deck
+    D0, D1 = 1.5, 2.7                                      # well deck / gallery deck
+    WX, WR = 20.0, 9.5                                     # centre and radius of the command well
+    CX = 14.5                                              # command chair
+
+    def at(m, x, y=0.0):
+        return m.translate([x, y, 0])
+
+    parts.append(box(80, 80, D0, 0, 0, D0 / 2))                                  # deck
     parts.append(box(1.5, 80, 26.5, COCK_BACK + 0.75, 0, 13.25))                 # rear bulkhead
-    # instrument console following the hull below the windows: hood + desk
-    arc = wedge(-41, 41, 1.4, 9.8)
-    parts.append((cyl(9.8, 33.4, seg=128) - cyl(12, 29.0, seg=128, z=-1)) ^ arc)
-    parts.append((cyl(7.5, 29.5, seg=128) - cyl(12, 26.2, seg=128, z=-1)) ^ wedge(-39, 39, 1.4, 7.5))
-    for a in (-30, -18, -6, 6, 18, 30):                                          # screens on the hood
-        parts.append(rz(box(0.9, 4.6, 1.7, 29.0, 0, 8.75), a))
-        cuts.append(rz(box(0.5, 3.8, 1.1, 28.55, 0, 8.75), a))
-    for row, r in enumerate((27.0, 28.3)):                                       # switches on the desk
-        for a in range(-36, 37, 3):
-            if rng.random() < 0.7:
-                parts.append(rz(box(0.8, 0.8, rng.choice([0.5, 0.7, 0.9]), r, 0, 7.6), a + row * 1.5))
+    # raised gallery around the well, one step up
+    parts.append(box(WX - COCK_BACK, 80, D1 - D0 + 0.1, (WX + COCK_BACK) / 2, 0, (D0 + D1) / 2 - 0.05)
+                 - at(cyl(4, WR, seg=96, z=1.0), WX))
+    cuts.append(at(cyl(1, WR - 1.0, seg=96, z=D0 - 0.3) - cyl(1, WR - 1.4, seg=96, z=D0 - 0.3), WX))   # deck ring line
+    # rail behind the command chair: closed curved panel with a broad top
+    arc_rail = at(wedge(118, 242, 0, 30), WX)
+    parts.append(at(cyl(3.2, WR + 1.1, seg=96, z=D1) - cyl(5, WR + 0.3, seg=96, z=D1 - 1), WX) ^ arc_rail)
+    parts.append(at(cyl(0.8, WR + 1.5, seg=96, z=D1 + 3.2) - cyl(2, WR - 0.2, seg=96, z=D1 + 3), WX) ^ arc_rail)
+    for a in (140, 180, 220):                                                    # small displays set into the rail top
+        cuts.append(at(rz(box(1.1, 2.6, 0.5, WR + 0.65, 0, D1 + 4.0), a), WX))
+    # command chair on a round dais, with wide arm consoles
+    parts.append(at(cyl(0.6, 3.6, seg=64, z=D0), CX))
+    parts.append(_seat(CX, 0, 0, w=4.8, back_h=8.6, arms=False).translate([0, 0, D0 + 0.6]))
     for sy in (-1, 1):
-        y = sy * 7.5
-        parts.append(box(5.5, 5.5, 2.8, 15.75, y, 2.8))                          # seat cushion
-        parts.append(box(1.7, 5.5, 10.3, 12.35, y, 6.55))                        # backrest
-        parts.append(box(1.9, 3.2, 2.0, 12.45, y, 12.6))                         # headrest
-        for a in (-1, 1):                                                        # armrests
-            parts.append(box(4.6, 0.8, 4.8, 15.3, y + a * 2.95, 3.8))
-        cuts.append(box(0.4, 4.3, 8.0, 13.2, y, 7.2))                            # padding seams
-        for dz in (5.0, 7.5, 10.0):
-            cuts.append(box(0.5, 5.6, 0.35, 13.2, y, dz))
-        parts.append(cyl(5.2, 0.6, seg=16, z=1.4).translate([23.5, y, 0]))       # control column
-        parts.append(box(0.8, 3.4, 0.9, 23.5, y, 6.9))
-        parts.append(box(0.8, 0.8, 1.4, 23.5, y - 1.3, 7.6))
-        parts.append(box(0.8, 0.8, 1.4, 23.5, y + 1.3, 7.6))
-    parts.append(box(10.5, 3.0, 3.8, 19.5, 0, 3.3))                              # centre pedestal
-    for x in (15.5, 17.2, 18.9, 20.6, 22.3):
-        parts.append(box(1.0, 2.0, 0.6, x, 0, 5.3))
-    parts.append(box(0.8, 1.0, 2.2, 21.0, 0, 6.2))                               # throttle lever
-    # rear bulkhead: door, equipment racks, lockers
+        parts.append(box(4.6, 1.5, 3.3, CX + 0.3, sy * 3.2, D0 + 0.6 + 1.65))
+        cuts.append(box(2.6, 0.9, 0.4, CX + 1.0, sy * 3.2, D0 + 0.6 + 3.3))
+    # two flight stations: curved consoles around the chair, one seat each
+    for sy in (-1, 1):
+        w = wedge(5, 40, 0, 30) if sy > 0 else wedge(-40, -5, 0, 30)
+        desk = (cyl(3.6, 11.6, seg=96, z=D0) - cyl(6, 9.4, seg=96, z=D0 - 1)) ^ w
+        lip = (cyl(4.5, 11.6, seg=96, z=D0) - cyl(6, 11.0, seg=96, z=D0 - 1)) ^ w
+        parts.append(at(desk + lip, CX))
+        for a in (11, 22.5, 34):                                                 # touch panels on the desk
+            cuts.append(at(rz(box(1.2, 2.8, 0.5, 10.2, 0, D0 + 3.6), sy * a), CX))
+        for a in (8, 16.5, 28, 37):                                              # raised keys between them
+            parts.append(at(rz(box(0.8, 0.8, 0.5, 10.3, 0, D0 + 3.8), sy * a), CX))
+        a = math.radians(sy * 30)
+        parts.append(_seat(CX + 6.4 * math.cos(a), 6.4 * math.sin(a), sy * 30, w=3.8, back_h=6.6).translate([0, 0, D0]))
+    # low hood below the window with a row of displays
+    parts.append((cyl(9.8, 33.4, seg=128) - cyl(12, 29.6, seg=128, z=-1)) ^ wedge(-41, 41, 1.4, 9.8))
+    for a in (-30, -18, -6, 6, 18, 30):
+        cuts.append(rz(box(0.6, 4.2, 1.6, 29.6, 0, 7.6), a))
+    # wall stations on the gallery, following the hull: desk, tall display wall, stools
+    for sy in (-1, 1):
+        w = wedge(47, 84, 0, 30) if sy > 0 else wedge(-84, -47, 0, 30)
+        parts.append((cyl(D1 + 3.4, 33.4, seg=128) - cyl(12, 28.2, seg=128, z=-1)) ^ w)        # desk
+        parts.append((cyl(15.5, 33.4, seg=128) - cyl(20, 30.8, seg=128, z=-1)) ^ w)            # display wall
+        for a in (52, 60, 68, 76):
+            cuts.append(rz(box(0.6, 3.2, 4.2, 30.8, 0, 9.4), sy * a))                          # large screens
+            cuts.append(rz(box(0.6, 3.2, 1.2, 30.8, 0, 13.4), sy * a))                         # status strip above
+            cuts.append(rz(box(1.3, 2.6, 0.5, 29.4, 0, D1 + 3.4), sy * a))                     # desk panel
+        for a in (56, 72):
+            ar = math.radians(sy * a)
+            parts.append(_seat(25.2 * math.cos(ar), 25.2 * math.sin(ar), sy * a, w=3.2, back_h=5.2,
+                               arms=False).translate([0, 0, D1]))
+    # rear bulkhead: main display in the centre, lift doors left and right, panel strips
     xb = COCK_BACK + 1.5
-    parts.append(box(0.9, 8.0, 13.0, xb + 0.35, 0, 8.0) - box(1.0, 6.4, 11.4, xb + 0.75, 0, 8.0))
-    cuts.append(box(0.6, 3.0, 2.2, xb + 0.2, 0, 11.0))                           # door window
-    parts.append(box(0.6, 0.6, 2.0, xb + 0.45, 2.2, 7.0))                        # door handle
+    parts.append(box(0.9, 15.0, 9.4, xb + 0.35, 0, 11.6))                        # display surround
+    cuts.append(box(0.6, 13.4, 7.8, xb + 0.7, 0, 11.6)                          # recessed screen with three raised fields
+                - union([box(0.7, 3.6, 6.6, xb + 0.45, y, 11.6) for y in (-4.4, 0, 4.4)]))
+    parts.append(box(2.2, 11.0, 3.4, xb + 1.0, 0, D1 + 1.7))                     # standing console below it
+    cuts.append(box(1.2, 9.0, 0.5, xb + 1.2, 0, D1 + 3.4))
     for sy in (-1, 1):
-        for i, (yc, w) in enumerate(((7.6, 5.0), (13.6, 5.4), (20.0, 6.0), (26.5, 5.0))):
-            z0 = 1.6
-            while z0 < 20.0 - i * 3.5:
-                h = rng.uniform(3.0, 6.5)
-                parts.append(box(rng.choice([0.5, 0.8, 1.1]) * 2, w - 0.6, h - 0.5, xb, sy * yc, z0 + h / 2))
-                if rng.random() < 0.5:
-                    parts.append(box(2.8, 1.0, 1.0, xb, sy * yc + rng.uniform(-1, 1), z0 + h / 2))
-                z0 += h
-    for y in range(-28, 29, 4):                                                  # deck plating seams
-        cuts.append(box(60, 0.4, 0.6, 30, y, 1.5))
-    for x in (10.5, 14.5, 19.0, 23.5):
-        cuts.append(box(0.4, 80, 0.6, x, 0, 1.5))
+        y = sy * 13.5
+        parts.append(box(1.1, 7.6, 12.6, xb + 0.45, y, D1 + 6.3) - box(1.2, 5.8, 11.0, xb + 0.75, y, D1 + 5.5))
+        cuts.append(box(0.5, 0.4, 11.0, xb + 0.1, y, D1 + 5.5))                  # door split
+        parts.append(box(0.7, 1.0, 1.6, xb + 0.3, y + sy * 4.6, D1 + 6.0))       # call panel
+        for yc in (21.0, 26.0):
+            parts.append(box(0.8, 3.8, 15.0, xb + 0.3, sy * yc, D1 + 7.5))
+            for z in (5.5, 9.5, 13.5):
+                cuts.append(box(0.5, 2.8, 2.6, xb + 0.6, sy * yc, D1 + z - 1.0))
     m = union(parts) - union(cuts)
     # trim to the inside of the hull so the insert slides in from the open side
     m ^= Manifold.sphere(r_in, 128).translate([0, 0, up0])
