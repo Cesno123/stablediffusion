@@ -359,23 +359,43 @@ def sph_dir(m, theta, phi):
     return rz(m.rotate([0, theta, 0]), phi).translate([0, 0, CREW_CYL])
 
 
-def crew_plating(feat, z_edges):
-    """Tiled hull plates of varying height, separated by fine panel gaps."""
-    for za, zb in zip(z_edges[:-1], z_edges[1:]):
+def crew_plating(feat, z_edges, lines):
+    """Calm hull plating: wide, low plates in concentric rings around the ship axis, separated by
+    fine engraved panel lines. Returns nothing; raised plates go to feat, engraved lines to lines."""
+    gw = 0.16                                               # half width of an engraved line
+    for i, (za, zb) in enumerate(zip(z_edges[:-1], z_edges[1:])):
+        lines.append(zslab(zb - gw, zb + gw))               # ring line between two bands
         r_here = math.sqrt(max(CREW_R ** 2 - (0.5 * (za + zb) - CREW_CYL) ** 2, 9.0))
-        gap = math.degrees(0.45 / r_here)
-        a = rng.uniform(0, 30)
-        end = a + 360
-        while a < end - 1:
-            span = min(rng.uniform(5.0, 24.0) * (CREW_R / r_here) ** 0.5, end - a)
-            lift = rng.choice([0, 0.3, 0.3, 0.3, 0.5, 0.5, 0.8])
-            if lift and span > 2 * gap + 1:
-                feat[lift].append(wedge(a + gap, a + span - gap, za + 0.22, zb - 0.22))
-                if rng.random() < 0.4 and span > 5:       # small box on top of the plate
-                    c = a + span * rng.uniform(0.25, 0.75)
-                    w = min(span * 0.3, 5)
-                    feat[round(lift + 0.5, 2)].append(wedge(c - w / 2, c + w / 2, za + 0.6, zb - 0.6))
-            a += span
+        ga = math.degrees(gw / r_here)
+        n = rng.choice([3, 4, 4, 5, 6]) if r_here > 15 else rng.choice([2, 3])
+        cuts = sorted(rng.uniform(0, 360) for _ in range(n))
+        cuts = [c for j, c in enumerate(cuts) if j == 0 or c - cuts[j - 1] > 25]
+        for j, a in enumerate(cuts):
+            b = cuts[(j + 1) % len(cuts)] + (360 if j == len(cuts) - 1 else 0)
+            lines.append(wedge(a - ga, a + ga, za, zb))     # radial line between two plates
+            lift = rng.choice([0, 0, 0, 0.22, 0.22, 0.4])
+            span = b - a
+            if lift and span < 170:
+                feat[lift].append(wedge(a + ga, b - ga, za + gw, zb - gw))
+            if rng.random() < 0.3 and span > 30 and zb - za > 4:   # one small flush detail per plate at most
+                c = a + span * rng.uniform(0.3, 0.7)
+                w = math.degrees(rng.uniform(2.0, 4.5) / r_here)
+                zc_ = rng.uniform(za + 1.2, zb - 2.4)
+                feat[round(lift + 0.3, 2)].append(wedge(c - w / 2, c + w / 2, zc_, zc_ + rng.uniform(0.8, 1.4)))
+
+
+def sph_rings(feat, lines, theta, phi, radii):
+    """Group of concentric panel rings around a point on the sphere (engraved circles, one low raised ring)."""
+    def C(r):
+        return sph_dir(cyl(CREW_R + 6, r, seg=72), theta, phi)
+    for r in radii:
+        lines.append(C(r + 0.16) - C(r - 0.16))
+    if len(radii) >= 2:
+        r0, r1 = sorted(radii)[:2]
+        ring = C(r1 - 0.16) - C(r0 + 0.16)
+        feat[0.22].append(ring ^ sph_dir(wedge(20, 150, 0, CREW_R + 6), theta, phi))
+        for a in (20, 150, 250):
+            lines.append((C(r1) - C(r0)) ^ sph_dir(wedge(a - 0.6, a + 0.6, 0, CREW_R + 6), theta, phi))
 
 
 def crew_conduits(feat, z_max, n_lat, n_mer):
@@ -433,12 +453,12 @@ def crew_build(feat, clear, feat2, grooves):
         body -= (lifted(3.0) - crew_shell()) ^ union(clear)
     body = union([body] + layer(feat2))
     if grooves:
-        body -= (lifted(3.0) - crew_shell(-0.45)) ^ union(grooves)
+        body -= (lifted(3.0) - crew_shell(-0.3)) ^ union(grooves)
     return body
 
 
-FRONT_BANDS = [2.0, 4.8, 7.6, 10.4, 13.2, 16.0, 18.8, 21.4, 24.0, 26.4, 28.6, 30.6, 32.4, 34.0]
-REAR_BANDS = [2.0, 4.8, 7.6, 10.4, 13.2, 16.0, 18.8, 21.4, 24.0, 26.4, 28.6, 30.6]
+FRONT_BANDS = [2.0, 9.0, 16.5, 23.0, 28.5, 32.5, 35.0]
+REAR_BANDS = [2.0, 9.0, 16.5, 23.0, 27.5, 30.6]
 
 
 def crew_front():
@@ -450,8 +470,10 @@ def _crew_front():
     zc = CREW_CYL
     feat, feat2, clear = defaultdict(list), defaultdict(list), []
     feat[0.6].append(zslab(0, 2.0))
-    crew_plating(feat, FRONT_BANDS)
-    crew_conduits(feat, 26.0, 7, 9)
+    lines = []
+    crew_plating(feat, FRONT_BANDS, lines)
+    for ph in (135, 225):
+        sph_rings(feat, lines, 55, ph, (3.2, 6.2))
 
     def slab(x0, x1, hy):
         return box(x1 - x0, 2 * hy, CREW_R, (x0 + x1) / 2, 0, zc + 10 + CREW_R / 2)
@@ -465,7 +487,7 @@ def _crew_front():
     doors = union([rect_door(feat2, clear, 180, zc + 12, zc + 26),
                    rect_door(feat2, clear, 90, zc + 6, zc + 20),
                    rect_door(feat2, clear, 270, zc + 6, zc + 20)])
-    grooves = [zslab(10.0, 10.8) - cockpit - doors, zslab(21.0, 21.8) - cockpit - doors]
+    grooves = [union(lines) - cockpit - doors]
     m = crew_build(feat, clear, feat2, grooves) - crew_inner()
     # forward cockpit windows: five panes separated by 1.2 mm mullions
     panes = [box(5.5, 7.2, CREW_R, 7.75, -16.8 + i * 8.4, zc + 10 + CREW_R / 2) for i in range(5)]
@@ -478,8 +500,10 @@ def crew_rear():
     zc = CREW_CYL
     feat, feat2, clear = defaultdict(list), defaultdict(list), []
     feat[0.6].append(zslab(0, 2.0))
-    crew_plating(feat, REAR_BANDS)
-    crew_conduits(feat, 28.0, 9, 12)
+    lines = []
+    crew_plating(feat, REAR_BANDS, lines)
+    sph_rings(feat, lines, 62, 40, (3.5, 7.0, 10.0))
+    sph_rings(feat, lines, 62, 320, (3.5, 7.0))
     for a in (90, 270):                                    # large side airlocks
         sph_hatch(feat2, clear, 5.8, 58, a)
     sph_hatch(feat2, clear, 4.2, 40, 0)                    # ventral service hatch
@@ -493,7 +517,7 @@ def crew_rear():
         clear.append(area)
         panels.append(area)
         feat2[0.3].append(wedge(a - 9.5, a + 9.5, zc + 3.0, zc + 25.5))
-    grooves = [zslab(10.0, 10.8) - union(panels), zslab(21.0, 21.8) - union(panels)]
+    grooves = [union(lines) - union(panels) - union(clear)]
     sphere = crew_build(feat, clear, feat2, grooves) - crew_inner()
     sphere += box(1.9, 1.8, 4.0, (CREW_R - CREW_WALL) - 0.75, 0, 2.0)       # alignment rib, ship underside
     sphere = sphere.scale([CREW_SCALE] * 3)
