@@ -445,6 +445,67 @@ def rect_door(feat2, clear, a, z0, z1, hw=13.0):
     return area
 
 
+def _free(a0, a1, excl):
+    return all(a1 <= e0 or a0 >= e1 for e0, e1 in excl)
+
+
+def equipment_belt(feat2, clear, za, zb, n=24, excl=()):
+    """Service belt around the hull: low band with a regular rhythm of equipment boxes and louvred vents."""
+    step = 360.0 / n
+    for i in range(n):
+        a0, a1 = i * step, (i + 1) * step
+        if not _free(a0, a1, excl):
+            continue
+        clear.append(wedge(a0 - 0.01, a1 + 0.01, za - 0.3, zb + 0.3))
+        feat2[0.35].append(wedge(a0, a1, za, zb))
+        if i % 4 == 3:                                       # louvred vent
+            for k in range(4):
+                z = za + 0.35 + k * (zb - za - 0.7) / 4
+                feat2[0.8].append(wedge(a0 + step * 0.15, a1 - step * 0.15, z, z + (zb - za - 0.7) / 8))
+        else:                                                # equipment box, alternating size
+            f = 0.2 if i % 2 else 0.12
+            feat2[0.75 if i % 2 else 1.0].append(wedge(a0 + step * f, a1 - step * f, za + 0.45, zb - 0.45))
+
+
+def rcs_quad(feat2, clear, theta, phi):
+    """Thruster cluster: round base plate with four small nozzles and a centre block."""
+    def C(r, dx=0.0, dy=0.0, seg=32):
+        return sph_dir(cyl(CREW_R + 6, r, seg=seg).translate([dx, dy, 0]), theta, phi)
+    clear.append(C(5.0, seg=48))
+    feat2[0.5].append(C(4.4, seg=48) - C(3.6, seg=48))
+    feat2[0.3].append(C(3.6, seg=48))
+    for dx, dy in ((2.0, 0), (-2.0, 0), (0, 2.0), (0, -2.0)):
+        feat2[1.5].append(C(0.95, dx, dy) - C(0.5, dx, dy, 16))
+        feat2[0.9].append(C(1.3, dx, dy))
+    feat2[1.1].append(sph_dir(box(1.5, 1.5, CREW_R + 6, 0, 0, (CREW_R + 6) / 2), theta, phi))
+
+
+def vent_grille(feat2, clear, a, z0, z1, hw=7.0):
+    """Framed grille with horizontal louvres."""
+    clear.append(wedge(a - hw - 0.8, a + hw + 0.8, z0 - 0.5, z1 + 0.5))
+    feat2[0.6].append(wedge(a - hw, a + hw, z0, z1) - wedge(a - hw + 1.6, a + hw - 1.6, z0 + 0.6, z1 - 0.6))
+    z = z0 + 0.9
+    while z < z1 - 1.0:
+        feat2[0.5].append(wedge(a - hw + 1.6, a + hw - 1.6, z, z + 0.45))
+        z += 0.95
+
+
+def handrail(feat2, a, z0, z1):
+    """Thin rail on stand-offs along a meridian."""
+    feat2[0.9].append(wedge(a - 0.55, a + 0.55, z0, z1))
+    for z in (z0, (z0 + z1) / 2 - 0.4, z1 - 0.8):
+        feat2[0.9].append(wedge(a - 1.1, a + 1.1, z, z + 0.8))
+
+
+def sensor_dome(feat2, clear, theta, phi, r):
+    def C(rr):
+        return sph_dir(cyl(CREW_R + 6, rr, seg=40), theta, phi)
+    clear.append(C(r + 0.6))
+    feat2[0.5].append(C(r))
+    feat2[1.1].append(C(r * 0.62))
+    feat2[1.7].append(C(r * 0.3))
+
+
 def crew_build(feat, clear, feat2, grooves):
     def layer(d):
         return [lifted(l) ^ union(cs) for l, cs in d.items() if cs]
@@ -487,7 +548,19 @@ def _crew_front():
     doors = union([rect_door(feat2, clear, 180, zc + 12, zc + 26),
                    rect_door(feat2, clear, 90, zc + 6, zc + 20),
                    rect_door(feat2, clear, 270, zc + 6, zc + 20)])
-    grooves = [union(lines) - cockpit - doors]
+    equipment_belt(feat2, clear, 2.3, 4.9)
+    for ph in (45, 315, 135, 225):
+        rcs_quad(feat2, clear, 78, ph)
+    for a in (58, 302):
+        vent_grille(feat2, clear, a, zc + 21.5, zc + 26.5)
+    for a in (90 - 17.5, 90 + 17.5, 270 - 17.5, 270 + 17.5):
+        handrail(feat2, a, zc + 7.0, zc + 19.0)
+    for a in (180 - 17.5, 180 + 17.5):
+        handrail(feat2, a, zc + 13.0, zc + 25.0)
+    sensor_dome(feat2, clear, 22, 180, 4.0)
+    for ph in (148, 212):
+        sensor_dome(feat2, clear, 31, ph, 2.0)
+    grooves = [union(lines) - union(clear)]
     m = crew_build(feat, clear, feat2, grooves) - crew_inner()
     # forward cockpit windows: five panes separated by 1.2 mm mullions
     panes = [box(5.5, 7.2, CREW_R, 7.75, -16.8 + i * 8.4, zc + 10 + CREW_R / 2) for i in range(5)]
@@ -517,6 +590,18 @@ def crew_rear():
         clear.append(area)
         panels.append(area)
         feat2[0.3].append(wedge(a - 9.5, a + 9.5, zc + 3.0, zc + 25.5))
+    equipment_belt(feat2, clear, 2.3, 4.9, excl=((112, 138), (222, 248)))
+    for ph in (150, 210):
+        rcs_quad(feat2, clear, 78, ph)
+    for a in (69, 293):
+        vent_grille(feat2, clear, a, zc + 5.6, zc + 10.2, hw=6.0)
+    for i in range(12):                                    # equipment collar around the neck
+        a = i * 30 + 4
+        if 14 < a < 330:
+            feat2[0.7 if i % 2 else 1.0].append(wedge(a, a + 22, zc + 28.0, zc + 30.3))
+    for a in (180 - 16.5, 180 + 16.5):
+        handrail(feat2, a, zc + 12.0, zc + 22.0)
+    sensor_dome(feat2, clear, 48, 180 + 62, 2.2) if False else None
     grooves = [union(lines) - union(panels) - union(clear)]
     sphere = crew_build(feat, clear, feat2, grooves) - crew_inner()
     sphere += box(1.9, 1.8, 4.0, (CREW_R - CREW_WALL) - 0.75, 0, 2.0)       # alignment rib, ship underside
