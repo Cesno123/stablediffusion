@@ -521,6 +521,19 @@ def crew_front():
     return _crew_front().scale([CREW_SCALE] * 3)
 
 
+def dome_support(r0_mm, r1_mm=24.0, n=16):
+    """Break-away support printed with a sphere half (already scaled units): thin radial fins under the
+    flat top of the dome, tied together by two rings, standing on the bed. The fins stop 0.3 mm below
+    the inner surface, so they snap off cleanly. r0/r1 = inner and outer radius in real millimetres."""
+    t = 0.5 / K                                            # one extrusion line wide
+    r0, r1 = r0_mm / K, r1_mm / K
+    r_in = (CREW_R - CREW_WALL) * CREW_SCALE - 0.3 / K
+    h = r_in + 1
+    fins = [rz(box(r1 - r0, t, h, (r0 + r1) / 2, 0, h / 2), 360.0 * i / n) for i in range(n)]
+    rings = [cyl(h, r + t / 2, seg=96) - cyl(h + 2, r - t / 2, seg=96, z=-1) for r in (r0, r1)]
+    return union(fins + rings) ^ Manifold.sphere(r_in, 128)
+
+
 def _crew_front():
     """Front hemisphere. Print coords: +z = ship forward, +x = ship up."""
     zc = CREW_CYL
@@ -1159,7 +1172,10 @@ def main():
     noz = nozzle()
     cock = cockpit_interior()
 
-    for m, n in [(front, "01_crew_front.stl"), (rear, "02_crew_rear.stl"), (join, "03_crew_joiner_ring.stl"),
+    # the two sphere halves are exported with their break-away dome supports (not shown in the preview)
+    front_p = front + dome_support(3.0)
+    rear_p = rear + dome_support(16.5)
+    for m, n in [(front_p, "01_crew_front.stl"), (rear_p, "02_crew_rear.stl"), (join, "03_crew_joiner_ring.stl"),
                  (cock, "04_cockpit_interior.stl"),
                  (segs[0], "05_spine_A.stl"), (segs[1], "06_spine_B_antenna.stl"),
                  (segs[2], "07_spine_C_lug.stl"), (segs[3], "08_spine_D.stl"),
