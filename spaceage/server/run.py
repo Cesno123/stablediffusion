@@ -469,6 +469,45 @@ def tiktok_links(links):
     return "\n".join(lines)  # the page is trimmed back to TIKTOK_KEEP with the next regular post
 
 
+CATCH_TOWER = (
+    "Edit this picture. Keep everything else exactly as it is: the style, colours, light, the spaceport hall, "
+    "the people, the sea and the city. Replace the launch tower on the right with a tall steel launch and "
+    "catch tower that has two huge mechanical arms like chopsticks, and show the arms catching a returning "
+    "rocket booster that descends tail first on its engine flames. No logos, no text.")
+
+
+def flux_edit(pattern, prompt):
+    """Edit a queue image with FLUX.2: the picture goes in as input_image (from the public web folder),
+    the result lands in the queue as a new image named edit-..., the original stays untouched."""
+    import bfl
+
+    key = os.environ.get("BFL_API_KEY", "").strip()
+    if not key:
+        return "BFL_API_KEY fehlt"
+    hits = [p for p in pq.queue_files(pq.IMAGES) if pattern.lower() in os.path.basename(p).lower()]
+    if len(hits) != 1:
+        names = sorted(open(TIKTOK_IMAGES).read().split()) if os.path.exists(TIKTOK_IMAGES) else []
+        found = ", ".join(os.path.basename(p) for p in hits[:10]) or "keins"
+        return (f"'{pattern}' passt auf {len(hits)} Bilder in der Warteschlange ({found}). "
+                f"Bitte einen eindeutigen Teil des Namens angeben. Zuletzt auf TikTok: {', '.join(names)}")
+    src = hits[0]
+    folder = os.path.join(WWW, "edit")
+    os.makedirs(folder, exist_ok=True)
+    ref = os.path.join(folder, "input.jpg")
+    img = Image.open(src).convert("RGB")
+    img.thumbnail((1536, 1536))
+    img.save(ref, "JPEG", quality=92)
+    try:
+        data = bfl.generate(prompt, "flux2max", key, random.randrange(2**31), refs=(f"{PUBLIC_URL}/edit/input.jpg",))
+    finally:
+        os.remove(ref)
+    stem = os.path.splitext(os.path.basename(src))[0][:60]
+    out = os.path.join(pq.QUEUE, f"edit-{dt.datetime.now():%Y%m%d-%H%M%S}-{stem}.jpg")
+    with open(out, "wb") as f:
+        f.write(data)
+    return f"bearbeitet: {os.path.basename(src)} -> {os.path.basename(out)} (oben auf der Upload-Seite)"
+
+
 def tiktok_fill(count):
     """Put the newest `count` Instagram reels that are not on the TikTok page yet onto it,
     downloaded from Instagram itself (media_url of the account's own media)."""
@@ -532,6 +571,8 @@ def main():
     ap.add_argument("--prompts", help="for --test-video: motion prompts separated by | (each model gets each)")
     ap.add_argument("--test-index", action="store_true", help="only rebuild the page listing the test clips")
     ap.add_argument("--flux", type=int, metavar="N", help="generate N FLUX images into the queue now")
+    ap.add_argument("--flux-edit", metavar="NAME", help="edit the queue image whose name contains NAME with FLUX.2")
+    ap.add_argument("--prompt", default=None, help="with --flux-edit: what to change (default: catch tower)")
     ap.add_argument("--set", default="comic", choices=["comic", "fifties", "library"], help="prompts for --flux")
     args = ap.parse_args()
     if args.prepare:
@@ -542,6 +583,9 @@ def main():
         return
     if args.test_index:
         log(test_index())
+        return
+    if args.flux_edit:
+        log(flux_edit(args.flux_edit, args.prompt or CATCH_TOWER))
         return
     if args.flux:
         log(autogen.batch(args.flux, args.set))
