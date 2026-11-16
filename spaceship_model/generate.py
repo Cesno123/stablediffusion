@@ -991,19 +991,21 @@ X_PIN = TRAY_CUT + 2.0
 Z_LUG = Z_OCT + BLOCK_L / 2 - 5.0
 
 
-def tray_opening(g):
-    """Battery tray opening in block coordinates, shrunk by g for the tray itself. The front end
-    (top when the block is printed) is a roof: the wall closes from both sides at 45 deg measured
-    along the hull and ends in a short flat bridge, so nothing is printed into thin air."""
+def tray_opening(gx=0.0, gn=0.0):
+    """Battery tray opening in block coordinates. For the tray itself the outline is moved inward by
+    gn (measured square to every edge, so the gap is the same all round) and the cut plane by gx.
+    The front end (top when the block is printed) is a roof: the wall closes from both sides at 45 deg
+    measured along the hull and ends in a short flat bridge, so nothing is printed into thin air."""
     yb = BLOCK_R * math.sin(math.radians(22.5))            # half width of the flat underside
     flat = 6.5                                             # half width of the bridge in the middle
+    r2 = math.sqrt(2)
+    f2 = flat - gn * (r2 - 1)                              # where the lowered roof meets the lowered bridge
     pts = []
     for sy in (-1, 1):
-        for y, drop in ((flat, 0.0), (yb, yb - flat), (26.0, yb - flat + (26.0 - yb) * math.sqrt(2))):
-            for x in (TRAY_CUT - g, TRAY_CUT - 40):
-                pts.append((x, sy * (y - g), Z_TRAY1 - g * 1.5 - drop))
-        for x in (TRAY_CUT - g, TRAY_CUT - 40):
-            pts.append((x, sy * (26.0 - g), Z_TRAY0 + g))
+        for y, z in ((f2, Z_TRAY1 - gn), (yb, Z_TRAY1 - (yb - flat) - gn * r2),
+                     (26.0, Z_TRAY1 - (yb - flat) - (26.0 - yb) * r2 - gn * r2), (26.0, Z_TRAY0 + gn)):
+            for x in (TRAY_CUT - gx, TRAY_CUT - 40):
+                pts.append((x, sy * y, z))
     return Manifold.hull_points(pts)
 
 
@@ -1089,7 +1091,7 @@ def engine_block():
     m -= box(6, SWITCH_CUT[0], SWITCH_CUT[1], xw, 0, Z_BAY)
     m += box(0.8, 12.6, 0.8, xw, 0, Z_BAY - 8.6) + box(0.8, 12.6, 0.8, xw, 0, Z_BAY + 8.6)          # switch guard rails
     # battery tray opening: everything below TRAY_CUT between Z_TRAY0 and Z_TRAY1
-    m -= tray_opening(0.0)
+    m -= tray_opening()
     m -= cyl(70, PIN_D / 2 + 0.08, seg=16, z=-35).rotate([90, 0, 0]).translate([X_PIN, 0, Z_PIN])    # locking pin holes
     # suspension lug on the upper side (print +x)
     lg, lg_hole = lug(-xw, Z_LUG)
@@ -1100,21 +1102,44 @@ def engine_block():
 def battery_tray():
     """Removable belly pan of the reactor block. The 18650 holder is glued into it, so the cell
     comes out with the tray. A wedge tongue hooks under the front edge, a filament pin locks the rear.
-    Built in block coordinates; exported lying on its flat underside."""
-    g = 0.2 + FIT                                             # clearance to the opening
+    Built in block coordinates; printed standing on its rear end, like the block itself, so the
+    outside can carry the same raised detail as the rest of the hull."""
+    g = 0.2 + FIT                                             # clearance of the inner fittings
+    gn, gx = 0.3 / K, 0.25 / K                                # visible gap all round: 0.3 mm real
+    ap = BLOCK_R * math.cos(math.radians(22.5))
+    half_w = BLOCK_R * math.sin(math.radians(22.5))
     shell = octa(BLOCK_L, BLOCK_R, z=Z_OCT) - octa(BLOCK_L + 2, BLOCK_CAV_R, z=Z_OCT - 1)
-    tray = shell ^ tray_opening(g)
+    tray = shell ^ tray_opening(gx, gn)
+    z_bot = Z_TRAY0 + gn
+    # bevel on the inside of the rear rim: without it the rim jams against the block when the tray is tilted
+    tray -= hull(octa(0.02, BLOCK_CAV_R + 1.0 / math.cos(math.radians(22.5)), z=z_bot - 0.02),
+                 octa(0.02, BLOCK_CAV_R, z=z_bot + 1.0))
     xi = -BLOCK_CAV_R * math.cos(math.radians(22.5))          # inner face of the underside wall
-    tongue = hull(box(1.4, 12, 3.8, xi + 0.7, 0, Z_TRAY1 - g - 1.9),
+    zt = Z_TRAY1 - gn
+    tongue = hull(box(0.05, 12, 0.1, xi, 0, zt - 3.8 - 1.5),  # 45 deg underside: prints without support
+                  box(1.4, 12, 3.8, xi + 0.7, 0, zt - 1.9),
                   box(1.2, 12, 0.1, xi + 3.0, 0, Z_TRAY1 + 1.95))
     parts = [tray, tongue]
     cuts = []
     for sy in (-1, 1):                                        # lugs for the locking pin
         parts.append(box(X_PIN + 3.0 - (xi + 6.0), 2.0, 6.0, (X_PIN + 3.0 + xi + 6.0) / 2, sy * 16.5, Z_PIN))
+        # break-away support fin under each lug (0.3 mm gap), so the lug is not printed into thin air
+        hf = Z_PIN - 3.0 - 0.3 / K - z_bot
+        parts.append(box(X_PIN + 3.0 + 12.0, 0.5 / K, hf, (X_PIN + 3.0 - 12.0) / 2, sy * 16.5, z_bot + hf / 2))
     cuts.append(cyl(70, PIN_D / 2 + 0.22, seg=16, z=-35).rotate([90, 0, 0]).translate([X_PIN, 0, Z_PIN]))
-    for z in (Z_TRAY0 + 16, Z_TRAY0 + 42, Z_TRAY0 + 68):      # panel seams across the underside
-        cuts.append(box(0.5, 16, 0.5, -BLOCK_R * math.cos(math.radians(22.5)), 0, z))
-    cuts.append(box(1.2, 8, 3.0, -BLOCK_R * math.cos(math.radians(22.5)), 0, Z_TRAY0 + 3.5))   # fingernail recess
+    # hull detail on the three outer faces, clipped a little inside the tray outline
+    state = rng.getstate()
+    rng.seed(1527)
+    adds = []
+    for k in (3, 4, 5):
+        a_, c_ = detail_face(ap, 2 * half_w - 1.6, Z_TRAY0 + 7.0, Z_TRAY1 - 2.0, 45 * k)
+        adds += a_
+        cuts += c_
+    rng.setstate(state)
+    clip = tray_opening(gx + 0.3, gn + 0.35)
+    whole = [a_ for a_ in adds if (a_ - clip).volume() < 0.01]   # only detail that lies completely on the tray
+    parts.append(union(whole))
+    cuts.append(box(1.2, 8, 3.0, -ap, 0, Z_TRAY0 + 3.5))      # fingernail recess
     return union(parts) - union(cuts)
 
 
@@ -1197,7 +1222,7 @@ def main():
     housing, reactor = split_block(blk)
     tray = battery_tray()
     ap_b = BLOCK_R * math.cos(math.radians(22.5))
-    tray_print = tray.translate([0, 0, -Z_TRAY0]).rotate([0, -90, 0]).translate([0, 0, ap_b])
+    tray_print = tray.translate([0, 0, -(Z_TRAY0 + 0.3 / K)])      # standing on its rear end
     noz = nozzle()
     cock = cockpit_interior()
 
