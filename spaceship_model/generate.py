@@ -880,7 +880,7 @@ def dish(r, stem_r, z0):
     sub = cyl(0.9, 1.5, 1.0, seg=24, z=zc + d * 0.95 - 0.3)
     t = 1.0 / K                                                            # three webs brace the feed against the bowl
     ro = 0.22 * r                                                          # short and low, so they stay discreet
-    web = hull(box(0.1, t, d * 0.55 + 0.6, 0.3, 0, zc - 0.6 + (d * 0.55 + 0.6) / 2),
+    web = hull(box(0.1, t * 0.6, d * 0.55 + 0.6, 0.0, 0, zc - 0.6 + (d * 0.55 + 0.6) / 2),
                box(0.1, t, 0.1, ro, 0, zc + d * 0.22 ** 2 - 0.6))
     webs = [rz(web, 30 + 120 * k) for k in range(3)]
     return union([bowl, ring, feed, sub] + webs)
