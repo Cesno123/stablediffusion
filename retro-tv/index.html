@@ -276,7 +276,7 @@ const CACHE_HOURS = 24;
 /* ============================================================ */
 
 const $ = id => document.getElementById(id);
-const VERSION = "v13 · 04.11. 19:50";   // bei jeder Änderung hochzählen – zeigt, ob die neue Fassung geladen ist
+const VERSION = "v14 · 16.11.";   // bei jeder Änderung hochzählen – zeigt, ob die neue Fassung geladen ist
 const store = {
   get(k, d) { try { const v = localStorage.getItem("rk2-" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("rk2-" + k, JSON.stringify(v)); } catch (e) {} },
@@ -909,6 +909,16 @@ $("tvstart").onclick = e => { e.stopPropagation(); tvTurnOn(); };
 $("tvmenubtn").onclick = e => { e.stopPropagation(); state.on ? openMenu() : tvTurnOn(); };
 function leaveTv() { $("tvstart").hidden = true; $("tvmenu").hidden = true; document.body.classList.remove("tv", "guide"); $("tvinfo").hidden = $("tvhelp").hidden = true; }
 $("tvver").textContent = "Version " + VERSION;
+/* Schnittstelle für die Fire-TV-App (retro-tv-android): sie reicht Tasten weiter,
+   die eine Webseite sonst nie bekommt. */
+window.rkRemote = name => {
+  if (!document.body.classList.contains("tv")) enterTv();
+  if (name === "menu") menuOpen() ? closeMenu() : (state.on ? openMenu() : tvTurnOn());
+  else if (name === "ff") { seek(30); menuOpen() ? showPos() : tvInfo(); }
+  else if (name === "rw") { seek(-30); menuOpen() ? showPos() : tvInfo(); }
+  else if (name === "pp") { togglePause(); menuOpen() ? showPos() : tvInfo(); }
+};
+window.rkBack = () => { if (menuOpen()) { closeMenu(); return true; } return false; };
 $("tvtoggle").onclick = () => { store.set("tvmode", true); enterTv(); };
 function setDecade(n) {
   const i = DECADES.findIndex(d => d.id === state.decade);
@@ -961,6 +971,7 @@ if (window.__castPending) initCast();
   if (serverKey && !state.ytkey) ytMsg("✓ YouTube-Schlüssel ist in Netlify hinterlegt – gilt auf allen Geräten.", "good");
   if (isTv()) enterTv();
   switchTo();
+  if (/[?&]autostart=1/.test(location.search) && !state.on) tvTurnOn();   // App: sofort einschalten
 })();
 </script>
 </body>
