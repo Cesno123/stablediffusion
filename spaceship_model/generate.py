@@ -886,10 +886,30 @@ TOWER_TOP = 34.0      # height of the tower tip above the hinge (carries the lar
 BAR_HALF = 43.0       # half length of the cross bar (small red LEDs at both ends)
 
 
+LED_BORE_R = 1.1 / K   # wire bore of the LED posts: 2.2 mm real, takes both leads of a pre-wired LED
+
+
+def wire_groove(w_mm, d_mm, sx, sy, cx, cy):
+    """Open wire groove in the back (bed side) of the carrier, sized in real millimetres. The ceiling is
+    a 45 deg roof (nothing to bridge) and the mouth is chamfered so the first layers cannot close it.
+    sx/sy = extent, cx/cy = centre; the longer of the two is the running direction."""
+    w, d = w_mm / K, d_mm / K
+    wide = 0.9 / K
+    along_x = sx > sy
+    L = sx if along_x else sy
+
+    def bar(width, z0, z1):
+        h = z1 - z0
+        return box(L, width, h, cx, cy, z0 + h / 2) if along_x else box(width, L, h, cx, cy, z0 + h / 2)
+
+    body = hull(bar(w, -1.0, d - w / 2), bar(0.02, d - 0.02, d))
+    return body + bar(w + wide, -1.0, 0.45 / K)
+
+
 def led_post(height, r_out, r_pocket):
     """Post with a pocket on top for a pre-wired SMD LED and a wire bore down to the back."""
     post = cyl(height, r_out + 0.5, r_out, seg=32)
-    return post, cyl(1.3, r_pocket, seg=24, z=height - 1.2), cyl(height + 2, 0.45, seg=16, z=0.5)
+    return post, cyl(1.3, r_pocket, seg=24, z=height - 1.2), cyl(height + 3, LED_BORE_R, seg=24, z=-1.0)
 
 
 def strut(p0, r0, h0, p1, r1, h1):
@@ -922,9 +942,10 @@ def antenna_dishes():
         parts.append(cyl(0.7, ro + 0.55, seg=32, z=h - 3.0).translate([x, y, 0]))     # collar below the lamp
         cuts += [pocket.translate([x, y, 0]), bore.translate([x, y, 0])]
     m = union(parts) - union(cuts)
-    m -= cyl(10, 1.1 / K, seg=24, z=-5).rotate([90, 0, 0]).translate([0, 0, AX_Z])   # hinge bore (1.75 mm filament)
-    m -= box(1.4, 2 * yl, 1.8, xb, 0, 0)                     # wire groove on the back of the arms
-    m -= box(TOWER_TOP + 3.2, 1.4, 1.8, (TOWER_TOP - 3.2) / 2, 0, 0)  # ... along the tower and down to the hinge
+    m -= cyl(10, 1.25 / K, seg=24, z=-5).rotate([90, 0, 0]).translate([0, 0, AX_Z])  # hinge bore (1.75 mm filament, loose)
+    m -= wire_groove(2.2, 1.8, 0, 2 * yl, xb, 0)             # wire groove on the back of the arms (2 leads per side)
+    m -= wire_groove(2.2, 1.8, TOWER_TOP - xb, 0, (TOWER_TOP + xb) / 2, 0)   # ... down the tower (2 leads)
+    m -= wire_groove(3.2, 2.2, xb + 3.4, 0, (xb - 3.4) / 2, 0)               # ... trunk to the hinge end (all 6 leads)
     return m
 
 
@@ -943,8 +964,11 @@ def antenna_mast():
     foot = cyl(1.4, 2.8, 4.1, seg=48, z=23.7) + cyl(1.4, 4.1, seg=48, z=25.09)
     pin = cyl(MAST_PIN, 2.0, seg=48, z=26.49)
     m = union(arms + [bridge, col, foot, pin] + rings)
-    m -= cyl(14, 0.95 / K, seg=24, z=-7).rotate([90, 0, 0]).translate([0, 0, MAST_AX])  # press fit for the filament pin
-    m -= cyl(23.0, 0.65, seg=16, z=8.9)                      # wire channel from the fork down through the pin
+    m -= cyl(14, 1.0 / K, seg=24, z=-7).rotate([90, 0, 0]).translate([0, 0, MAST_AX])   # hole for the filament pin (2.0 mm)
+    rb = min(1.5 / K, 1.3)                                   # wire channel: 3 mm real, takes all 6 leads
+    m -= cyl(23.0, rb, seg=32, z=8.9)                        # ... from the fork down through the pin
+    # the fork crotch is a 45 deg roof instead of a flat bridge: it prints cleanly and funnels the leads into the bore
+    m -= hull(box(8, 6.5, 0.1, 0, 0, 9.0), box(8, 0.1, 0.1, 0, 0, 9.05 + 3.25))
     return m
 
 
