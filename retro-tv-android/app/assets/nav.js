@@ -127,6 +127,7 @@
     press(cur);
   }
   function press(e) {
+    if (!visible(e)) { e.click(); return; }   // ausgeblendeter Knopf: nur klicken
     var r = e.getBoundingClientRect(), o = { bubbles: true, cancelable: true, view: window,
       clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName) && !/^(checkbox|radio|button|submit)$/.test(e.type)) { e.focus(); return; }
@@ -145,17 +146,32 @@
     down:  [/^CH\s*[−–-]$/i, /kanal\s*[−–-]|kanal runter|channel down/i, 'Kanal −']
   };
   function pageButton(dir) {
-    var k = KEYS[dir], list = candidates(), i;
-    for (i = 0; i < list.length; i++) if (k[0].test((list[i].textContent || '').trim())) return list[i];
-    for (i = 0; i < list.length; i++) if (k[1].test(label(list[i]))) return list[i];
+    var k = KEYS[dir], lists = [candidates(), [].slice.call(document.querySelectorAll(SEL + ',div,span'))], i, j;
+    // erst sichtbare Knöpfe; dann auch ausgeblendete (Zeitkanal versteckt sie im Vollbild – click() wirkt trotzdem)
+    for (j = 0; j < lists.length; j++) {
+      var list = lists[j];
+      for (i = 0; i < list.length; i++) if (k[0].test((list[i].textContent || '').trim())) return list[i];
+      for (i = 0; i < list.length; i++) if (j === 0 && k[1].test(label(list[i]))) return list[i];
+    }
+    for (i = 0; i < lists[1].length; i++) {   // ausgeblendet: Ersatz-Muster nur bei echten Knöpfen
+      var e = lists[1][i];
+      if (e.matches(SEL) && k[1].test(label(e))) return e;
+    }
     return null;
   }
+  function sendKey(dir) {   // kein Knopf gefunden: Pfeiltaste direkt an die Seite
+    var names = { left: ['ArrowLeft', 37], right: ['ArrowRight', 39], up: ['ArrowUp', 38], down: ['ArrowDown', 40] }[dir];
+    var target = document.activeElement && document.activeElement !== document.body ? document.activeElement : document;
+    ['keydown', 'keyup'].forEach(function (t) {
+      target.dispatchEvent(new KeyboardEvent(t, { key: names[0], code: names[0], keyCode: names[1], which: names[1], bubbles: true }));
+    });
+  }
   function watch(cmd) {   // Zuschauen: Steuerkreuz bedient den Fernseher der Seite
-    if (scrollY > 40) toTop();   // irgendwo unten gelandet? Erst zurück zum Bild
+    if (scrollY > 40 && !document.fullscreenElement) toTop();   // irgendwo unten gelandet? Erst zurück zum Bild
     if (cmd === 'ok' || cmd === 'menu' || cmd === 'list') return go(cmd);
     var b = pageButton(cmd);
     if (b) { press(b); hint(KEYS[cmd][2]); }
-    else hint('Kein Knopf für „' + KEYS[cmd][2] + '“ gefunden – OK wählt die Knöpfe an');
+    else { sendKey(cmd); hint(KEYS[cmd][2] + ' (Taste an die Seite geschickt)'); }
   }
   /* Anspringen: Knopfreihe (ok), Einstellungen (menu), Playlist (list) – danach Pfeile/OK im angewählten Bereich */
   function go(cmd) {
