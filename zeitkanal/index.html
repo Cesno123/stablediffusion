@@ -292,7 +292,8 @@ const CH=[
  {id:"mtv",name:"Musikvideos",ia:'(title:("official video" OR "official music video" OR "music video" OR musikvideo OR videoclip) OR subject:("music video" OR musikvideo))',de:"offizielles Musikvideo",en:"official music video"},
  {id:"tz",name:"Twilight Zone",fixed:true,ia:'(title:("twilight zone" OR "schattenlichter") OR subject:("twilight zone"))',de:"Twilight Zone 1985 deutsch Folge",en:"The Twilight Zone 1985 episode"},
  {id:"abend",name:"Fernsehabend",ia:'(title:(programmansage OR ansagerin OR sendeschluss OR testbild OR "tv recording" OR "full broadcast" OR "complete broadcast" OR "broadcast day" OR fernsehabend OR mitschnitt OR "station ident" OR continuity OR ard OR zdf OR "rtl plus" OR "sat 1" OR wdr OR "tv aufzeichnung") OR subject:(programmansage OR ansagerin OR sendeschluss OR testbild OR "tv recording" OR "full broadcast" OR "complete broadcast" OR "broadcast day" OR fernsehabend OR mitschnitt OR "station ident" OR continuity OR ard OR zdf OR "rtl plus" OR "sat 1" OR wdr OR "tv aufzeichnung"))',de:"Fernsehabend komplett Mitschnitt Ansage",en:"full tv broadcast recording with commercials"},
- {id:"vhs",name:"VHS-Mitschnitte",ia:'(title:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR subject:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR collection:vhsvault)',de:"VHS Mitschnitt",en:"vhs tv recording"}
+ {id:"vhs",name:"VHS-Mitschnitte",ia:'(title:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR subject:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR collection:vhsvault)',de:"VHS Mitschnitt",en:"vhs tv recording"},
+ {id:"ccc",name:"Chaos Computer Club",ia:'(title:("chaos computer club" OR "chaos communication" OR datenschleuder OR "btx hack" OR "btx-hack" OR "wau holland" OR hackerethik OR "chaos radio") OR subject:("chaos computer club" OR "chaos communication congress" OR "chaos communication camp" OR datenschleuder))',de:"Chaos Computer Club",en:"Chaos Computer Club"}
 ];
 const LANGS=[
  {id:"dex",name:"Deutsch + Englisch",ia:["German","ger","deu","Deutsch","English","eng"],kw:["deutsch","german"],dm:"de,en",yt:"de",q:"en"},
@@ -422,7 +423,7 @@ function rndNext(){if(!st.on||!st.list.length)return;
  jump(pool[Math.floor(Math.random()*pool.length)])}
 function rndPrev(){if(!st.on||!st.list.length)return;
  if(st.hist&&st.hist.length){jump(st.hist.pop())}else rndNext()}
-function guide(){const n={ia:"Archive",dm:"Dailymotion",yt:"YouTube",vm:"Vimeo",wm:"Wikimedia",pt:"PeerTube",eu:"Europeana",lc:"Library of Congress",na:"NASA"};
+function guide(){const n={ia:"Archive",dm:"Dailymotion",yt:"YouTube",vm:"Vimeo",wm:"Wikimedia",pt:"PeerTube",eu:"Europeana",lc:"Library of Congress",na:"NASA",cc:"media.ccc.de"};
  $("guide").innerHTML=st.list.map((it,i)=>`<button class="prog" data-i="${i}" aria-current="${i===st.idx}"><span class="n">${String(i+1).padStart(2,"0")}</span><span class="tt">${esc(it.title)}</span><span class="q">${n[it.src]}</span></button>`).join("");
  const c=$("guide").querySelector('[aria-current="true"]');if(c)$("guide").scrollTop=c.offsetTop-$("guide").offsetTop-4}
 async function testKey(){const k=$("ytkey").value.trim();const o=$("keystat");
@@ -660,6 +661,25 @@ async function srcNA(c,d,l){
  const j=await getJSON(u,15000);
  return (j.collection?.items||[]).slice(0,80).map(x=>{const m=(x.data||[])[0]||{};return {src:"na",id:m.nasa_id,title:m.title,href:x.href,page:"https://images.nasa.gov/details/"+encodeURIComponent(m.nasa_id||""),year:String(m.date_created||"").slice(0,4)}})
   .filter(x=>x.id&&x.href&&!nsfw(x.title))}
+// media.ccc.de: Vorträge von Congress, Camp & Co. (offizielles CCC-Archiv), nur im Kanal „Chaos Computer Club“
+function cccYear(cf){const a=String(cf.acronym||cf.slug||"");let m=a.match(/^(\d{1,2})c3$/i);if(m)return 1983+ +m[1];
+ m=(a+" "+(cf.title||"")).match(/\b(19[89]\d|20[0-4]\d)\b/);if(m)return +m[1];
+ const t=Date.parse(cf.event_last_released_at||cf.updated_at||"");return isNaN(t)?0:new Date(t).getFullYear()}
+async function srcCC(c,d,l){
+ const j=await getJSON("https://api.media.ccc.de/public/conferences",15000);
+ let cs=(j.conferences||[]).map(cf=>({cf,y:cccYear(cf)})).filter(x=>x.y&&x.y>=d&&x.y<=d+9);
+ cs=shuffle(cs,hash("ccc"+d+Math.floor(Date.now()/864e5))).slice(0,8);   // täglich andere Auswahl, für alle gleich
+ const de=(l.codes||[]).includes("de")||["de","dex"].includes(l.id);
+ const lists=await Promise.all(cs.map(x=>getJSON(x.cf.url,15000).then(r=>(r.events||[]).map(e=>({e,y:x.y}))).catch(()=>[])));
+ return lists.flat().filter(({e})=>e.guid&&e.title&&!nsfw(e.title,e.subtitle)&&(l.id==="all"||!e.original_language||
+   (de?/deu|ger|eng/.test(e.original_language):/eng/.test(e.original_language))))
+  .map(({e,y})=>({src:"cc",id:e.guid,title:e.title+(e.subtitle?" – "+e.subtitle:""),dur:e.duration||e.length||0,
+   api:e.url||("https://api.media.ccc.de/public/events/"+e.guid),page:e.frontend_link,year:String(e.date||e.release_date||y).slice(0,4)}))}
+async function ccFile(it){const j=await getJSON(it.api,15000);
+ const rs=(j.recordings||[]).filter(r=>/^video\//.test(r.mime_type||"")&&r.recording_url);
+ const mp4=rs.filter(r=>/mp4/.test(r.mime_type));
+ const f=mp4.find(r=>/sd/i.test(r.folder||"")&&!r.high_quality)||mp4.find(r=>!r.high_quality)||mp4[0]||rs[0];   // SD reicht und lädt schneller
+ if(!f)throw new Error("keine Videodatei");return f.recording_url.replace(/^http:/,"https:")}
 async function naFile(it){const j=await getJSON(it.href);const fs=[].concat(j||[]).filter(u=>/\.mp4$/i.test(u));
  const f=fs.find(u=>/~mobile\.mp4$/i.test(u))||fs.find(u=>/~small\.mp4$/i.test(u))||fs.find(u=>/~medium\.mp4$/i.test(u))||fs[0];
  if(!f)throw new Error("keine Videodatei");return f.replace(/^http:/,"https:")}
@@ -682,6 +702,7 @@ async function tune(){
   if($("s_lc").checked){names.push("LoC");jobs.push(srcLC(c,d,l).catch(e=>{errs.push("LoC");return[]}));}
   if($("s_na").checked){names.push("NASA");jobs.push(srcNA(c,d,l).catch(e=>{errs.push("NASA");return[]}));}
   if($("s_eu").checked){names.push("Europeana");jobs.push(srcEU(c,d,l).catch(e=>{errs.push("Europeana");return[]}));}
+  if(CH[st.ch].id==="ccc"){names.push("media.ccc.de");jobs.push(srcCC(c,d,l).catch(e=>{errs.push("media.ccc.de");return[]}));}
   if($("s_vm").checked&&st.vkey){names.push("Vimeo");jobs.push(srcVM(c,d,l).catch(e=>{errs.push("Vimeo");return[]}));}
   const res=await Promise.all(jobs);
   st.counts=names.map((n,i)=>errs.some(e=>e.startsWith(n==="Archive"?"Internet":n))?(n==="YouTube"&&st.ytQuota&&Date.now()-st.ytQuota<36e5?"YouTube: Tageskontingent aufgebraucht (ab 9 Uhr wieder)":`${n}: Fehler`):(n==="YouTube"&&st.ytQuota&&Date.now()-st.ytQuota<36e5&&!res[i].length?"YouTube: Tageskontingent aufgebraucht (ab 9 Uhr wieder)":n==="YouTube"&&st.ytInfo?`YouTube: ${res[i].length} (${st.ytInfo})`:`${n}: ${res[i].length}`)).join(" · ");
@@ -774,16 +795,16 @@ function off(){st.on=false;stop();$("power").textContent="AN";$("tv").classList.
 function advance(){rndNext()}
 
 async function play(it,offset){st.cur=it;st.curUrl=null;if(!$("castbox").hidden)castMenu();
- stop();msg("");guide();st.cur=it;favUI();const label={ia:"Internet Archive",dm:"Dailymotion",yt:"YouTube",vm:"Vimeo",wm:"Wikimedia Commons",pt:"PeerTube",eu:"Europeana",lc:"Library of Congress",na:"NASA"}[it.src];
- const page={ia:`https://archive.org/details/${it.id}`,dm:`https://www.dailymotion.com/video/${it.id}`,yt:`https://www.youtube.com/watch?v=${it.id}`,vm:`https://vimeo.com/${it.id}`,wm:it.url,pt:it.page,eu:it.page,lc:it.page,na:it.page}[it.src];
+ stop();msg("");guide();st.cur=it;favUI();const label={ia:"Internet Archive",dm:"Dailymotion",yt:"YouTube",vm:"Vimeo",wm:"Wikimedia Commons",pt:"PeerTube",eu:"Europeana",lc:"Library of Congress",na:"NASA",cc:"media.ccc.de"}[it.src];
+ const page={ia:`https://archive.org/details/${it.id}`,dm:`https://www.dailymotion.com/video/${it.id}`,yt:`https://www.youtube.com/watch?v=${it.id}`,vm:`https://vimeo.com/${it.id}`,wm:it.url,pt:it.page,eu:it.page,lc:it.page,na:it.page,cc:it.page}[it.src];
  nowInfo(esc(it.title),`${label}${it.year?" · "+esc(it.year):""}`);
  try{
   if(it.src==="pt"){
    if(it.dur&&offset>=it.dur)offset=offset%it.dur;
    $("screen").classList.add("playing");const fr=$("frame");fr.src=it.embed+(it.embed.includes("?")?"&":"?")+`autoplay=1&warningTitle=0&peertubeLink=0&start=${Math.floor(offset)}s`;fr.hidden=false;
    if(it.dur)st.timer=setTimeout(advance,(it.dur-offset+3)*1000);
-  }else if(["ia","wm","eu","lc","na"].includes(it.src)){
-   const f=it.src==="ia"?await iaFile(it.id):it.src==="na"?{url:await naFile(it),len:0}:{url:it.url,len:it.dur||0};if(st.list[st.idx]!==it)return;
+  }else if(["ia","wm","eu","lc","na","cc"].includes(it.src)){
+   const f=it.src==="ia"?await iaFile(it.id):it.src==="na"?{url:await naFile(it),len:0}:it.src==="cc"?{url:await ccFile(it),len:it.dur||0}:{url:it.url,len:it.dur||0};if(st.list[st.idx]!==it)return;
    const v=$("vid");v.src=f.url;v.hidden=false;st.curUrl=f.url;if(!$("castbox").hidden)castMenu();
    if(f.len&&offset>=f.len)offset=offset%f.len;
    v.addEventListener("loadedmetadata",()=>{
