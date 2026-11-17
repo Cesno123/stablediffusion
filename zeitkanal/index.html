@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zeitkanal</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans+Condensed:wght@400;600&display=swap">
+<style>
+/* Layout: Ein Röhrenfernseher oben, Bedienteil darunter wie eine Fernbedienung. Bewusst nur ein dunkles Design. */
+:root{
+  --bg:#141210; --panel:#201d19; --panel2:#2a2620; --fg:#ece4d6; --muted:#9a8f7f;
+  --osd:#7dff9a; --accent:#e8a33d; --line:#3a342c; --danger:#e0604a;
+  --f-osd:"VT323", ui-monospace, Menlo, monospace;
+  --f-body:"IBM Plex Sans Condensed", system-ui, sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px}
+.wrap{max-width:760px;margin:0 auto;padding-block:14px 40px;
+  padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+h1{font-family:var(--f-osd);font-size:2.2rem;margin:0;letter-spacing:.04em;color:var(--accent);font-weight:400}
+.clock{font-family:var(--f-osd);font-size:1.4rem;color:var(--muted)}
+/* TV */
+/* 80er-Jahre-Gehäuse: Anthrazit-Kunststoff, Silberrahmen, Tastenleiste, rote LED */
+.tv{background:linear-gradient(180deg,#3b3d40 0%,#2a2c2f 55%,#222427 100%);border-radius:14px;padding:12px 12px 10px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -2px 0 rgba(0,0,0,.5),0 10px 24px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:10px}
+.bezel{background:linear-gradient(180deg,#c9ccd0,#8e9297 40%,#b5b9be);padding:6px;border-radius:10px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+.bezel .screen{border-radius:18px/14px;box-shadow:inset 0 0 0 3px #111}
+.panel{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"plate led" "grille grille" "ctl ctl";gap:8px 10px;align-items:center}
+.plate{grid-area:plate;display:flex;flex-direction:column;font-family:var(--f-body);font-size:.62rem;letter-spacing:.22em;color:#c3c6ca;line-height:1.35}
+.plate span:first-child{font-weight:600;color:#e6e8ea}
+.led-wrap{grid-area:led;justify-self:end;display:flex;align-items:center;gap:10px;background:#120606;border:1px solid #000;border-radius:4px;padding:3px 10px;box-shadow:inset 0 1px 4px rgba(0,0,0,.8)}
+.led{font-family:var(--f-osd);font-size:1.6rem;line-height:1;color:#ff3b2f;text-shadow:0 0 6px rgba(255,59,47,.8);letter-spacing:.08em;min-width:2ch;text-align:right}
+.pled{width:8px;height:8px;border-radius:50%;background:#3a0d0a;box-shadow:inset 0 0 2px #000}
+.tv.on .pled{background:#ff2a1a;box-shadow:0 0 6px #ff2a1a}
+.tv:not(.on) .led{opacity:.25}
+.bezel .screen:fullscreen{border-radius:0;box-shadow:none}
+.grille{grid-area:grille;height:14px;border-radius:3px;background:repeating-linear-gradient(90deg,#16171a 0 3px,#33363a 3px 5px)}
+.screen{position:relative;aspect-ratio:4/3;max-width:100%;background:#000;border-radius:14px;overflow:hidden}
+.screen video,.screen iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;object-fit:contain}
+canvas#noise{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .25s;pointer-events:none}
+.screen.crt::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);border-radius:14px;
+  box-shadow:inset 0 0 60px rgba(0,0,0,.7)}
+.osd{position:absolute;top:10px;right:14px;font-family:var(--f-osd);color:var(--osd);font-size:2rem;
+  text-shadow:0 0 6px rgba(125,255,154,.7);z-index:3;pointer-events:none;transition:opacity .4s}
+.msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;
+  padding:20px;font-family:var(--f-osd);font-size:1.5rem;color:var(--osd);z-index:2}
+.now{display:flex;flex-direction:column;gap:2px;min-width:0}
+.now .t{font-weight:600;font-size:1.05rem;overflow-wrap:anywhere}
+.now .s{color:var(--muted);font-size:.9rem;overflow-wrap:anywhere}
+.now a{color:var(--accent)}
+/* Fernbedienung */
+.remote{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:14px}
+.lbl{font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:.9rem;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);color:#1a1408;border-color:var(--accent);font-weight:600}
+.chip:focus-visible,.btn:focus-visible,input:focus-visible{outline:2px solid var(--osd);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font:inherit;font-weight:600;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;flex:1 1 auto}
+.btn.big{font-family:var(--f-osd);font-size:1.5rem;font-weight:400;padding:6px 14px}
+.btn.tz{font-family:var(--f-osd);font-size:1.45rem;font-weight:400;letter-spacing:.12em;background:#0e0d16;color:#d9d3ff;border-color:#4a4470;box-shadow:inset 0 0 18px rgba(140,120,255,.18)}
+.btn.tz[aria-pressed="true"]{border-color:#b9adff;color:#fff}
+.toggle{display:flex;align-items:center;gap:8px;font-size:.95rem}
+.src{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.9rem}
+details{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+summary{cursor:pointer;font-weight:600}
+.links{display:grid;gap:10px;margin-top:10px}
+.links a{color:var(--accent);font-weight:600}
+.links p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
+input[type=text]{font:inherit;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;width:100%}
+.guide{display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto;margin-top:4px}
+.prog{font:inherit;text-align:left;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer;display:flex;gap:10px;align-items:baseline;min-width:0}
+.prog .n{font-family:var(--f-osd);color:var(--muted);font-size:1.15rem;flex:none}
+.prog .tt{min-width:0;overflow-wrap:anywhere}
+.prog .q{margin-left:auto;flex:none;font-size:.75rem;color:var(--muted)}
+.prog[aria-current="true"]{border-color:var(--osd)}
+.prog[aria-current="true"] .n{color:var(--osd)}
+.stat{font-size:.85rem;color:var(--muted)}
+.ok{color:var(--osd)} .bad{color:var(--danger)}
+.help{display:flex;flex-direction:column;gap:6px;margin-top:8px;line-height:1.5;max-width:65ch}
+.help h3{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:10px 0 0;font-weight:600}
+.help p{margin:0}
+.help ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:3px}
+.help b{color:var(--accent);font-weight:600}
+.note{color:var(--muted);font-size:.85rem;line-height:1.45}
+.fsbar{display:none}
+.screen:fullscreen{border-radius:0;aspect-ratio:auto;width:100vw;height:100vh;max-width:none}
+.screen:fullscreen::after{border-radius:0}
+.screen:fullscreen .fsbar{display:flex;gap:6px;position:absolute;left:max(10px,env(safe-area-inset-left,0px));top:10px;z-index:5;opacity:0;pointer-events:none;transition:opacity .3s}
+.screen:fullscreen .fsbar.show{opacity:.9;pointer-events:auto}
+.seek{position:absolute;top:22%;bottom:22%;width:30%;z-index:4;display:none;align-items:center;justify-content:center;font-family:var(--f-osd);font-size:2.2rem;color:var(--osd);text-shadow:0 0 8px rgba(0,0,0,.9);-webkit-tap-highlight-color:transparent}
+.seek.l{left:0}.seek.r{right:0}
+.tapguard{display:none;position:absolute;inset:0;z-index:3;-webkit-tap-highlight-color:transparent}
+.screen.yt .tapguard{display:block}
+.tv,.seek,.ctl,.fsbar,.osd,.led-wrap{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+.seek::after{content:attr(data-t);opacity:0;transition:opacity .6s}.seek.hit::after{opacity:1;transition:none}
+.screen.playing .seek{display:flex}
+.seek span{opacity:0;transition:opacity .6s}.seek.hit span{opacity:1;transition:none}
+.castbox{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.castopts{display:flex;flex-direction:column;gap:6px}
+.castopts .btn{text-align:left}
+.castopts .btn small{display:block;font-weight:400;color:var(--muted);font-size:.85rem;margin-top:2px}
+.ctl{grid-area:ctl;display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:#111214;padding:3px;border-radius:5px;box-shadow:inset 0 1px 3px rgba(0,0,0,.9)}
+.cb{font-family:var(--f-body);font-size:1rem;white-space:nowrap;font-weight:600;line-height:1;color:#2b2d30;cursor:pointer;flex:1 1 0;min-width:0;padding:10px 0 9px;
+  background:linear-gradient(180deg,#f1f2f3 0%,#c8cbcf 55%,#a9adb2 100%);border:0;border-radius:2px;
+  box-shadow:inset 0 1px 0 #fff,inset 0 -3px 0 rgba(0,0,0,.25),0 1px 0 #000;-webkit-tap-highlight-color:transparent}
+.cb:active{transform:translateY(1px);box-shadow:inset 0 1px 3px rgba(0,0,0,.45);background:linear-gradient(180deg,#b9bdc1,#d4d7da)}
+.cb.pw{grid-column:span 2;color:#8a1610}
+.cb.tz{background:linear-gradient(180deg,#5b6f93,#34476b 60%,#2a3a59);color:#e9eefc;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 0 rgba(0,0,0,.35),0 1px 0 #000}
+.cb.blk{color:#8a1610;font-size:1.2rem}
+.blist{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto}
+.bitem{display:flex;gap:8px;align-items:center;justify-content:space-between;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-width:0}
+.bitem span{min-width:0;overflow-wrap:anywhere;font-size:.9rem}
+.bitem button{font:inherit;font-size:.85rem;flex:none;background:transparent;color:var(--accent);border:1px solid var(--line);border-radius:6px;padding:4px 8px;cursor:pointer}
+.cb.fav{color:#7a5a00;font-size:1.15rem}
+.cb.fav[aria-pressed="true"]{color:#c88a00;text-shadow:0 0 4px rgba(255,190,0,.6)}
+.cb.favch{background:linear-gradient(180deg,#c44a3a,#9a2c20 60%,#7c1f16);color:#ffe7a3;font-size:1.15rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 0 rgba(0,0,0,.35),0 1px 0 #000}
+.cb.favch[aria-pressed="true"]{outline:2px solid #ffe7a3;outline-offset:-2px}
+.cb.ye{font-size:.8rem;letter-spacing:.02em;background:linear-gradient(180deg,#3fa58a,#23775f 60%,#185a47);color:#f2fff9;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 0 rgba(0,0,0,.35),0 1px 0 #000}
+.cb.ye[aria-pressed="true"]{outline:2px solid #c8ffe9;outline-offset:-2px}
+.cb.mtv{background:linear-gradient(180deg,#f2d64b,#d9a91e 60%,#b98a12);color:#1d1606;box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -3px 0 rgba(0,0,0,.3),0 1px 0 #000}
+.cb.mtv[aria-pressed="true"]{outline:2px solid #fff1a8;outline-offset:-2px}
+.cb.tz[aria-pressed="true"]{outline:2px solid #9fb6ff;outline-offset:-2px}
+.cb:focus-visible{outline:2px solid var(--osd);outline-offset:2px}
+.fszone{display:none}
+.screen:fullscreen .fszone{display:block;position:absolute;left:0;right:0;top:0;height:22%;z-index:4}
+.fsb{font-family:var(--f-osd);font-size:1.3rem;background:rgba(0,0,0,.6);color:var(--osd);border:1px solid rgba(125,255,154,.4);border-radius:8px;padding:4px 10px;cursor:pointer}
+@media (prefers-reduced-motion:reduce){canvas#noise,.osd{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>ZEITKANAL</h1><div class="clock" id="clock">--:--</div></header>
+
+  <div class="tv" id="tv"><div class="bezel"><div class="screen crt" id="screen">
+    <video id="vid" playsinline controls hidden></video>
+    <iframe id="frame" hidden allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>
+    <canvas id="noise" width="160" height="120"></canvas>
+    <div class="msg" id="msg">Jahrzehnt und Kanal wählen,<br>dann AN tippen</div>
+    <div class="osd" id="osd"></div>
+    <div class="tapguard" id="tapguard" aria-hidden="true"></div>
+    <div class="seek l" id="seekL" aria-hidden="true"></div>
+    <div class="seek r" id="seekR" aria-hidden="true"></div>
+    <div class="fszone" id="fszone"></div>
+    <div class="fsbar" id="fsbar">
+      <button class="fsb" data-a="prev" aria-label="Vorherige Sendung">◀</button>
+      <button class="fsb" data-a="next" aria-label="Nächste Sendung">▶</button>
+      <button class="fsb" data-a="chd" aria-label="Kanal zurück">CH−</button>
+      <button class="fsb" data-a="chu" aria-label="Kanal vor">CH+</button>
+      <button class="fsb" data-a="fs" aria-label="Vollbild beenden">✕</button>
+    </div>
+  </div></div>
+  <div class="panel">
+    <div class="plate"><span>STEREO&nbsp;COLOR</span><span>66&nbsp;cm · PAL</span></div>
+    <div class="led-wrap"><span class="pled" aria-hidden="true"></span><span class="led" id="led">--</span></div>
+    <div class="grille" aria-hidden="true"></div>
+    <div class="ctl" role="toolbar" aria-label="Bedienung">
+    <button class="cb" id="prev" aria-label="Vorherige Sendung">⏮</button>
+    <button class="cb" id="next" aria-label="Nächste Sendung">⏭</button>
+    <button class="cb" id="chDown" aria-label="Kanal zurück">CH−</button>
+    <button class="cb pw" id="power">AN</button>
+    <button class="cb" id="chUp" aria-label="Kanal vor">CH+</button>
+    <button class="cb blk" id="blockBtn" aria-label="Sendung sperren">⊘</button>
+    <button class="cb" id="fsBtn" aria-label="Vollbild">⛶</button>
+    <button class="cb" id="castBtn" aria-label="Übertragen">📺</button>
+    <button class="cb tz" id="tzBtn" aria-label="Twilight Zone">TZ</button>
+    <button class="cb mtv" id="mtvBtn" aria-label="Musikvideos">CLIP</button>
+    <button class="cb ye" id="yeBtn" aria-label="Yeşilçam-Filme">YEŞİL</button>
+    <button class="cb fav" id="favBtn" aria-label="Sendung merken" aria-pressed="false">☆</button>
+    <button class="cb favch" id="favChBtn" aria-label="Gemerkte Sendungen abspielen">★</button>
+    </div>
+  </div></div>
+
+  <div class="castbox" id="castbox" hidden>
+    <div class="lbl">Auf den Fernseher übertragen</div>
+    <div class="castopts" id="castopts"></div>
+    <p class="note" id="castnote"></p>
+  </div>
+  <div class="now" id="now"><span class="t">Kein Programm</span><span class="s">Bereit</span></div>
+
+  <div class="remote">
+    <div><div class="lbl">Jahrzehnt</div><div class="chips" id="decades"></div></div>
+    <div><div class="lbl">Kanal</div><div class="chips" id="channels"></div></div>
+    <div id="subWrap"><div class="lbl">Genre</div><div class="chips" id="subs"></div></div>
+    <div><div class="lbl">Sprache</div><div class="chips" id="langs"></div></div>
+    <div><div class="lbl">Quellen</div><div class="src">
+      <label class="toggle"><input type="checkbox" id="s_ia" checked> Internet Archive</label>
+      <label class="toggle"><input type="checkbox" id="s_dm"> Dailymotion</label>
+      <label class="toggle"><input type="checkbox" id="s_yt" checked> YouTube</label>
+      <label class="toggle" hidden><input type="checkbox" id="s_vm"> Vimeo (Token nötig)</label>
+      <label class="toggle"><input type="checkbox" id="s_wm" checked> Wikimedia Commons</label>
+      <label class="toggle"><input type="checkbox" id="s_pt" checked> PeerTube</label>
+      <label class="toggle"><input type="checkbox" id="s_eu" checked> Europeana</label>
+      <label class="toggle"><input type="checkbox" id="s_lc" checked> Library of Congress</label>
+      <label class="toggle"><input type="checkbox" id="s_na" checked> NASA</label>
+    </div></div>
+  </div>
+
+  <details id="help">
+    <summary>Bedienung</summary>
+    <div class="help">
+      <h3>Einschalten</h3>
+      <p>Unten <b>Jahrzehnt</b> antippen (z. B. 80er), dann einen <b>Kanal</b> (z. B. Musik). Danach <b>AN</b> drücken. Fertig, es läuft.</p>
+      <h3>Die Tasten</h3>
+      <ul>
+        <li><b>⏮ ⏭</b> vorherige / nächste Sendung (zufällig)</li>
+        <li><b>CH− / CH+</b> anderer Kanal</li>
+        <li><b>AN / AUS</b> ein- und ausschalten</li>
+        <li><b>⊘</b> „Will ich nie wieder sehen“: Sendung fliegt für immer raus</li>
+        <li><b>⛶</b> Vollbild. Zum Beenden ✕ oben links; die Knöpfe erscheinen nach einem Tipp oben ins Bild</li>
+        <li><b>📺</b> auf den Fernseher übertragen</li>
+        <li><b>TZ</b> Twilight Zone (80er-Fassungen)</li>
+        <li><b>CLIP</b> nur Musikvideos, ein Lied pro Clip</li>
+        <li><b>YEŞİL</b> alte türkische Filme</li>
+        <li><b>☆</b> Sendung merken</li>
+        <li><b>★</b> nur gemerkte Sendungen abspielen</li>
+      </ul>
+      <h3>Spulen</h3>
+      <p>Aufs Bild tippen: <b>links</b> = 15 Sekunden zurück, <b>rechts</b> = 15 Sekunden vor.</p>
+      <h3>Mehr Auswahl</h3>
+      <p>Unter dem Fernseher <b>Genre</b> (z. B. Rock, Schlager) und <b>Sprache</b> wählen. Kommt „Sendepause“, ist die Auswahl zu eng: eine Einstellung lockern, z. B. „Alle Sprachen“.</p>
+      <h3>Wenn was hängt</h3>
+      <p>Einfach <b>⏭</b> drücken. Hilft das nicht: Seite neu laden.</p>
+    </div>
+  </details>
+
+  <details id="guideBox" open>
+    <summary>Programm dieses Kanals</summary>
+    <div class="stat" id="stat">Noch nicht eingeschaltet.</div>
+    <div class="row" style="margin:6px 0"><button class="btn" id="refresh">Neu suchen (Zwischenspeicher leeren)</button></div>
+    <div class="guide" id="guide"></div>
+  </details>
+
+  <details id="more">
+    <summary>Weitere Archive &amp; Foren (zum Stöbern)</summary>
+    <div class="links" id="links"></div>
+  </details>
+
+  <details id="blockBox">
+    <summary>Gesperrte Sendungen</summary>
+    <div class="stat" id="blockStat"></div>
+    <div class="blist" id="blist"></div>
+  </details>
+
+  <details>
+    <summary>Einstellungen &amp; Hinweise</summary>
+    <div class="links">
+      <div><div class="lbl">YouTube-API-Schlüssel (optional)</div>
+        <input type="text" id="ytkey" placeholder="AIza…" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <div class="row" style="margin-top:8px"><button class="btn" id="testkey">Schlüssel testen</button></div>
+        <div class="stat" id="keystat"></div>
+        <p class="note">Wird nur auf diesem Gerät gespeichert. Ohne Schlüssel bleibt YouTube aus, die Suchlinks unten funktionieren trotzdem.</p></div>
+      <div><div class="lbl">Europeana-Schlüssel (optional)</div>
+        <input type="text" id="eukey" placeholder="leer = Demo-Schlüssel" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <div class="row" style="margin-top:8px"><button class="btn" id="testeu">Schlüssel testen</button></div>
+        <div class="stat" id="eustat"></div>
+        <p class="note">Ohne eigenen Schlüssel nutzt die App den öffentlichen Demo-Schlüssel von Europeana. Der kann gedrosselt sein. Eigener Schlüssel kostenlos bei europeana.eu.</p></div>
+      <div hidden><div class="lbl">Vimeo-Zugangstoken (optional)</div>
+        <input type="text" id="vmkey" placeholder="Token von developer.vimeo.com" autocomplete="off">
+        <div class="row" style="margin-top:8px"><button class="btn" id="testvm">Token testen</button></div>
+        <div class="stat" id="vmstat"></div>
+        <p class="note">Wird nur auf diesem Gerät gespeichert.</p></div>
+      <label class="toggle"><input type="checkbox" id="ytembed"> YouTube &amp; Dailymotion im Fernseher abspielen (nur auf echter Webadresse, nicht als lokale Datei)</label>
+      <label class="toggle"><input type="checkbox" id="crt"> Röhren-Streifen (Bildröhren-Effekt)</label>
+      <p class="note">So funktioniert „live“: Jeder Kanal hat einen festen Sendeplan, der sich aus Jahrzehnt, Kanal und Uhrzeit ergibt. Wer zur selben Zeit einschaltet, sieht dieselbe Sendung an derselben Stelle. Alle Videos kommen direkt von den Plattformen, die App speichert nichts.</p>
+      <p class="note">Viele alte Videos haben kein Jahr eingetragen. Deshalb kann gelegentlich etwas aus einem anderen Jahrzehnt auftauchen.</p>
+    </div>
+  </details>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+const DECADES=[1950,1960,1970,1980,1990,2000,2010];
+const CH=[
+ {id:"werbung",name:"Werbung",ia:'(title:(commercial OR commercials OR advertisement OR werbung OR werbespot OR werbeblock OR "tv ad" OR "tv ads") OR subject:(commercial OR commercials OR advertisement OR werbung OR werbespot OR werbeblock OR "tv ad" OR "tv ads"))',de:"Werbung",en:"commercials"},
+ {id:"cartoon",name:"Cartoons",ia:'(title:(cartoon OR cartoons OR animation OR zeichentrick OR "animated short") OR subject:(cartoon OR cartoons OR animation OR zeichentrick OR "animated short"))',de:"Zeichentrick",en:"cartoons"},
+ {id:"news",name:"Nachrichten",ia:'(title:(news OR newscast OR newsreel OR nachrichten OR tagesschau OR heute OR wochenschau OR "evening news") OR subject:(news OR newscast OR newsreel OR nachrichten OR tagesschau OR heute OR wochenschau OR "evening news"))',de:"Nachrichten",en:"news broadcast"},
+ {id:"musik",name:"Musik",ia:'(title:("music video" OR "music videos" OR musikvideo OR concert OR konzert OR hitparade OR "formel eins" OR "top of the pops" OR "musikladen" OR mtv OR "live performance") OR subject:("music video" OR "music videos" OR musikvideo OR concert OR konzert OR hitparade OR "formel eins" OR "top of the pops" OR "musikladen" OR mtv OR "live performance"))',de:"Musik Sendung",en:"music videos"},
+ {id:"serie",name:"Serien",ia:'(title:("television series" OR "tv series" OR episode OR sitcom OR serie OR "tv show") OR subject:("television series" OR "tv series" OR episode OR sitcom OR serie OR "tv show"))',de:"Serie Folge",en:"tv series episode"},
+ {id:"doku",name:"Doku",ia:'(title:(documentary OR dokumentation OR doku) OR subject:(documentary OR dokumentation OR doku))',de:"Dokumentation",en:"documentary"},
+ {id:"film",name:"Spielfilm",ia:'(title:(spielfilm OR "feature film" OR "full movie") OR subject:(spielfilm OR "feature film" OR "full movie") OR collection:feature_films)',de:"Spielfilm",en:"full movie"},
+ {id:"kinder",name:"Kinder-TV",ia:'(title:(children OR kids OR kinderprogramm OR kindersendung OR "saturday morning" OR sesamstrasse) OR subject:(children OR kids OR kinderprogramm OR kindersendung OR "saturday morning" OR sesamstrasse))',de:"Kinderprogramm",en:"saturday morning"},
+ {id:"lehr",name:"Lehrfilme",ia:'(title:("educational film" OR lehrfilm OR schulfernsehen OR "instructional film") OR subject:("educational film" OR lehrfilm OR schulfernsehen OR "instructional film") OR collection:prelinger)',de:"Schulfernsehen",en:"educational film"},
+ {id:"sport",name:"Sport",ia:'(title:(sport OR sports OR fussball OR football OR olympia OR sportschau) OR subject:(sport OR sports OR fussball OR football OR olympia OR sportschau))',de:"Sportschau",en:"sports broadcast"},
+ {id:"yesil",name:"Yeşilçam",fixed:true,ia:'(yeşilçam OR yesilcam OR "türk filmi" OR "turk filmi" OR "turkish movie" OR "turkish film" OR arabesk OR "kemal sunal" OR "cüneyt arkın" OR "cuneyt arkin" OR "türkan şoray" OR "turkan soray" OR "orhan gencebay" OR "ferdi tayfur" OR "müslüm gürses" OR "tarık akan" OR "hülya koçyiğit" OR "filiz akın" OR "ayhan ışık" OR "zeki müren" OR "küçük emrah" OR "adile naşit" OR "şener şen" OR "fatma girik")',de:"Yeşilçam film",en:"Yeşilçam türk filmi"},
+ {id:"fav",name:"Gemerkt",fixed:true,ia:"",de:"",en:""},
+ {id:"mtv",name:"Musikvideos",ia:'(title:("official video" OR "official music video" OR "music video" OR musikvideo OR videoclip) OR subject:("music video" OR musikvideo))',de:"offizielles Musikvideo",en:"official music video"},
+ {id:"tz",name:"Twilight Zone",fixed:true,ia:'(title:("twilight zone" OR "schattenlichter") OR subject:("twilight zone"))',de:"Twilight Zone 1985 deutsch Folge",en:"The Twilight Zone 1985 episode"},
+ {id:"abend",name:"Fernsehabend",ia:'(title:(programmansage OR ansagerin OR sendeschluss OR testbild OR "tv recording" OR "full broadcast" OR "complete broadcast" OR "broadcast day" OR fernsehabend OR mitschnitt OR "station ident" OR continuity OR ard OR zdf OR "rtl plus" OR "sat 1" OR wdr OR "tv aufzeichnung") OR subject:(programmansage OR ansagerin OR sendeschluss OR testbild OR "tv recording" OR "full broadcast" OR "complete broadcast" OR "broadcast day" OR fernsehabend OR mitschnitt OR "station ident" OR continuity OR ard OR zdf OR "rtl plus" OR "sat 1" OR wdr OR "tv aufzeichnung"))',de:"Fernsehabend komplett Mitschnitt Ansage",en:"full tv broadcast recording with commercials"},
+ {id:"vhs",name:"VHS-Mitschnitte",ia:'(title:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR subject:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR collection:vhsvault)',de:"VHS Mitschnitt",en:"vhs tv recording"}
+];
+const LANGS=[
+ {id:"dex",name:"Deutsch + Englisch",ia:["German","ger","deu","Deutsch","English","eng"],kw:["deutsch","german"],dm:"de,en",yt:"de",q:"en"},
+ {id:"de",name:"Deutsch",ia:["German","ger","deu","Deutsch"],kw:["deutsch","german"],dm:"de",yt:"de",q:"de"},
+ {id:"en",name:"Englisch",ia:["English","eng"],kw:[],dm:"en",yt:"en",q:"en"},
+ {id:"fr",name:"Französisch",ia:["French","fre","fra"],kw:["français","french"],dm:"fr",yt:"fr",q:"en",nat:"français"},
+ {id:"it",name:"Italienisch",ia:["Italian","ita"],kw:["italiano","italian"],dm:"it",yt:"it",q:"en",nat:"italiano"},
+ {id:"es",name:"Spanisch",ia:["Spanish","spa"],kw:["español","spanish"],dm:"es",yt:"es",q:"en",nat:"español"},
+ {id:"nl",name:"Niederländisch",ia:["Dutch","dut","nld"],kw:["nederlands","dutch"],dm:"nl",yt:"nl",q:"en",nat:"nederlands"},
+ {id:"tr",name:"Türkisch",ia:["Turkish","tur"],kw:["türkçe","turkish"],dm:"tr",yt:"tr",q:"en",nat:"türkçe"},
+ {id:"el",name:"Griechisch",ia:["Greek","gre","ell"],kw:["ελληνικά","greek"],dm:"el",yt:"el",q:"en",nat:"ελληνικά"},
+ {id:"pt",name:"Portugiesisch",ia:["Portuguese","por"],kw:["português","portuguese"],dm:"pt",yt:"pt",q:"en",nat:"português"},
+ {id:"yu",name:"Jugoslawisch",codes:["sr","hr","bs","sh","sl","mk"],ia:["Serbian","Croatian","Bosnian","Serbo-Croatian","srp","hrv","bos","hbs"],kw:["jugoslavija","yugoslav"],dm:"sr,hr,bs",yt:"sr",q:"en",nat:"jugoslavija"},
+ {id:"ar",name:"Arabisch",ia:["Arabic","ara"],kw:["عربي","arabic"],dm:"ar",yt:"ar",q:"en",nat:"عربي"},
+ {id:"ko",name:"Koreanisch",ia:["Korean","kor"],kw:["한국","korean"],dm:"ko",yt:"ko",q:"en",nat:"한국"},
+ {id:"vi",name:"Vietnamesisch",ia:["Vietnamese","vie"],kw:["việt","vietnamese"],dm:"vi",yt:"vi",q:"en",nat:"việt nam"},
+ {id:"all",name:"Alle Sprachen",ia:null,kw:[],dm:"",yt:"",q:"en"}
+];
+// Jugendschutz: Erwachseneninhalte in Suche UND Titel/Beschreibung ausschließen
+const NSFW_W=["seks","seksi","erotik film","porn","porno","pornographic","xxx","nsfw","adult","sex","sexy","erotic","erotik","erotica","nude","nudity","naked","nackt","fetish","hentai","stripper","striptease","playboy","penthouse","hardcore","softcore","onlyfans","cam","webcam","masturbat","orgasm","bdsm","milf","gay adult","nudist","fkk","sexfilm","pornofilm","busen","lesbian","explicit","18+","x-rated","rated x"];
+const NSFW_Q="title:("+["porn","porno","xxx","nsfw","adult","sex","erotic","erotik","nude","nackt","fetish","hentai","hardcore","softcore","explicit","masturbation","nudist"].join(" OR ")+") OR subject:("+["porn","porno","xxx","nsfw","adult","sex","erotic","erotik","nude","nackt","fetish","hentai","hardcore","softcore","explicit","nudity","nudist"].join(" OR ")+") OR collection:(adultcdroms OR adult_films OR erotica)";
+const NSFW_RE=new RegExp("(^|[^a-z0-9äöüß])("+NSFW_W.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![a-zäöüß])|masturbat|pornogra|erotic","i");
+function nsfw(...t){return t.some(x=>NSFW_RE.test(String(x||"")))}
+// Unter-Genres je Kanal: [Name, Archive-Suchbegriffe, Suche deutsch, Suche englisch]
+const SUBS={
+ werbung:[["Autos",'auto OR car OR cars OR automobile',"Autowerbung","car commercial"],["Essen & Trinken",'food OR drink OR beer OR bier OR cola OR coffee OR kaffee OR cereal',"Werbung Lebensmittel","food commercial"],["Spielzeug",'toy OR toys OR spielzeug',"Spielzeugwerbung","toy commercial"],["Kosmetik",'cosmetics OR shampoo OR parfum OR perfume OR makeup',"Kosmetik Werbung","cosmetics commercial"],["Zigaretten",'cigarette OR cigarettes OR zigaretten OR tobacco',"Zigarettenwerbung","cigarette commercial"]],
+ cartoon:[["Serien",'series OR serie OR episode',"Zeichentrickserie","cartoon series"],["Kurzfilme",'short OR kurzfilm',"Zeichentrick Kurzfilm","animated short"],["Anime",'anime',"Anime deutsch","anime"],["Knete & Puppen",'stop-motion OR claymation OR knetanimation OR puppet',"Knetanimation","claymation"]],
+ news:[["Nachrichten",'tagesschau OR heute OR newscast OR "evening news"',"Tagesschau","evening news broadcast"],["Wochenschau",'wochenschau OR newsreel',"Wochenschau","newsreel"],["Wetter",'wetter OR weather',"Wetterbericht","weather forecast"],["Sondersendung",'special OR sondersendung OR breaking',"Sondersendung","news special report"]],
+ musik:[["Pop",'pop',"Pop Musik","pop music"],["Rock",'rock',"Rock Konzert","rock concert"],["Schlager",'schlager OR hitparade OR "zdf hitparade"',"Schlager Hitparade","schlager"],["Disco",'disco',"Disco","disco"],["Neue Deutsche Welle",'"neue deutsche welle" OR ndw',"Neue Deutsche Welle","neue deutsche welle"],["Metal",'metal OR "heavy metal"',"Heavy Metal","heavy metal"],["Hip-Hop",'"hip hop" OR rap',"Hip Hop","hip hop"],["Volksmusik",'volksmusik OR folk',"Volksmusik","folk music"]],
+ serie:[["Krimi",'krimi OR detective OR police OR crime',"Krimiserie","detective series"],["Sitcom",'sitcom OR comedy',"Sitcom","sitcom"],["Science-Fiction",'"science fiction" OR sci-fi OR space',"Science Fiction Serie","sci-fi series"],["Western",'western OR cowboy',"Westernserie","western series"],["Abenteuer",'adventure OR abenteuer',"Abenteuerserie","adventure series"],["Familie",'family OR familie',"Familienserie","family series"]],
+ doku:[["Natur",'nature OR natur OR animals OR tiere OR wildlife',"Naturdoku","nature documentary"],["Geschichte",'history OR geschichte OR war OR krieg',"Geschichte Doku","history documentary"],["Technik",'technology OR technik OR computer OR science',"Technik Doku","technology documentary"],["Weltraum",'space OR weltraum OR nasa OR moon',"Weltraum Doku","space documentary"],["Reisen",'travel OR reise OR travelogue',"Reise Doku","travelogue"]],
+ film:[["Horror",'horror OR grusel OR monster OR zombie',"Horrorfilm","horror movie"],["Western",'western',"Western Film","western movie"],["Krimi",'crime OR krimi OR noir OR detective',"Krimi Film","crime movie"],["Komödie",'comedy OR komödie',"Komödie Film","comedy movie"],["Science-Fiction",'"science fiction" OR sci-fi',"Science Fiction Film","sci-fi movie"],["Abenteuer",'adventure OR abenteuer',"Abenteuerfilm","adventure movie"],["Action",'action',"Actionfilm","action movie"],["Drama",'drama',"Drama Film","drama movie"]],
+ kinder:[["Puppen",'puppet OR puppen OR muppet',"Puppenspiel Kinder","puppet show"],["Märchen",'märchen OR fairy OR "fairy tale"',"Märchenfilm","fairy tale"],["Lernen",'educational OR lernen OR sesamstrasse OR "sesame street"',"Sesamstraße","educational kids show"],["Quiz & Spiel",'quiz OR game OR spiel',"Kinderquiz","kids game show"]],
+ lehr:[["Verkehr",'traffic OR verkehr OR driving OR safety',"Verkehrserziehung","driver education film"],["Gesundheit",'health OR gesundheit OR hygiene',"Gesundheit Lehrfilm","health education film"],["Technik",'technology OR technik OR industry',"Technik Lehrfilm","industrial film"],["Benimm",'manners OR etiquette OR social OR dating',"Benimm Lehrfilm","social guidance film"]],
+ sport:[["Fußball",'soccer OR fussball OR fußball OR bundesliga OR "world cup"',"Fußball","soccer"],["Formel 1",'"formula 1" OR "formel 1" OR f1 OR "grand prix"',"Formel 1","formula 1"],["Boxen",'boxing OR boxen',"Boxen","boxing"],["Tennis",'tennis',"Tennis","tennis"],["Olympia",'olympic OR olympia OR olympics',"Olympia","olympics"]],
+ abend:[["ARD",'ard OR "erstes deutsches fernsehen" OR tagesschau',"ARD Mitschnitt","ARD broadcast"],["ZDF",'zdf',"ZDF Mitschnitt","ZDF broadcast"],["RTL plus",'rtl OR "rtl plus"',"RTL plus Mitschnitt","RTL plus"],["Sat.1",'sat1 OR "sat 1" OR "sat.1"',"Sat.1 Mitschnitt","Sat 1"],["DDR-Fernsehen",'ddr OR dff OR "aktuelle kamera"',"DDR Fernsehen","east german tv"],["Dritte",'wdr OR ndr OR br OR hr OR swf OR sdr',"WDR Mitschnitt","german regional tv"]]
+};
+SUBS.mtv=SUBS.musik;
+function subList(){return SUBS[CH[st.ch].id]||[]}
+function curCh(){const c=CH[st.ch],sb=subList()[st.sub];if(!sb)return c;
+ return {...c,id:c.id+"/"+st.sub,name:c.name+" · "+sb[0],ia:`(${c.ia} AND (title:(${sb[1]}) OR subject:(${sb[1]})))`,de:sb[2],en:sb[3]}}
+const SLOT=25*60; // Sekunden pro Sendeplatz
+const $=id=>document.getElementById(id);
+const st={sub:-1,dec:1980,ch:0,lang:"dex",on:false,list:[],idx:0,key:"",timer:null,cache:{}};
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+
+// Gespeicherte Einstellungen
+try{const s=JSON.parse(ls("zk")||"{}");if(s.dec)st.dec=s.dec;if(s.ch!=null)st.ch=s.ch;if(s.lang&&LANGS.some(l=>l.id===s.lang))st.lang=s.lang;
+ ["s_ia","s_dm","s_yt","s_vm","s_wm","s_pt","s_eu","s_lc","s_na"].forEach(k=>{if(s[k]!=null)$(k).checked=s[k]});if(!s.dmlink)$("s_dm").checked=false;}catch(e){}
+$("crt").checked=ls("zk_crt")==="1";$("screen").classList.toggle("crt",$("crt").checked);
+$("ytembed").checked=ls("zk_ytembed")==="1"||(ls("zk_ytembed")===null&&location.protocol==="https:");$("ytembed").onchange=()=>ls("zk_ytembed",$("ytembed").checked?"1":"0");
+$("crt").onchange=()=>{ls("zk_crt",$("crt").checked?"1":"0");$("screen").classList.toggle("crt",$("crt").checked)};
+// Fest eingebaute Schlüssel (gelten, solange im Feld nichts anderes eingetragen ist)
+const DEF_YT="AIzaSyBdqkOa7h205DsBiGpw-fOxNw6eJ7ibFp4",DEF_EU="smallive";
+st.key=ls("zk_yt")||DEF_YT;$("ytkey").value=st.key;
+function save(){ls("zk",JSON.stringify({dec:st.dec,ch:st.ch,lang:st.lang,s_ia:$("s_ia").checked,s_dm:$("s_dm").checked,s_yt:$("s_yt").checked,s_vm:$("s_vm").checked,s_wm:$("s_wm").checked,s_pt:$("s_pt").checked,s_eu:$("s_eu").checked,s_lc:$("s_lc").checked,s_na:$("s_na").checked,dmlink:1}))}
+
+// Bedienelemente
+function chips(){
+ $("decades").innerHTML=DECADES.map(d=>`<button class="chip" data-d="${d}" aria-pressed="${d===st.dec}">${String(d).slice(2)}er</button>`).join("");
+ $("channels").innerHTML=CH.map((c,i)=>`<button class="chip" data-c="${i}" aria-pressed="${i===st.ch}">${i+1} ${c.name}</button>`).join("");
+ {const sl=subList();$("subWrap").hidden=!sl.length;
+  $("subs").innerHTML=sl.length?[`<button class="chip" data-s="-1" aria-pressed="${st.sub<0}">Alle</button>`].concat(sl.map((x,i)=>`<button class="chip" data-s="${i}" aria-pressed="${i===st.sub}">${x[0]}</button>`)).join(""):"";}
+ $("favChBtn").setAttribute("aria-pressed",CH[st.ch].id==="fav");
+ $("yeBtn").setAttribute("aria-pressed",CH[st.ch].id==="yesil");
+ $("mtvBtn").setAttribute("aria-pressed",CH[st.ch].id==="mtv");
+ $("tzBtn").setAttribute("aria-pressed",CH[st.ch].id==="tz");$("led").textContent=String(st.ch+1).padStart(2,"0");
+ $("langs").innerHTML=LANGS.map(l=>`<button class="chip" data-l="${l.id}" aria-pressed="${l.id===st.lang}">${l.name}</button>`).join("");
+ links();
+}
+function L(){return LANGS.find(l=>l.id===st.lang)||LANGS[0]}
+$("decades").onclick=e=>{const b=e.target.closest("[data-d]");if(!b)return;st.dec=+b.dataset.d;chips();save();if(st.on)tune()};
+$("channels").onclick=e=>{const b=e.target.closest("[data-c]");if(!b)return;st.ch=+b.dataset.c;st.sub=-1;chips();save();if(st.on)tune()};
+$("langs").onclick=e=>{const b=e.target.closest("[data-l]");if(!b)return;st.lang=b.dataset.l;chips();save();if(st.on)tune()};
+// Gemerkte Sendungen (bleiben auf diesem Gerät gespeichert)
+function favs(){try{return JSON.parse(ls("zk_fav")||"[]")}catch(e){return[]}}
+function favKey(it){return it.src+":"+it.id}
+function isFav(it){return !!it&&favs().some(f=>favKey(f)===favKey(it))}
+function favUI(){const b=$("favBtn"),f=isFav(st.cur);b.textContent=f?"★":"☆";b.setAttribute("aria-pressed",f);b.setAttribute("aria-label",f?"Merken aufheben":"Sendung merken")}
+$("favBtn").onclick=()=>{const it=st.cur;if(!it)return;let f=favs();
+ if(isFav(it)){f=f.filter(x=>favKey(x)!==favKey(it));osd("☆ ENTFERNT")}
+ else{const{src,id,title,dur,url,embed,page,year}=it;f.unshift({src,id,title,dur,url,embed,page,year});osd("★ GEMERKT")}
+ ls("zk_fav",JSON.stringify(f.slice(0,500)));favUI();
+ if(CH[st.ch].id==="fav")$("stat").textContent=f.length+" gemerkte Sendungen"};
+// Gesperrte Sendungen (nur auf diesem Gerät gespeichert)
+function blocked(){try{return JSON.parse(ls("zk_block")||"[]")}catch(e){return[]}}
+function blockSet(){return new Set(blocked().map(favKey))}
+function blockUI(){const b=blocked();$("blockStat").textContent=b.length?b.length+" gesperrt. Antippen von „Freigeben“ holt eine Sendung zurück.":"Nichts gesperrt. Mit ⊘ sperrst du die laufende Sendung.";
+ $("blist").innerHTML=b.map((x,i)=>`<div class="bitem"><span>${esc(x.title||x.id)}</span><button data-u="${i}">Freigeben</button></div>`).join("")}
+$("blist").onclick=e=>{const i=e.target.closest("[data-u]")?.dataset.u;if(i==null)return;const b=blocked();b.splice(+i,1);ls("zk_block",JSON.stringify(b));blockUI()};
+$("blockBtn").onclick=()=>{const it=st.cur;if(!it||!st.on)return;const b=blocked();
+ if(!b.some(x=>favKey(x)===favKey(it))){b.unshift({src:it.src,id:it.id,title:it.title});ls("zk_block",JSON.stringify(b.slice(0,2000)))}
+ // auch aus den Gemerkten entfernen
+ ls("zk_fav",JSON.stringify(favs().filter(x=>favKey(x)!==favKey(it))));
+ const k=favKey(it);const old=st.idx;st.list=st.list.filter(x=>favKey(x)!==k);
+ Object.keys(st.cache).forEach(c=>st.cache[c]=st.cache[c].filter(x=>favKey(x)!==k));
+ blockUI();osd("⊘ GESPERRT");
+ if(!st.list.length){stop();msg("ALLES GESPERRT<br><small>Anderen Kanal wählen.</small>");return}
+ st.hist=[];st.seen=new Set();st.idx=Math.min(old,st.list.length-1);rndNext()};
+blockUI();
+$("refresh").onclick=()=>{try{Object.keys(localStorage).filter(k=>k.startsWith("zk_ytc")).forEach(k=>localStorage.removeItem(k))}catch(e){}st.cache={};if(st.on)tune();else $("stat").textContent="Zwischenspeicher geleert."};
+$("favChBtn").onclick=()=>{st.ch=CH.findIndex(c=>c.id==="fav");st.sub=-1;chips();save();if(!st.on){st.on=true;$("power").textContent="AUS";$("tv").classList.add("on")}tune()};
+$("yeBtn").onclick=()=>{st.ch=CH.findIndex(c=>c.id==="yesil");st.sub=-1;chips();save();if(!st.on){st.on=true;$("power").textContent="AUS";$("tv").classList.add("on")}tune()};
+$("mtvBtn").onclick=()=>{st.ch=CH.findIndex(c=>c.id==="mtv");st.sub=-1;chips();save();if(!st.on){st.on=true;$("power").textContent="AUS";$("tv").classList.add("on")}tune()};
+$("tzBtn").onclick=()=>{st.ch=CH.findIndex(c=>c.id==="tz");st.sub=-1;chips();save();if(!st.on){st.on=true;$("power").textContent="AUS";$("tv").classList.add("on")}tune()};
+$("subs").onclick=e=>{const b=e.target.closest("[data-s]");if(!b)return;st.sub=+b.dataset.s;chips();if(st.on)tune()};
+$("chUp").onclick=()=>{st.ch=(st.ch+1)%CH.length;st.sub=-1;chips();save();if(st.on)tune()};
+$("chDown").onclick=()=>{st.ch=(st.ch-1+CH.length)%CH.length;st.sub=-1;chips();save();if(st.on)tune()};
+$("power").onclick=()=>{if(st.on){off()}else{st.on=true;$("power").textContent="AUS";$("tv").classList.add("on");tune()}};
+$("next").onclick=rndNext;
+$("prev").onclick=rndPrev;
+$("guide").onclick=e=>{const b=e.target.closest("[data-i]");if(b)jump(+b.dataset.i)};
+function jump(i){if(!st.on||!st.list.length)return;st.idx=(i+st.list.length)%st.list.length;noise(350);play(st.list[st.idx],0)}
+// Zufällig weiter: nimmt eine noch nicht gesehene Sendung; zurück geht durch den Verlauf
+// Aufgeteilte Filme: Teil-Nummer erkennen und nach Teil 1 automatisch Teil 2 spielen
+function partNo(t){const m=String(t||"").match(/\b(?:teil|part|bölüm|parte|partie|deel|cd|folge)\s*(\d{1,2})\b|\b(\d{1,2})\s*\/\s*\d{1,2}\b|\b(\d{1,2})\.\s*(?:teil|bölüm)\b/i);return m?+(m[1]||m[2]||m[3]):0}
+function partBase(t){return String(t||"").toLowerCase().replace(/\b(?:teil|part|bölüm|parte|partie|deel|cd|folge)\s*\d{1,2}\b|\b\d{1,2}\s*\/\s*\d{1,2}\b|\b\d{1,2}\.\s*(?:teil|bölüm)\b/gi,"").replace(/[^a-z0-9äöüßçğışéèáàñ]+/g," ").trim()}
+function rndNext(){if(!st.on||!st.list.length)return;
+ {const cur=st.list[st.idx],n=partNo(cur&&cur.title);
+  if(n){const b=partBase(cur.title);const nx=st.list.findIndex(x=>partNo(x.title)===n+1&&partBase(x.title)===b);
+   if(nx>=0){st.hist=st.hist||[];st.seen=st.seen||new Set();st.hist.push(st.idx);st.seen.add(st.idx);return jump(nx)}}}
+ st.hist=st.hist||[];st.seen=st.seen||new Set();
+ st.hist.push(st.idx);st.seen.add(st.idx);
+ let pool=st.list.map((_,i)=>i).filter(i=>!st.seen.has(i));
+ if(!pool.length){st.seen=new Set([st.idx]);pool=st.list.map((_,i)=>i).filter(i=>i!==st.idx)}
+ if(!pool.length)return jump(st.idx);
+ jump(pool[Math.floor(Math.random()*pool.length)])}
+function rndPrev(){if(!st.on||!st.list.length)return;
+ if(st.hist&&st.hist.length){jump(st.hist.pop())}else rndNext()}
+function guide(){const n={ia:"Archive",dm:"Dailymotion",yt:"YouTube",vm:"Vimeo",wm:"Wikimedia",pt:"PeerTube",eu:"Europeana",lc:"Library of Congress",na:"NASA"};
+ $("guide").innerHTML=st.list.map((it,i)=>`<button class="prog" data-i="${i}" aria-current="${i===st.idx}"><span class="n">${String(i+1).padStart(2,"0")}</span><span class="tt">${esc(it.title)}</span><span class="q">${n[it.src]}</span></button>`).join("");
+ const c=$("guide").querySelector('[aria-current="true"]');if(c)$("guide").scrollTop=c.offsetTop-$("guide").offsetTop-4}
+async function testKey(){const k=$("ytkey").value.trim();const o=$("keystat");
+ if(!k){o.innerHTML='<span class="bad">Kein Schlüssel eingetragen.</span>';return}
+ o.textContent="Teste Schlüssel …";
+ try{const r=await fetch("https://www.googleapis.com/youtube/v3/videos?part=id&chart=mostPopular&maxResults=1&key="+encodeURIComponent(k));
+  const j=await r.json().catch(()=>({}));
+  if(r.ok)o.innerHTML='<span class="ok">✓ Schlüssel funktioniert. YouTube ist aktiv.</span>';
+  else o.innerHTML='<span class="bad">✗ Abgelehnt: '+esc(j.error?.message||("Fehler "+r.status))+'</span>';
+ }catch(e){o.innerHTML='<span class="bad">✗ Google nicht erreichbar. Internetverbindung prüfen.</span>'}}
+st.vkey="";$("s_vm").checked=false; // Vimeo-Suche liefert 404 (öffentliche Suche nicht verfügbar)
+$("vmkey").value=st.vkey;
+async function testVM(){const o=$("vmstat");if(!st.vkey){o.innerHTML='<span class="bad">Kein Token eingetragen.</span>';return}
+ o.textContent="Teste Token …";
+ try{const r=await fetch("https://api.vimeo.com/videos?per_page=1&query=test&fields=uri",{headers:{Authorization:"bearer "+st.vkey}});
+  o.innerHTML=r.ok?'<span class="ok">✓ Token funktioniert. Vimeo ist aktiv.</span>':'<span class="bad">✗ Abgelehnt (Fehler '+r.status+'). Token prüfen.</span>'}
+ catch(e){o.innerHTML='<span class="bad">✗ Vimeo nicht erreichbar.</span>'}}
+function setVM(){st.vkey=$("vmkey").value.trim();ls("zk_vm",st.vkey);if(st.vkey)$("s_vm").checked=true;save()}
+$("vmkey").onchange=()=>{setVM();testVM();if(st.on)tune()};
+$("testvm").onclick=()=>{setVM();testVM()};
+st.ekey=ls("zk_eu")||DEF_EU;$("eukey").value=st.ekey;
+function setEU(){st.ekey=$("eukey").value.trim().toLowerCase();$("eukey").value=st.ekey;ls("zk_eu",st.ekey);st.cache={}}
+async function testEU(){const o=$("eustat");const k=st.ekey||"api2demo";o.textContent="Teste Schlüssel …";
+ try{const r=await fetch("https://api.europeana.eu/record/v2/search.json?rows=1&query=film&wskey="+encodeURIComponent(k));const j=await r.json().catch(()=>({}));
+  o.innerHTML=(r.ok&&j.success!==false)?'<span class="ok">✓ Schlüssel funktioniert. Europeana ist aktiv'+(st.ekey?"":" (Demo-Schlüssel)")+'.</span>':'<span class="bad">✗ Abgelehnt: '+esc(j.error||("Fehler "+r.status))+'</span>'}
+ catch(e){o.innerHTML='<span class="bad">✗ Europeana nicht erreichbar.</span>'}}
+$("eukey").onchange=()=>{setEU();testEU();if(st.on)tune()};
+$("testeu").onclick=()=>{setEU();testEU()};
+$("testkey").onclick=()=>{st.key=$("ytkey").value.trim();ls("zk_yt",st.key);if(st.key)$("s_yt").checked=true;save();testKey()};
+["s_ia","s_dm","s_yt","s_vm","s_wm","s_pt","s_eu","s_lc","s_na"].forEach(k=>$(k).onchange=()=>{save();links();if(st.on)tune()});
+$("ytkey").onchange=()=>{st.key=$("ytkey").value.trim();ls("zk_yt",st.key);if(st.key)$("s_yt").checked=true;save();testKey();if(st.on)tune()};
+
+// Rauschen beim Umschalten
+const nc=$("noise").getContext("2d");let nAnim=0;
+function noise(ms){$("noise").style.opacity=1;const end=performance.now()+ms;cancelAnimationFrame(nAnim);
+ const f=()=>{const im=nc.createImageData(160,120);for(let i=0;i<im.data.length;i+=4){const v=Math.random()*255;im.data[i]=im.data[i+1]=im.data[i+2]=v;im.data[i+3]=255}
+  nc.putImageData(im,0,0);if(performance.now()<end)nAnim=requestAnimationFrame(f);else $("noise").style.opacity=0};f()}
+function osd(t){$("osd").textContent=t;$("osd").style.opacity=1;clearTimeout(osd.t);osd.t=setTimeout(()=>$("osd").style.opacity=0,3500)}
+function msg(t){$("msg").innerHTML=t;$("msg").hidden=!t}
+function nowInfo(t,s){$("now").innerHTML=`<span class="t">${t}</span><span class="s">${s}</span>`}
+function esc(s){return String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+// Zufall mit festem Startwert (gleicher Sendeplan für alle)
+function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function shuffle(a,seed){let x=seed||1;const r=()=>(x=Math.imul(x^x>>>15,2246822507)+0x6D2B79F5>>>0)/4294967296;
+ for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+async function getJSON(u,ms=12000){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);
+ try{const r=await fetch(u,{signal:c.signal});
+  if(!r.ok){// YouTube meldet ein erschöpftes Tageskontingent mit 403 + quotaExceeded
+   if(r.status===403&&u.includes("googleapis.com/youtube")){const j=await r.json().catch(()=>({}));if(JSON.stringify(j).includes("quota"))st.ytQuota=Date.now()}
+   throw new Error(r.status)}
+  return await r.json()}finally{clearTimeout(t)}}
+
+// Quellen
+async function srcIA(c,d,l){
+ const y=`(year:[${d} TO ${d+9}] OR date:[${d}-01-01 TO ${d+9}-12-31])`;
+ let q=`mediatype:movies AND ${c.ia}${c.fixed?"":" AND "+y} AND NOT (${NSFW_Q})`;
+ if(l.ia)q+=` AND (language:(${l.ia.join(" OR ")})${l.kw.map(k=>" OR "+k).join("")})`;
+ const u="https://archive.org/advancedsearch.php?q="+encodeURIComponent(q)+"&fl[]=identifier&fl[]=title&fl[]=year&fl[]=subject&fl[]=description&rows=200&sort[]=downloads+desc&output=json";
+ const j=await getJSON(u);return (j.response?.docs||[]).filter(x=>!nsfw(x.title,[].concat(x.subject||[]).join(" "),String([].concat(x.description||[]).join(" ")).slice(0,2000))).map(x=>({src:"ia",id:x.identifier,title:x.title,year:x.year}))}
+async function srcDM(c,d,l){
+ if(CH[st.ch].id==="yesil"){const j=await getJSON("https://api.dailymotion.com/videos?fields=id,title,duration,allow_embed,private&limit=100&family_filter=true&languages=tr&longer_than=45&search="+encodeURIComponent("yeşilçam film"));
+  const j2=await getJSON("https://api.dailymotion.com/videos?fields=id,title,duration,allow_embed,private&limit=100&family_filter=true&longer_than=45&search="+encodeURIComponent("türk filmi tek parça")).catch(()=>({list:[]}));
+  return (j.list||[]).concat(j2.list||[]).filter(x=>x.allow_embed!==false&&!x.private&&!nsfw(x.title)).map(x=>({src:"dm",id:x.id,title:x.title,dur:x.duration}))}
+ const de=l.q==="de";
+ const q=withNat(c.fixed?(de?c.de:c.en):(de?`${c.de} ${String(d).slice(2)}er`:`${String(d).slice(2)}s ${c.en}`),l);
+ const u="https://api.dailymotion.com/videos?fields=id,title,duration,allow_embed,private,geoblocking&limit=60&family_filter=true&search="+encodeURIComponent(q)+(l.dm?"&languages="+l.dm:"");
+ const j=await getJSON(u);return (j.list||[]).filter(x=>!nsfw(x.title)&&x.allow_embed!==false&&!x.private&&(c.fixed||!yearOff(x.title,d))&&!(Array.isArray(x.geoblocking)&&x.geoblocking[0]==="allow"&&!x.geoblocking.includes("de"))).map(x=>({src:"dm",id:x.id,title:x.title,dur:x.duration}))}
+// Titel mit Jahreszahl außerhalb des Jahrzehnts aussortieren
+function yearOff(t,d){const y=(String(t||"").match(/\b(19[2-9]\d|20[0-2]\d)\b/g)||[]).map(Number);return y.length>0&&!y.some(v=>v>=d&&v<=d+9)}
+// Yeşilçam: Filme direkt von den offiziellen YouTube-Kanälen der Studios, dazu private VHS-Mitschnitte
+async function srcYesil(){
+ const ck="zk_ytc6_yesil";
+ try{const c0=JSON.parse(ls(ck)||"null");if(c0&&Date.now()-c0.t<432e5){st.ytInfo=(c0.info||"")+" (gespeichert)";return c0.v}}catch(e){}
+ const K="&key="+encodeURIComponent(st.key),Y="https://www.googleapis.com/youtube/v3/";
+ const studios=["Arzu Film","Erler Film","Burç Film","Erman Film","Moroğlu Film","Feza Film","SinemaGo","Fanatik Film","Yeşilçam Filmleri","Saner Film","Kemal Film","Gülşah Film"];
+ const chIds=(await Promise.all(studios.map(n=>getJSON(Y+"search?part=snippet&type=channel&maxResults=1&regionCode=TR&q="+encodeURIComponent(n)+K)
+  .then(j=>{const it=(j.items||[])[0];const t=String(it?.snippet?.title||"").toLowerCase();return it&&t.includes(n.toLowerCase().split(" ")[0].slice(0,4))?it.id?.channelId||it.snippet?.channelId:null}).catch(()=>null)))).filter(Boolean);
+ const seen=new Set();const items=[];
+ const add=(id,title,vhs)=>{if(!id||seen.has(id)||!title||/private video|deleted video/i.test(title))return;seen.add(id);if(!nsfw(title))items.push({src:"yt",id,title:unent(title),vhs})};
+ if(chIds.length){const cd=await getJSON(Y+"channels?part=contentDetails&id="+[...new Set(chIds)].join(",")+K).catch(()=>({items:[]}));
+  const ups=(cd.items||[]).map(x=>x.contentDetails?.relatedPlaylists?.uploads).filter(Boolean);
+  await Promise.all(ups.map(async pid=>{let tok="";for(let pg=0;pg<10;pg++){
+   const j=await getJSON(Y+"playlistItems?part=snippet&maxResults=50&playlistId="+pid+(tok?"&pageToken="+tok:"")+K).catch(()=>null);
+   if(!j)break;(j.items||[]).forEach(x=>add(x.snippet?.resourceId?.videoId,x.snippet?.title,false));tok=j.nextPageToken;if(!tok)break}}))}
+ // private VHS-Rips
+ const vq=["yeşilçam vhs kaset","eski türk filmi vhs","arabesk film vhs","yeşilçam filmi full hd tek parça","kemal sunal filmi tek parça","cüneyt arkın filmi tek parça","türkan şoray filmi tek parça","orhan gencebay filmi"];
+ const vr=await Promise.all(vq.map(q=>getJSON(Y+"search?part=snippet&type=video&videoEmbeddable=true&videoDuration=long&safeSearch=strict&maxResults=50&q="+encodeURIComponent(q)+K).catch(()=>({items:[]}))));
+ vr.forEach(j=>(j.items||[]).forEach(x=>add(x.id?.videoId,x.snippet?.title,true)));
+ // Details: nur abspielbare Spielfilme (ab 45 Min.)
+ const m={};const chunks=[];for(let k=0;k<items.length;k+=50)chunks.push(items.slice(k,k+50));
+ await Promise.all(chunks.map(async ch=>{try{const v=await getJSON(Y+"videos?part=contentDetails,status&id="+ch.map(i=>i.id).join(",")+K);
+  (v.items||[]).forEach(x=>{const rr=x.contentDetails?.regionRestriction;
+   m[x.id]={dur:isoDur(x.contentDetails?.duration),blocked:(rr?.blocked||[]).includes("DE")||(rr?.allowed&&!rr.allowed.includes("DE"))||x.status?.embeddable===false}})}catch(e){}}));
+ if(!items.length&&st.ytQuota&&Date.now()-st.ytQuota<6e4)throw new Error("quota");
+ const out=items.filter(i=>m[i.id]&&!m[i.id].blocked&&m[i.id].dur>=45*60).map(i=>({src:"yt",id:i.id,title:i.title,dur:m[i.id].dur}));
+ st.ytInfo=`${out.length} von ${items.length} geprüft, ${chIds.length} Studiokanäle`;
+ try{ls(ck,JSON.stringify({t:Date.now(),v:out,info:st.ytInfo}))}catch(e){}
+ return out}
+async function srcYT(c,d,l){
+ if(!st.key)return[];const de=l.q==="de",base=CH[st.ch].id,dd=String(d).slice(2);
+ if(base==="yesil")return srcYesil();
+ // Zwischenspeicher (12 Std.) schont das Tageskontingent von YouTube
+ const ck="zk_ytc6_"+[base,c.id,c.fixed?"":d,l.id].join("|");
+ try{const c0=JSON.parse(ls(ck)||"null");if(c0&&Date.now()-c0.t<432e5){st.ytInfo=(c0.info||"")+" (gespeichert)";return c0.v}}catch(e){}
+ const core=c.fixed?(de?c.de:c.en):(de?c.de:c.en);
+ // Mehrere Suchanfragen für mehr Auswahl (je 100 Einheiten von 10.000 pro Tag)
+ let qs=c.fixed?[core,core+(de?" ganze Folge":" full episode")]
+  :[de?`${core} ${dd}er Jahre`:`${d}s ${core}`].concat(Array.from({length:10},(_,k)=>`${core} ${d+k}`));
+ if(base==="musik")qs=qs.map(q=>q+(de?" live auftritt":" live performance"));
+ if(l.id==="de")qs=qs.map(q=>q+" deutsch");
+ qs=qs.map(q=>withNat(q,l));
+ const extra=(base==="musik"||base==="mtv"?"&videoCategoryId=10":"")+(base==="mtv"?"&videoDuration=medium":"")+(base==="film"?"&videoDuration=long":"")+(l.yt?"&relevanceLanguage="+l.yt:"");
+ const sUrl=q=>"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&videoSyndicated=true&regionCode=DE&safeSearch=strict&maxResults=50"+extra+"&q="+encodeURIComponent(q)+"&key="+encodeURIComponent(st.key);
+ const res=(await Promise.all(qs.map(async q=>{const a=await getJSON(sUrl(q)).catch(()=>({items:[]}));
+  const b=a.nextPageToken?await getJSON(sUrl(q)+"&pageToken="+a.nextPageToken).catch(()=>({items:[]})):{items:[]};
+  return [a,b]}))).flat();
+ const seen=new Set();let items=[];
+ const add=(id,title,desc)=>{if(!id||seen.has(id))return;seen.add(id);
+  if((c.fixed||!yearOff(title,d))&&!nsfw(title,desc))items.push({src:"yt",id,title:unent(title)})};
+ res.forEach(j=>(j.items||[]).forEach(x=>add(x.id?.videoId,x.snippet.title,x.snippet.description)));
+ // Playlists: eine Suche (100 Einheiten), dann die Listen auslesen (je 1 Einheit pro 50 Videos) – viel mehr Auswahl
+ try{let pqs=[withNat(c.fixed?core:(de?`${core} ${dd}er`:`${d}s ${core}`),l)];
+  // Bei „Deutsch“ gezielt nach deutschsprachigen Listen suchen, sonst landen fast nur internationale Hits darin
+  if(l.id==="de"&&!c.fixed){const music=base==="musik"||base==="mtv";
+   pqs=[`deutsche ${core} ${dd}er`].concat(music?[`deutsche Hits ${dd}er Jahre Videos`,`deutsche Musikvideos ${dd}er`,`Schlager ${dd}er Jahre Videos`,`deutschsprachige Hits ${dd}er`,d===1980?"Neue Deutsche Welle Musikvideos":`deutsche Popmusik ${dd}er Videos`,d===1980?"NDW Hits Videos":`deutsche Rockmusik ${dd}er`]:[`${core} ${dd}er Jahre deutsch`,`${core} ${dd}er Jahre komplett`])}
+  else if(!c.fixed){pqs=pqs.concat(de?[`${core} ${dd}er Jahre`,`Best of ${dd}er ${core}`]:[`${d}s ${core} playlist`,`best ${d}s ${core}`])}
+  const pls=await Promise.all(pqs.map(pq=>getJSON("https://www.googleapis.com/youtube/v3/search?part=snippet&type=playlist&maxResults=8&regionCode=DE"+(l.yt?"&relevanceLanguage="+l.yt:"")+"&q="+encodeURIComponent(pq)+"&key="+encodeURIComponent(st.key)).catch(()=>({items:[]}))));
+  const ids=[...new Set(pls.flatMap(pl=>(pl.items||[]).map(x=>x.id?.playlistId).filter(Boolean).slice(0,6)))].slice(0,30);
+  await Promise.all(ids.map(async pid=>{let tok="";for(let pg=0;pg<10;pg++){
+   const j=await getJSON("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId="+pid+(tok?"&pageToken="+tok:"")+"&key="+encodeURIComponent(st.key)).catch(()=>null);
+   if(!j)break;(j.items||[]).forEach(x=>add(x.snippet?.resourceId?.videoId,x.snippet?.title||"",x.snippet?.description||""));
+   tok=j.nextPageToken;if(!tok)break}}));
+ }catch(e){}
+ if(!items.length&&res.every(j=>!j.items))throw new Error("YouTube");
+ // Details in 50er-Paketen: Länge, Sperren, Sprache, Jahresangaben in der Beschreibung
+ const m={};
+ const chunks=[];for(let k=0;k<items.length;k+=50)chunks.push(items.slice(k,k+50));
+ await Promise.all(chunks.map(async ch=>{try{const v=await getJSON("https://www.googleapis.com/youtube/v3/videos?part=contentDetails,status,snippet&id="+ch.map(i=>i.id).join(",")+"&key="+encodeURIComponent(st.key));
+  (v.items||[]).forEach(x=>{const rr=x.contentDetails?.regionRestriction;
+   const blocked=(rr?.blocked||[]).includes("DE")||(rr?.allowed&&!rr.allowed.includes("DE"))||x.status?.embeddable===false;
+   const lg=String(x.snippet?.defaultAudioLanguage||x.snippet?.defaultLanguage||"").slice(0,2).toLowerCase();
+   m[x.id]={dur:isoDur(x.contentDetails?.duration),blocked,lg,desc:String(x.snippet?.description||"").slice(0,2000)}})}catch(e){}}));
+ let ok=items.filter(i=>m[i.id]&&!m[i.id].blocked);
+ // Jahrzehnt: Jahreszahlen in der Beschreibung (z. B. „℗ 2007“) außerhalb des Jahrzehnts = raus
+ if(!c.fixed)ok=ok.filter(i=>{const y=yearsIn(m[i.id].desc).filter(v=>v<2005||v<=d+9);const ys=yearsIn(m[i.id].desc);
+  if(!ys.length)return true;if(ys.some(v=>v>=d&&v<=d+9))return true;
+  // nur Upload-/Remaster-Jahre nach 2005 und nichts aus dem Jahrzehnt: bei Jahrzehnten vor 2000 raus
+  return d>=2000&&!ys.some(v=>v<d)});
+ // Sprache: andere angegebene Sprache raus; ohne Angabe bei Einzelsprachen nur mit passendem Titel
+ const codes=langCodes(l);
+ // Gesungene Sprache: Angabe des Uploaders, sonst nur der TITEL (nicht die Beschreibung) bzw. bekannte deutschsprachige Interpreten
+ if(codes)ok=ok.filter(i=>{const g=m[i.id].lg;if(g&&!codes.includes(g))return false;
+  if(l.id==="dex"||l.id==="en")return true;
+  if(l.id==="de")return (g==="de"&&!foreignArtist(i.title))||deArtist(i.title)||(titleLang(i.title,l)&&!foreignArtist(i.title));
+  return g?true:titleLang(i.title,l)});
+ const out=ok.map(i=>({...i,dur:m[i.id].dur}));
+ st.ytInfo=`${out.length} von ${items.length} geprüft`;
+ try{ls(ck,JSON.stringify({t:Date.now(),v:out,info:st.ytInfo}))}catch(e){}
+ return out}
+// Bekannte deutschsprachige Interpreten (50er bis 2000er)
+const DE_ART=["nena","nicki","udo lindenberg","lindenberg","peter maffay","maffay","herbert grönemeyer","grönemeyer","groenemeyer","westernhagen","ideal","trio","spliff","extrabreit","falco","peter schilling","joachim witt","hubert kah","markus","geier sturzflug","spider murphy gang","münchener freiheit","purple schulz","klaus lage","wolf maahn","bap","rio reiser","ton steine scherben","die toten hosen","toten hosen","die ärzte","fehlfarben","daf","deutsch amerikanische freundschaft","einstürzende neubauten","nina hagen","interzone","rodgau monotones","torfrock","juliane werding","nicole","wencke myhre","roland kaiser","howard carpendale","drafi deutscher","heino","karel gott","roy black","udo jürgens","rex gildo","costa cordalis","michael holm","bernd clüver","mary roos","katja ebstein","marianne rosenberg","andrea jürgens","jürgen drews","frank zander","mike krüger","stefan waggershausen","ina deter","ulla meinecke","rainhard fendrich","sts","ludwig hirsch","wolfgang ambros","georg danzer","eav","erste allgemeine verunsicherung","hans hartz","pe werner","gitte","peter alexander","freddy quinn","freddy","conny froboess","bill ramsey","ted herold","peter kraus","manuela","lale andersen","vicky leandros","daliah lavi","reinhard mey","hannes wader","konstantin wecker","truck stop","nino de angelo","bernhard brink","andrea berg","matthias reim","die prinzen","pur","die fantastischen vier","fanta 4","fantastischen vier","rödelheim hartreim projekt","tic tac toe","echt","element of crime","selig","rosenstolz","wise guys","xavier naidoo","söhne mannheims","sabrina setlur","blümchen","juli","silbermond","wir sind helden","tokio hotel","sportfreunde stiller","revolverheld","clueso","peter fox","seeed","ich + ich","annett louisan","unheilig","rammstein","andreas dorau","fräulein menke","frl. menke","ukw","der plan","foyer des arts","grauzone","rheingold","neonbabies","abwärts","hans-a-plast","die krupps","palais schaumburg","karat","puhdys","city","silly","pankow","keimzeit","rockhaus","karussell","electra","frank schöbel","ute freudenberg","dieter birr","malaria!","ndw","hitparade","zdf hitparade","dieter thomas heck","stephan remmler","remmler","katja ebstein","guildo horn","stefan raab","modern talking","heintje","g.g. anderson","wolfgang petry","petry","münchener freiheit","relax","haindling","spider murphy","bläck fööss","höhner","brings","bap","kasalla","rodgau","dieter bohlen","die flippers","flippers","kastelruther spatzen","olaf henning","jürgen marcus","tony marshall","chris roberts","ireen sheer","rainhard mey","nina & mike","lena valaitis","ralf bendix","heidi brühl","peggy march","severine","bata illic","adam & eve","cindy & bert","kristina bach","claudia jung","semino rossi"];
+const FOREIGN_HINT=/\b(kim wilde|madonna|michael jackson|tears for fears|a-ha|duran duran|depeche mode|whitesnake|bon jovi|queen|abba|eurythmics|cyndi lauper|alice|eros ramazzotti|al bano|ricchi e poveri|righeira|gazebo|ryan paris|sabrina|den harrow|baltimora|toto cutugno|raf|scorpions|accept|alphaville|camouflage|sandra|c\.c\. catch|london boys|boney m|milli vanilli|snap!|real mckoy|culture beat|opus|bonnie tyler|level 42|spandau ballet|wham|george michael|elton john|phil collins|genesis|u2|the police|sting|simple minds|pet shop boys|erasure|ub40|eurovision)\b/i;
+function artistPart(t){return String(t||"").toLowerCase().replace(/^ndw:\s*/,"").split(/\s[-–—|:]\s|\s-\s/)[0].trim()}
+function deArtist(t){const a=artistPart(t);const T=String(t||"").toLowerCase();return DE_ART.some(n=>a===n||a.startsWith(n+" ")||a.startsWith(n+",")||a.includes(n)&&n.length>5)||/^ndw\b|zdf.?hitparade|ilja richter|disco mit/.test(T)}
+function foreignArtist(t){return FOREIGN_HINT.test(artistPart(t))&&!deArtist(t)}
+// Grober Sprachhinweis aus dem Titel (Sonderzeichen/typische Wörter), nur für Videos ohne Sprachangabe
+function titleLang(t,l){const T=String(t||"").toLowerCase();
+ const R={el:/[\u0370-\u03ff]/,pt:/[ãõ]|\b(não|uma|meu|minha|saudade|canção|você|coração)\b/,yu:/[čćšžđ]|[\u0400-\u04ff]|\b(ljubav|pesma|pjesma|srce|moja|tvoja|sam|nisam|jugoslavija)\b/,ar:/[\u0600-\u06ff]/,ko:/[\uac00-\ud7af]/,vi:/[ăđơư]|[ạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/,tr:/[çğışöü]|\b(ve|bir|aşk|sen|ben|şarkı|türk)\b/,fr:/[àâçéèêëîïôûùœ]|\b(le|la|les|et|une|chanson|amour)\b/,it:/\b(il|di|che|una|amore|canzone|sei|non)\b|[àèéìòù]/,es:/[ñ¿¡áéíóú]|\b(el|los|las|una|amor|canción|que)\b/,nl:/\b(het|een|ik|jij|niet|liefde|en de)\b|ij/,de:/[äöüß]|\b(der|die|das|und|ich|nicht|liebe)\b/};
+ return R[l.id]?R[l.id].test(T):true}
+async function srcVM(c,d,l){
+ if(!st.vkey)return[];const de=l.q==="de";
+ const q=c.fixed?(de?c.de:c.en):(de?`${c.de} ${String(d).slice(2)}er`:`${d}s ${c.en}`);
+ const u="https://api.vimeo.com/videos?per_page=50&filter=content_rating&filter_content_rating=safe&fields=uri,name,description,duration,privacy.embed&query="+encodeURIComponent(q);
+ const c2=new AbortController();const t=setTimeout(()=>c2.abort(),12000);
+ try{const r=await fetch(u,{headers:{Authorization:"bearer "+st.vkey,Accept:"application/vnd.vimeo.*+json;version=3.4"},signal:c2.signal});
+  if(!r.ok)throw new Error(r.status);const j=await r.json();
+  return (j.data||[]).filter(x=>(x.privacy?.embed||"public")==="public"&&!nsfw(x.name,String(x.description||"").slice(0,2000))&&(c.fixed||inDecade(x.name+" "+String(x.description||"").slice(0,300),d,yearsIn(x.originallyPublishedAt))))
+   .map(x=>({src:"vm",id:String(x.uri).split("/").pop(),title:x.name,dur:x.duration}))}finally{clearTimeout(t)}}
+function srcFlags(){return ["s_ia","s_dm","s_wm","s_pt","s_eu","s_lc","s_na"].map(k=>$(k).checked?1:0).join("")+($("s_yt").checked&&st.key?1:0)}
+function langCodes(l){return l.id==="all"?null:l.id==="dex"?["de","en"]:(l.codes||[l.id])}
+function withNat(q,l){return l.nat?q+" "+l.nat:q}
+function q2(c,d,l){const de=l.q==="de";return c.fixed?(de?c.de:c.en):(de?`${c.de} ${String(d).slice(2)}er`:`${c.en} ${d}s`)}
+// Wikimedia Commons: freie Videos, direkt abspielbar
+async function srcWM(c,d,l){
+ if(CH[st.ch].id==="yesil")return[];
+ if(l.nat)return[]; // Wikimedia hat keine Sprachangabe, bei Fremdsprachen weglassen
+ const de=l.q==="de",term=c.fixed?(de?c.de:c.en):(de?c.de:c.en);
+ const u="https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=100&gsrsearch="+encodeURIComponent("filetype:video "+term+(c.fixed?"":" "+d))+"&prop=imageinfo&iiprop=url|mime|size|extmetadata&iiextmetadatafilter=DateTimeOriginal";
+ const j=await getJSON(u);const pg=Object.values(j.query?.pages||{});
+ return pg.map(x=>{const ii=(x.imageinfo||[])[0]||{};const t=String(x.title||"").replace(/^File:|^Datei:/,"").replace(/\.(webm|ogv|ogg|mpg|mpeg|mp4)$/i,"").replace(/_/g," ");
+   const dt=String(ii.extmetadata?.DateTimeOriginal?.value||"").replace(/<[^>]*>/g,"");
+   return {src:"wm",id:x.pageid,title:t,url:ii.url,dur:ii.duration||0,mime:ii.mime||"",yr:yearsIn(dt)}})
+  .filter(x=>x.url&&/video|ogg/.test(x.mime)&&!nsfw(x.title)&&(c.fixed||inDecade(x.title,d,x.yr)))}
+// Streng: nur behalten, wenn Titel oder Aufnahmedatum eine Jahreszahl im gewählten Jahrzehnt enthält
+function yearsIn(t){return (String(t||"").match(/\b(19[0-9]\d|20[0-2]\d)\b/g)||[]).map(Number)}
+function inDecade(t,d,extra){const y=yearsIn(t).concat(extra||[]);return y.some(v=>v>=d&&v<=d+9)&&!y.some(v=>v<d-1||v>d+10)}
+// PeerTube (Sepia Search über viele Instanzen)
+async function srcPT(c,d,l){
+ if(CH[st.ch].id==="yesil")return[];
+ const u="https://sepiasearch.org/api/v1/search/videos?count=50&nsfw=false&sort=-match"+((CH[st.ch].id==="musik"||CH[st.ch].id==="mtv")?"&categoryOneOf=1":"")+"&search="+encodeURIComponent(withNat(q2(c,d,l),l))+(l.ia&&l.dm&&!l.dm.includes(",")?"&languageOneOf="+l.dm:"");
+ const j=await getJSON(u);
+ const base=CH[st.ch].id,music=base==="musik"||base==="mtv";
+ return (j.data||[]).filter(x=>!x.isLive&&!x.nsfw&&!nsfw(x.name,String(x.description||"").slice(0,1500))
+   &&(!music||x.category?.id===1)
+   &&(c.fixed?(base!=="tz"||true):inDecade(x.name,d,yearsIn(x.originallyPublishedAt))))
+  .map(x=>({src:"pt",id:x.uuid,title:x.name,dur:x.duration||0,embed:x.embedUrl||(x.account?.host?`https://${x.account.host}/videos/embed/${x.uuid}`:""),page:x.url}))
+  .filter(x=>x.embed)}
+// Europeana: europäische Archive, nur Einträge mit direkt abspielbarer Videodatei
+async function srcEU(c,d,l){
+ if(CH[st.ch].id==="yesil")return[];
+ const key=(st.ekey||"api2demo");
+ let q=q2(c,d,l).replace(/\s+\d+(er|s)$/,"");
+ const u="https://api.europeana.eu/record/v2/search.json?wskey="+encodeURIComponent(key)+"&rows=100&profile=rich&media=true&qf=TYPE:VIDEO"+(c.fixed?"":"&qf="+encodeURIComponent(`YEAR:[${d} TO ${d+9}]`))+(langCodes(l)?"&qf="+encodeURIComponent("LANGUAGE:("+langCodes(l).join(" OR ")+")"):"")+"&query="+encodeURIComponent(q);
+ const j=await getJSON(u);
+ return (j.items||[]).map(x=>{const t=[].concat(x.title||[])[0]||"";const m=[].concat(x.edmIsShownBy||[])[0]||"";
+   return {src:"eu",id:x.id,title:t,url:m,page:[].concat(x.guid||x.edmIsShownAt||[])[0]||"",year:[].concat(x.year||[])[0]}})
+  .filter(x=>/\.(mp4|webm|ogv|m4v)(\?|$)/i.test(x.url)&&!nsfw(x.title))}
+// Library of Congress (USA): frei zugängliche Filme und Fernsehaufnahmen
+async function srcLC(c,d,l){
+ if(CH[st.ch].id==="yesil")return[];
+ const codes=langCodes(l);if(codes&&!codes.includes("en"))return[];
+ const u="https://www.loc.gov/search/?fo=json&c=100&fa=online-format:video&q="+encodeURIComponent(c.en)+(c.fixed?"":`&dates=${d}/${d+9}`);
+ const j=await getJSON(u,15000);
+ return (j.results||[]).map(x=>{const rs=[].concat(x.resources||[]);let v="";
+   for(const r of rs){for(const k of ["video","media","url"]){const val=r&&r[k];if(typeof val==="string"&&/\.(mp4|m4v|webm)(\?|$)/i.test(val)){v=val;break}}if(v)break}
+   return {src:"lc",id:x.id,title:String([].concat(x.title||"")[0]),url:v,page:x.id,year:String(x.date||"").slice(0,4)}})
+  .filter(x=>x.url&&!nsfw(x.title))}
+// NASA Bild- und Videoarchiv (nur passende Kanäle)
+async function srcNA(c,d,l){
+ if(CH[st.ch].id==="yesil")return[];
+ const base=CH[st.ch].id;if(!["doku","news","lehr","abend","vhs"].includes(base))return[];
+ const codes=langCodes(l);if(codes&&!codes.includes("en"))return[];
+ const u="https://images-api.nasa.gov/search?media_type=video&q="+encodeURIComponent(base==="doku"||base==="lehr"?c.en.replace(/documentary|educational film/gi,"").trim()||"space":"apollo")+(c.fixed?"":`&year_start=${d}&year_end=${d+9}`);
+ const j=await getJSON(u,15000);
+ return (j.collection?.items||[]).slice(0,80).map(x=>{const m=(x.data||[])[0]||{};return {src:"na",id:m.nasa_id,title:m.title,href:x.href,page:"https://images.nasa.gov/details/"+encodeURIComponent(m.nasa_id||""),year:String(m.date_created||"").slice(0,4)}})
+  .filter(x=>x.id&&x.href&&!nsfw(x.title))}
+async function naFile(it){const j=await getJSON(it.href);const fs=[].concat(j||[]).filter(u=>/\.mp4$/i.test(u));
+ const f=fs.find(u=>/~mobile\.mp4$/i.test(u))||fs.find(u=>/~small\.mp4$/i.test(u))||fs.find(u=>/~medium\.mp4$/i.test(u))||fs[0];
+ if(!f)throw new Error("keine Videodatei");return f.replace(/^http:/,"https:")}
+function unent(t){const e=document.createElement("textarea");e.innerHTML=String(t||"");return e.value}
+function isoDur(s){const m=String(s||"").match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);return m?((+m[1]||0)*86400+(+m[2]||0)*3600+(+m[3]||0)*60+(+m[4]||0)):0}
+
+async function tune(){
+ stop();const c=curCh(),d=st.dec,l=c.id==="yesil"?LANGS.find(x=>x.id==="all"):L();
+ noise(900);osd(`${st.ch+1} ${c.name.toUpperCase()}`);msg("");nowInfo("Suche Programm …",c.fixed?c.name:`${String(d).slice(2)}er · ${c.name}`);
+ const key=[c.fixed?"any":d,c.id,l.id,srcFlags()].join("|");const tk=st.tuneId=(st.tuneId||0)+1;
+ let list=c.id==="fav"?favs():st.cache[key];const errs=[];
+ if(c.id==="fav"&&!list.length){msg("NOCH NICHTS GEMERKT<br><small>Bei einer Sendung auf ☆ tippen, dann landet sie hier.</small>");nowInfo("Gemerkt","Leer");$("stat").textContent="0 gemerkte Sendungen";$("guide").innerHTML="";return}
+ if(!list){
+  const jobs=[],names=[];
+  if($("s_ia").checked){names.push("Archive");jobs.push(srcIA(c,d,l).catch(e=>{errs.push("Internet Archive");return[]}));}
+  if($("s_dm").checked){names.push("Dailymotion");jobs.push(srcDM(c,d,l).catch(e=>{errs.push("Dailymotion");return[]}));}
+  if($("s_yt").checked&&st.key){names.push("YouTube");jobs.push(srcYT(c,d,l).catch(e=>{errs.push("YouTube");return[]}));}
+  if($("s_wm").checked){names.push("Wikimedia");jobs.push(srcWM(c,d,l).catch(e=>{errs.push("Wikimedia");return[]}));}
+  if($("s_pt").checked){names.push("PeerTube");jobs.push(srcPT(c,d,l).catch(e=>{errs.push("PeerTube");return[]}));}
+  if($("s_lc").checked){names.push("LoC");jobs.push(srcLC(c,d,l).catch(e=>{errs.push("LoC");return[]}));}
+  if($("s_na").checked){names.push("NASA");jobs.push(srcNA(c,d,l).catch(e=>{errs.push("NASA");return[]}));}
+  if($("s_eu").checked){names.push("Europeana");jobs.push(srcEU(c,d,l).catch(e=>{errs.push("Europeana");return[]}));}
+  if($("s_vm").checked&&st.vkey){names.push("Vimeo");jobs.push(srcVM(c,d,l).catch(e=>{errs.push("Vimeo");return[]}));}
+  const res=await Promise.all(jobs);
+  st.counts=names.map((n,i)=>errs.some(e=>e.startsWith(n==="Archive"?"Internet":n))?(n==="YouTube"&&st.ytQuota&&Date.now()-st.ytQuota<36e5?"YouTube: Tageskontingent aufgebraucht (ab 9 Uhr wieder)":`${n}: Fehler`):(n==="YouTube"&&st.ytQuota&&Date.now()-st.ytQuota<36e5&&!res[i].length?"YouTube: Tageskontingent aufgebraucht (ab 9 Uhr wieder)":n==="YouTube"&&st.ytInfo?`YouTube: ${res[i].length} (${st.ytInfo})`:`${n}: ${res[i].length}`)).join(" · ");
+  // Quellen abwechselnd mischen
+  list=[];const m=Math.max(0,...res.map(r=>r.length));for(let i=0;i<m;i++)res.forEach(r=>{if(r[i])list.push(r[i])});
+
+  if(list.length)st.cache[key]=list;st.cacheStat=st.cacheStat||{};st.cacheStat[key]=st.counts;
+ }
+ if(tk!==st.tuneId)return; // inzwischen umgeschaltet
+ {const bs=blockSet();if(bs.size)list=list.filter(x=>!bs.has(favKey(x)))}
+ // Shorts und zu kurze Videos raus (Mindestlänge je Kanal, in Sekunden)
+ {const MIN={film:3600,serie:900,doku:600,tz:900,abend:300,vhs:300,kinder:120,lehr:120,sport:120,news:60,cartoon:60,musik:90,mtv:90,yesil:2700,werbung:10};
+  const mn=MIN[CH[st.ch].id]||0;
+  list=list.filter(x=>!/#shorts?\b|\bshorts\b/i.test(x.title||"")&&!(x.dur&&x.dur<(partNo(x.title)?Math.min(mn,1200):mn)))
+  // Spielfilme: keine Schnipsel, Teile, Trailer, Zusammenfassungen oder Film-Sammlungen
+  if(["film","yesil"].includes(CH[st.ch].id)){
+   const SNIP=/\b(trailer|teaser|clip|clips|szene|szenen|scene|scenes|excerpt|ausschnitt|ausschnitte|best of|highlights?|zusammenfassung|recap|summary|explained|erklärt|review|kritik|reaction|making of|behind the scenes|deleted|outtakes?|bloopers?|soundtrack|ost|filmmusik|interview|doku über|documentary about|fragman|sahne|sahneler|kesit|özet)\b/i;
+   list=list.filter(x=>!SNIP.test(x.title||""));
+   // Ausdrücklich ganze Filme zuerst
+   const FULL=/ganzer film|kompletter film|full movie|full film|complete film|tek parça|tam film|film complet|film completo|película completa|hele film|deutsch ganzer|in voller länge/i;
+   list=list.filter(x=>FULL.test(x.title||"")).concat(list.filter(x=>!FULL.test(x.title||"")))}}
+ st.list=list;$("stat").textContent=(list.length?list.length+" Sendungen gefunden":"Nichts gefunden")+" — "+((st.cacheStat||{})[key]||st.counts||"");
+ if(c.id==="fav")$("stat").textContent=list.length+" gemerkte Sendungen";
+ if(!list.length){
+  msg(errs.length?`KEIN EMPFANG<br><small>${errs.join(", ")} nicht erreichbar</small>`:`SENDEPAUSE<br><small>Nichts gefunden.${l.ia?" Andere Sprache oder „Alle Sprachen“ probieren.":" Anderes Jahrzehnt probieren."}</small>`);
+  nowInfo("Sendepause",c.fixed?c.name:`${String(d).slice(2)}er · ${c.name}`);$("guide").innerHTML="";return}
+ // Jedes Einschalten mischt neu, damit nicht immer dieselbe Reihenfolge kommt
+ const rnd=()=>(Math.random()*4294967295)>>>0;
+ if(CH[st.ch].id==="mtv"){
+  // Nur Einzelclips: Interpret – Titel, typische Cliplänge, keine Zusammenschnitte/Live/Lyrics
+  const BAD=/\b(best of|greatest hits|megamix|mega mix|non-?stop|nonstop|mix|mixtape|compilation|playlist|medley|hits|top \d+|lyrics?|lyric video|karaoke|cover|covers|remix|reaction|tutorial|lesson|slowed|reverb|8d|sped up|ai |ki-|full album|album|audio|instrumental|nightcore|tribute|mashup|hour|stunden|live|konzert|concert|full show|folge|episode|sendung|show|interview|making of|documentary|doku|tv|promos|theater|theatre|arena|stadium|tour|bootleg|festival|set|session|at the|in concert|special)\b/i;
+  const SEP=/\s[-–—|:]\s|^[^-–—]{2,40}[-–—][^-–—]{2,60}$/;
+  const OFF=/\b(official video|official music video|music video|musikvideo|videoclip|clip|official hd|hd video|promo)\b/i;
+  // Länge: bei Quellen mit bekannter Dauer Pflicht; ohne Dauer wird beim Abspielen geprüft
+  const okLen=x=>x.dur?(x.dur>=100&&x.dur<=480):!["yt","dm","pt"].includes(x.src);
+  const pick=list.filter(x=>{const t=x.title||"";return !BAD.test(t)&&SEP.test(t)&&okLen(x)});
+  const top=pick.filter(x=>OFF.test(x.title||"")),rest=pick.filter(x=>!OFF.test(x.title||""));
+  list=shuffle(top,rnd()).concat(shuffle(rest,rnd()));
+  if(!list.length){msg("SENDEPAUSE<br><small>Keine Einzelclips gefunden. Anderes Jahrzehnt oder „Alle Sprachen“ probieren.</small>");nowInfo("Sendepause",c.name);$("guide").innerHTML="";return}
+ }else if(CH[st.ch].id==="tz"){
+  // Nur 80er-Fassungen: Kinofilm 1983 und Serie 1985–89; Original (1959–64) und spätere Neuauflagen raus
+  const OLD=/rod serling|\b(195\d|196[0-4])\b|jordan peele|\b(2002|2003|2019|2020)\b|season [1-5]\b.*(1959|196)|black.?and.?white|schwarz.?wei/i;
+  const NEW80=/\b(198[2-9]|1990)\b|the movie|schattenlichter|new twilight zone|80s|80er|wes craven|bruce willis|morgan freeman|spielberg|john landis|joe dante|george miller|shatterday|dealer'?s choice|nightcrawlers|kick the can/i;
+  list=list.filter(x=>{const t=x.title||"";if(OLD.test(t))return false;const y=yearsIn(t);if(y.length)return y.some(v=>v>=1982&&v<=1990);return NEW80.test(t)});
+  list=shuffle(list,rnd());
+  if(!list.length){msg("SENDEPAUSE<br><small>Keine Folgen aus 1983–1989 gefunden. Andere Sprache oder „Alle Sprachen“ probieren.</small>");nowInfo("Sendepause",c.name);$("guide").innerHTML="";return}
+ }else if(CH[st.ch].id==="musik"){
+  // Musik: Zusammenschnitte, Mixe, Lyrics, Cover usw. raus; Originalclips und Auftritte nach vorn
+  const BAD=/\b(best of|greatest hits|megamix|mega mix|non-?stop|nonstop|mix|mixtape|compilation|playlist|medley|hits of|top \d+|\d+ hits|lyrics?|lyric video|karaoke|cover|covers|remix|remastered mix|reaction|tutorial|lesson|slowed|reverb|8d|sped up|ai |ki-|full album|album stream|audio only|instrumental|nightcore|tribute|mashup|hour|stunden|std\.|podium|diskussion|vortrag|lecture|panel|talk|webinar|politik|lesung|interview)\b/i;
+  const GOOD=/\b(official video|official music video|music video|musikvideo|videoclip|clip|live|konzert|concert|auftritt|performance|rockpalast|formel eins|musikladen|top of the pops|hitparade|disco|beat-?club|na sowas|peters pop show|ilja richter|tv|playback)\b/i;
+  const keep=list.filter(x=>!BAD.test(x.title||""));
+  const good=keep.filter(x=>GOOD.test(x.title||"")),rest=keep.filter(x=>!GOOD.test(x.title||""));
+  list=shuffle(good,rnd()).concat(shuffle(rest,rnd()));
+  if(!list.length){msg("SENDEPAUSE<br><small>Nur Zusammenschnitte gefunden. Anderes Genre oder Jahrzehnt probieren.</small>");return}
+ }else list=shuffle(list.slice(),rnd());
+ st.list=list;st.hist=[];st.seen=new Set();
+ const now=Date.now()/1000;st.idx=Math.floor(Math.random()*list.length);
+ // Spielfilme immer von Anfang an (mit Vorspann), sonst „live“ mittendrin einsteigen
+ play(list[st.idx],["film","yesil"].includes(CH[st.ch].id)?0:now%SLOT);
+}
+
+// YouTube-Steuerung: Untertitel abschalten, Ende/Fehler erkennen
+function noCaps(p){try{p.unloadModule("captions")}catch(e){}try{p.unloadModule("cc")}catch(e){}try{p.setOption("captions","track",{})}catch(e){}}
+function ytHook(fr,it){
+ if(!(window.YT&&YT.Player)){setTimeout(()=>{if(st.list[st.idx]===it&&!fr.hidden)ytHook(fr,it)},500);return}
+ try{st.yt=new YT.Player(fr,{events:{
+  onReady:e=>noCaps(e.target),
+  onStateChange:e=>{if(st.list[st.idx]===it){let t=null;try{t=e.target.getCurrentTime()}catch(x){}const n=ytNow();
+    // Eigene Uhr nachführen: bei Pause/Puffern anhalten, beim Abspielen weiterzählen
+    const off=(t>0.5)?t:(n??0);st.ytT={t0:Date.now(),off,run:e.data===1}}
+   if(e.data===1){noCaps(e.target);setTimeout(()=>noCaps(e.target),1500)}if(e.data===0&&st.list[st.idx]===it){clearTimeout(st.timer);advance()}},
+  onError:()=>{if(st.list[st.idx]===it){clearTimeout(st.timer);setTimeout(advance,800)}}
+ }})}catch(e){}}
+async function iaFile(id){
+ const j=await getJSON("https://archive.org/metadata/"+encodeURIComponent(id));
+ const md=j.metadata||{};
+ if(nsfw(md.title,[].concat(md.subject||[]).join(" "),[].concat(md.collection||[]).join(" "),String([].concat(md.description||[]).join(" ")).slice(0,3000))||j.is_dark||md.noindex==="true")throw new Error("gesperrt");
+ const fs=(j.files||[]).filter(f=>/\.(mp4|m4v|webm|ogv)$/i.test(f.name));
+ // Im Mobilfunk oder bei langsamer Verbindung die kleinere Datei bevorzugen (startet schneller, ruckelt weniger)
+ const cn=navigator.connection||{};const slow=cn.saveData||cn.type==="cellular"||/(^|-)(2g|3g)$/.test(cn.effectiveType||"")||(cn.downlink&&cn.downlink<5);
+ const small=fs.find(f=>/512kb|mpeg4/i.test(f.format||"")&&!/h\.264/i.test(f.format||""));
+ const big=fs.find(f=>/h\.264/i.test(f.format||""));
+ const f=(slow?(small||big):(big||small))||fs.find(f=>/\.mp4$/i.test(f.name))||fs[0];
+ if(!f)throw new Error("keine Videodatei");
+ let len=f.length;if(typeof len==="string"&&len.includes(":")){len=len.split(":").reduce((a,b)=>a*60+ +b,0)}len=+len||0;
+ return{url:`https://archive.org/download/${encodeURIComponent(id)}/${f.name.split("/").map(encodeURIComponent).join("/")}`,len}}
+
+function stop(){$("screen").classList.remove("yt");clearInterval(st.watch);st.yt=null;$("screen").classList.remove("playing");clearTimeout(st.timer);const v=$("vid");v.pause();v.removeAttribute("src");v.load();v.hidden=true;$("frame").src="about:blank";$("frame").hidden=true}
+function off(){st.on=false;stop();$("power").textContent="AN";$("tv").classList.remove("on");msg("AUS");nowInfo("Kein Programm","Ausgeschaltet")}
+function advance(){rndNext()}
+
+async function play(it,offset){st.cur=it;st.curUrl=null;if(!$("castbox").hidden)castMenu();
+ stop();msg("");guide();st.cur=it;favUI();const label={ia:"Internet Archive",dm:"Dailymotion",yt:"YouTube",vm:"Vimeo",wm:"Wikimedia Commons",pt:"PeerTube",eu:"Europeana",lc:"Library of Congress",na:"NASA"}[it.src];
+ const page={ia:`https://archive.org/details/${it.id}`,dm:`https://www.dailymotion.com/video/${it.id}`,yt:`https://www.youtube.com/watch?v=${it.id}`,vm:`https://vimeo.com/${it.id}`,wm:it.url,pt:it.page,eu:it.page,lc:it.page,na:it.page}[it.src];
+ nowInfo(esc(it.title),`${label}${it.year?" · "+esc(it.year):""}`);
+ try{
+  if(it.src==="pt"){
+   if(it.dur&&offset>=it.dur)offset=offset%it.dur;
+   $("screen").classList.add("playing");const fr=$("frame");fr.src=it.embed+(it.embed.includes("?")?"&":"?")+`autoplay=1&warningTitle=0&peertubeLink=0&start=${Math.floor(offset)}s`;fr.hidden=false;
+   if(it.dur)st.timer=setTimeout(advance,(it.dur-offset+3)*1000);
+  }else if(["ia","wm","eu","lc","na"].includes(it.src)){
+   const f=it.src==="ia"?await iaFile(it.id):it.src==="na"?{url:await naFile(it),len:0}:{url:it.url,len:it.dur||0};if(st.list[st.idx]!==it)return;
+   const v=$("vid");v.src=f.url;v.hidden=false;st.curUrl=f.url;if(!$("castbox").hidden)castMenu();
+   if(f.len&&offset>=f.len)offset=offset%f.len;
+   v.addEventListener("loadedmetadata",()=>{
+    // Musikvideo-Kanal: alles über 8 Minuten ist kein Clip, merken und weiter
+    const MINP={film:3600,serie:900,tz:900,yesil:2700,doku:600};const mnp=MINP[CH[st.ch].id];
+    if(st.list[st.idx]===it&&isFinite(v.duration)&&((CH[st.ch].id==="mtv"&&(v.duration>480||v.duration<90))||(mnp&&v.duration<(partNo(it.title)?Math.min(mnp,1200):mnp)))){
+     const k=favKey(it);st.list=st.list.filter(x=>favKey(x)!==k);Object.keys(st.cache).forEach(c=>st.cache[c]=st.cache[c].filter(x=>favKey(x)!==k));
+     if(st.list.length){st.idx=Math.min(st.idx,st.list.length-1);rndNext()}else{stop();msg("SENDEPAUSE<br><small>Nichts Passendes gefunden.</small>")}return}
+    if(offset>2&&offset<v.duration-5)v.currentTime=offset},{once:true});
+   v.onended=advance;v.onerror=()=>setTimeout(advance,800);
+   v.play().catch(()=>{if(st.list[st.idx]===it&&!v.hidden)msg("Zum Abspielen auf ▶ tippen")});
+   // Hängt das Video länger als 20 Sekunden, zur nächsten Sendung
+   let last=-1,stuck=0;clearInterval(st.watch);
+   st.watch=setInterval(()=>{if(st.list[st.idx]!==it||v.hidden){clearInterval(st.watch);return}
+    if(v.paused)return;if(v.currentTime===last){if(++stuck>=4){clearInterval(st.watch);advance()}}else{stuck=0;last=v.currentTime}},5000);
+   v.onplaying=()=>{msg("");$("screen").classList.add("playing")};
+  }else if(it.src==="dm"){
+   if($("ytembed").checked){
+    if(it.dur&&offset>=it.dur)offset=offset%it.dur;
+    const fr=$("frame");fr.src=`https://geo.dailymotion.com/player.html?video=${it.id}&startTime=${Math.floor(offset)}`;fr.hidden=false;
+    if(it.dur)st.timer=setTimeout(advance,(it.dur-offset+3)*1000);return}
+   // Dailymotion verweigert das Abspielen in lokalen Dateien, daher nur als Link
+   msg(`LÄUFT BEI DAILYMOTION<br><a href="https://www.dailymotion.com/video/${it.id}" target="_blank" rel="noopener" style="color:var(--accent)">Dort ansehen</a><br><small>Weiter in 10 Sekunden</small>`);
+   st.timer=setTimeout(advance,10000);
+  }else if(it.src==="vm"){
+   if(it.dur&&offset>=it.dur)offset=offset%it.dur;
+   const fr=$("frame");fr.src=`https://player.vimeo.com/video/${it.id}?autoplay=1&playsinline=1&dnt=1#t=${Math.floor(offset)}s`;fr.hidden=false;
+   if(it.dur)st.timer=setTimeout(advance,(it.dur-offset+3)*1000);
+  }else{
+   if(it.dur&&offset>=it.dur)offset=offset%it.dur;
+   if($("ytembed").checked){
+    const fr=$("frame");fr.src=`https://www.youtube.com/embed/${it.id}?autoplay=1&playsinline=1&controls=0&disablekb=1&fs=0&cc_load_policy=0&iv_load_policy=3&rel=0&hl=de&enablejsapi=1&origin=${encodeURIComponent(location.origin)}&start=${Math.floor(offset)}`;fr.hidden=false;ytHook(fr,it);$("screen").classList.add("playing","yt");st.ytT={t0:Date.now(),off:Math.floor(offset),run:true};
+    if(it.dur)st.timer=setTimeout(advance,(it.dur-offset+3)*1000);
+   }else{
+    // YouTube blockiert eingebettete Videos aus lokalen Dateien, daher als Link (öffnet die YouTube-App)
+    msg(`LÄUFT BEI YOUTUBE<br><a href="https://www.youtube.com/watch?v=${it.id}&t=${Math.floor(offset)}s" target="_blank" rel="noopener" style="color:var(--accent)">In YouTube öffnen</a><br><small>oder Sendung ▶ für das Nächste</small>`);
+   }
+  }
+ }catch(e){setTimeout(advance,800)}
+}
+
+// Weitere Archive & Foren (Links passen sich an Jahrzehnt und Kanal an)
+function links(){
+ const c=CH[st.ch],d=st.dec,dd=String(d).slice(2),de=L().q==="de";
+ const qde=encodeURIComponent(`${c.de} ${dd}er Jahre`),qen=encodeURIComponent(`${d}s ${c.en}`);
+ const LK=[
+  ["YouTube-Suche",`https://www.youtube.com/results?search_query=${de?qde:qen}`,"Größte Menge an Mitschnitten, aber ohne Schlüssel nur als Link."],
+  ["Vimeo-Suche",`https://vimeo.com/search?q=${de?qde:qen}`,"Weniger Material, oft bessere Qualität (Sammler, Filmarchive)."],
+  ["Internet Archive: VHS Vault","https://archive.org/details/vhsvault","Über 20.000 digitalisierte VHS-Bänder, meist US-TV der 90er. Unter „Language“ auf German filtern."],
+  ["Internet Archive: deutsche Videos","https://archive.org/search?query=language%3A%28German%29&and%5B%5D=mediatype%3A%22movies%22","Alles, was als deutschsprachig markiert ist."],
+  ["ARD Mediathek: ARD Retro","https://www.ardmediathek.de/suche/ARD%20Retro","Freigegebene Archivsendungen aus den 50er und 60er Jahren, Ost und West."],
+  ["Bundesarchiv: Wochenschau-Archiv","https://www.filmothek.bundesarchiv.de/","Wochenschauen und Dokumentarfilme, frei ansehbar."],
+  ["tvforen.de: Der Werbeblock","https://tvforen.de/list.php?2=","Forum zu alter TV-Werbung, Sammler tauschen dort Fundstellen."],
+  ["ioff: Alte Fernsehaufnahmen","https://ioff.de/archive/index.php/t-342208.html","Archivierter Forenthread mit Hinweisen auf alte Mitschnitte."],
+  ["digitalfernsehen.de: Die guten alten 80er","https://forum.digitalfernsehen.de/threads/die-guten-alten-80er.55388/","Forenthread zu 80er-Jahre-Fernsehen."],
+  ["Memobase (Schweiz)","https://memobase.ch/de/","Über 160.000 Schweizer TV-Dokumente und Wochenschauen."],
+  ["TV Ark (UK)","https://tvark.org/","Riesiges britisches Archiv für Sender-Idents, Werbung und Programmhinweise."],
+  ["Spelunkr TV","https://spelunkr.tv/","Das Vorbild: 32 Live-Kanäle aus dem Internet Archive, englischsprachig."],
+  ["Europeana","https://www.europeana.eu/de/search?query=fernsehen&qf=TYPE%3A%22VIDEO%22","Europäische Archive, darunter alte Fernsehbeiträge."],
+  ["Bundesarchiv Filmothek","https://www.filmothek.bundesarchiv.de/","Wochenschauen und Dokumentarfilme aus Deutschland. Keine offene Schnittstelle, daher nur als Link."],
+  ["Deutsche Digitale Bibliothek","https://www.deutsche-digitale-bibliothek.de/searchresults?query=fernsehen&facetValues%5B%5D=mediatype_002%3Dmediatype_005","Bundesweites Kulturportal, auch Film und Fernsehen."],
+  ["ARD Retro","https://www.ardmediathek.de/ard-retro","Freigegebene ARD-Sendungen der 50er und 60er Jahre."],
+  ["ZDF: Archiv-Sendungen","https://www.zdf.de/suche?q=zdf%20archiv","Einzelne Archivbeiträge in der ZDF-Mediathek."],
+  ["ORF Archiv / TVthek","https://tvthek.orf.at/archive","Österreichisches Fernseharchiv mit historischen Beiträgen."],
+  ["SRF Archiv","https://www.srf.ch/play/tv/sendungen?letter=a","Schweizer Fernseharchiv, viele alte Sendungen frei."],
+  ["Beeld en Geluid / Open Beelden","https://www.openbeelden.nl/","Niederländisches Bild- und Tonarchiv, freie Filme."],
+  ["INA (Frankreich)","https://www.ina.fr/","Französisches Fernseharchiv, viele Ausschnitte frei."],
+  ["British Pathé","https://www.britishpathe.com/","Riesiges Wochenschau-Archiv 1896 bis 1978."],
+  ["BFI Player (UK)","https://player.bfi.org.uk/free","Kostenlose Filme und TV-Geschichte des British Film Institute."],
+  ["US-Nationalarchiv (NARA)","https://catalog.archives.gov/search?q=television&typeOfMaterials=Moving%20Images","Bewegtbilder aus US-Bundesbeständen."],
+  ["Wikimedia Commons: Videos","https://commons.wikimedia.org/wiki/Category:Videos","Freie Videos, viele historische Aufnahmen."]
+ ];
+ $("links").innerHTML=LK.map(([t,u,p])=>`<div><a href="${u}" target="_blank" rel="noopener">${t}</a><p>${p}</p></div>`).join("");
+}
+
+// Vollbild (Querformat auf dem Handy)
+async function fullscreen(){
+ try{if(document.fullscreenElement){await document.exitFullscreen();return}
+  await $("screen").requestFullscreen({navigationUI:"hide"});
+  try{await screen.orientation.lock("landscape")}catch(e){}
+ }catch(e){msg("Vollbild wird hier nicht unterstützt")}}
+$("fsBtn").onclick=fullscreen;
+// Übertragen auf Fernseher
+function curTime(){const v=$("vid");if(!v.hidden&&v.src)return Math.floor(v.currentTime||0);try{if(st.yt&&st.yt.getCurrentTime)return Math.floor(st.yt.getCurrentTime())}catch(e){}return 0}
+function castMenu(){
+ const it=st.cur,o=[];const v=$("vid");
+ if(!it){$("castopts").innerHTML="";$("castnote").textContent="Erst einschalten, dann übertragen.";return}
+ if(it.src==="ia"&&st.curUrl&&v.remote&&v.remote.prompt)o.push(`<button class="btn" data-c="remote">An Chromecast / Google TV senden<small>Gerät auswählen, das Video läuft dann direkt auf dem Fernseher.</small></button>`);
+ if(it.src==="yt")o.push(`<button class="btn" data-c="yt">In der YouTube-App öffnen<small>Dort oben aufs Übertragen-Symbol tippen. Klappt mit Fire TV, Smart-TVs und Chromecast, auf denen die YouTube-App läuft.</small></button>`);
+ if(it.src==="ia"&&st.curUrl)o.push(`<button class="btn" data-c="share">Videolink an eine Cast-App senden<small>Für Fire TV: teilen mit einer Übertragungs-App auf dem Handy (z. B. eine „Web Video Cast“-App).</small></button>`);
+ o.push(`<button class="btn" data-c="copy">Adresse für den Fernseher-Browser kopieren<small>zeitkanal.netlify.app im Browser des Fire TV oder Smart-TV öffnen. Dann läuft die ganze App direkt dort.</small></button>`);
+ $("castopts").innerHTML=o.join("");
+ $("castnote").textContent="Bildschirm spiegeln (Miracast) geht nur über die Einstellungen deines Handys, nicht über eine Webseite.";
+}
+$("castBtn").onclick=()=>{const b=$("castbox");b.hidden=!b.hidden;if(!b.hidden)castMenu()};
+$("castopts").onclick=async e=>{const c=e.target.closest("[data-c]")?.dataset.c;if(!c)return;const it=st.cur,t=curTime();
+ try{
+  if(c==="remote"){await $("vid").remote.prompt()}
+  else if(c==="yt"){window.open(`https://www.youtube.com/watch?v=${it.id}&t=${t}s`,"_blank")}
+  else if(c==="share"){const d={title:it.title,url:st.curUrl+"#t="+t};if(navigator.share)await navigator.share(d);else{await navigator.clipboard.writeText(d.url);$("castnote").textContent="Videolink kopiert."}}
+  else if(c==="copy"){await navigator.clipboard.writeText("https://zeitkanal.netlify.app");$("castnote").textContent="Kopiert: zeitkanal.netlify.app"}
+ }catch(err){if(c==="remote")$("castnote").textContent="Kein Chromecast/Google-TV-Gerät gefunden oder abgebrochen.";else if(err?.name!=="AbortError")$("castnote").textContent="Hat nicht geklappt. Adresse von Hand eingeben: zeitkanal.netlify.app"}
+};
+// Links/rechts antippen: 15 Sekunden zurück/vor
+// Eigene Zeitrechnung für YouTube (läuft nur, solange das Video spielt)
+function ytNow(){const z=st.ytT;if(!z)return null;return z.off+(z.run===false?0:(Date.now()-z.t0)/1000)}
+function seek(d,el){
+ const v=$("vid");let ok=false;
+ if(!v.hidden&&v.src){
+  const t=Math.max(0,Math.min((isFinite(v.duration)?v.duration:1e9)-1,v.currentTime+d));
+  // Lässt der Server kein Spulen zu, würde Chrome sonst an den Anfang springen
+  let can=false;for(let i=0;i<v.seekable.length;i++)if(t>=v.seekable.start(i)&&t<=v.seekable.end(i))can=true;
+  if(!can){el.dataset.t="Spulen hier nicht möglich";el.classList.add("hit");setTimeout(()=>el.classList.remove("hit"),50);return}
+  v.currentTime=t;ok=true}
+ else if(st.cur&&st.cur.src==="yt"&&!$("frame").hidden){
+  // YouTube meldet manchmal 0 Sekunden, obwohl das Video längst läuft. Dann der eigenen Uhr glauben.
+  let api=null;try{if(st.yt&&typeof st.yt.getCurrentTime==="function")api=+st.yt.getCurrentTime()}catch(e){}
+  const own=ytNow();
+  let now=(api>0.5&&!(own!=null&&Math.abs(api-own)>30&&api<own))?api:own;
+  if(now==null)now=api||0;
+  const it=st.cur,t=Math.max(0,it.dur?Math.min(it.dur-2,now+d):now+d);
+  try{if(st.yt&&typeof st.yt.seekTo==="function")st.yt.seekTo(t,true);
+   else $("frame").contentWindow.postMessage(JSON.stringify({event:"command",func:"seekTo",args:[t,true]}),"*")}catch(e){}
+  st.ytT={t0:Date.now(),off:t,run:st.ytT?st.ytT.run!==false:true};ok=true;
+  // Automatisch weiter am Ende: Zeitgeber an die neue Position anpassen
+  clearTimeout(st.timer);if(it.dur)st.timer=setTimeout(advance,(it.dur-t+3)*1000)}
+ else if(st.cur&&["dm","pt","vm"].includes(st.cur.src)){el.dataset.t="Spulen nur im Player";el.classList.add("hit");setTimeout(()=>el.classList.remove("hit"),50);return}
+ if(ok){el.dataset.t=d<0?"« 15 s":"15 s »";el.classList.add("hit");setTimeout(()=>el.classList.remove("hit"),50)}
+ if(document.fullscreenElement)showBar()}
+// Tipp ins YouTube-Bild: Pause/Weiter in Zeitkanal statt Sprung zu YouTube
+$("tapguard").onclick=()=>{try{const p=st.yt;if(!p||!p.getPlayerState)return;p.getPlayerState()===1?p.pauseVideo():p.playVideo()}catch(e){}
+ if(document.fullscreenElement)showBar()};
+$("seekL").onclick=()=>seek(-15,$("seekL"));
+$("seekR").onclick=()=>seek(15,$("seekR"));
+// Knöpfe im Vollbild: kurz zeigen, dann ausblenden; Tippen oben im Bild holt sie zurück
+function showBar(){const b=$("fsbar");b.classList.add("show");clearTimeout(showBar.t);showBar.t=setTimeout(()=>b.classList.remove("show"),3500)}
+$("fszone").onclick=showBar;$("vid").addEventListener("click",showBar);
+$("fsbar").addEventListener("click",showBar);
+document.addEventListener("fullscreenchange",()=>{if(document.fullscreenElement)showBar()});
+$("fsbar").onclick=e=>{const a=e.target.closest("[data-a]")?.dataset.a;
+ if(a==="prev")rndPrev();else if(a==="next")rndNext();
+ else if(a==="chd")$("chDown").click();else if(a==="chu")$("chUp").click();else if(a==="fs")fullscreen()};
+// Tasten für Fernbedienung / Tastatur (z. B. Fire TV)
+document.addEventListener("keydown",e=>{
+ if(e.target.tagName==="INPUT")return;
+ const k=e.key;
+ if(k==="ChannelUp"||k==="PageUp"){$("chUp").click();e.preventDefault()}
+ else if(k==="ChannelDown"||k==="PageDown"){$("chDown").click();e.preventDefault()}
+ else if(k==="MediaTrackNext"||k==="MediaFastForward"){rndNext();e.preventDefault()}
+ else if(k==="MediaTrackPrevious"||k==="MediaRewind"){rndPrev();e.preventDefault()}
+ else if(k==="f"||k==="F"){fullscreen()}
+});
+setInterval(()=>{const n=new Date();$("clock").textContent=n.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})},1000);
+chips();
+</script>
+</body>
+</html>
