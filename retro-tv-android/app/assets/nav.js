@@ -4,6 +4,7 @@
    – ≡ (menu): Einstellungen („Jahrzehnt“ …) anwählen – egal, wo man gerade ist.
    – OK beim Zuschauen: Knopfreihe unter dem Fernseher (⏮ ⏭ CH− AN …) anwählen.
    – ⏯ (list): Playlist anwählen (laufender Eintrag, sonst erster).
+   – ⏪ / ⏩ (prev/next): vorheriges / nächstes Video, immer – auch im Vollbild und im Menü.
    – ◀▶ beim Zuschauen: ⏮/⏭ der Seite (Video); ▲▼ beim Zuschauen: CH+/CH−.
    – Angewählt (türkis umrandet): Pfeile wählen, OK drückt; Zurück = zurück zum Bild. */
 (function () {
@@ -232,7 +233,14 @@
     });
     mark(best, false);
   }
+  function skip(dir) {   // ⏪ / ⏩: Video zurück / vor – in jedem Zustand, auch im Vollbild
+    var b = pageButton(dir), txt = KEYS[dir][2];
+    if (b) { press(b); hint(txt + ' (' + ((b.textContent || '').trim() || label(b)).slice(0, 12) + ')'); }
+    else { sendKey(dir); hint(txt + ' – kein Knopf gefunden, Taste an die Seite geschickt', 3500); }
+  }
   window.__rkNav = function (cmd) {
+    if (cmd === 'prev') return skip('left');
+    if (cmd === 'next') return skip('right');
     if (!navMode) return watch(cmd);
     if (cmd === 'menu' || cmd === 'list') go(cmd); else if (cmd === 'ok') ok(); else move(cmd);
   };

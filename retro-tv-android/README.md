@@ -11,7 +11,8 @@ Beide nutzen denselben Code (`app/src/de/spaceage/tvapp`); was sie unterscheidet
 Bei Seiten ohne Röhrenkiste-Schnittstelle (Zeitkanal) steuert die App das Video direkt:
 ⏪⏩ 30 s, ⏯ Pause; Zurück blättert zurück.
 Mit `NAV=true` (Zeitkanal, `app/assets/nav.js`): ≡ = Menü (Einstellungen), OK = Knopfreihe unter dem
-Fernseher, ⏯ = Playlist (laufender Eintrag), ◀▶ beim Zuschauen = vorheriges/nächstes Video, ▲▼ = Kanal.
+Fernseher, ⏯ = Playlist (laufender Eintrag), ⏪⏩ = vorheriges/nächstes Video (immer, auch im Vollbild),
+◀▶ beim Zuschauen ebenfalls Video, ▲▼ = Kanal.
 Angewählt (türkis umrandet): Pfeile wählen, OK drückt, Zurück = zurück zum Bild. Dazu Ersatz-Vollbild (`app/assets/fullscreen.js`):
 fordert die Seite Vollbild an, wird das Element über den ganzen Bildschirm gelegt; Zurück beendet es. Alternativ zeigt `CURSOR=true` einen Zeiger wie Silk: Steuerkreuz bewegt ihn
 (gedrückt halten = schneller, am Rand wird geblättert), OK klickt; nach 5 s ohne Taste blendet er sich aus.
