@@ -30,4 +30,4 @@ Die Webseite muss öffentlich sein (Netlify: „Make public“) oder man meldet 
 `./build.sh` (alle Apps) oder `./build.sh zeitkanal` – lädt dx, apksig und das Android-Framework-Jar von Maven Central nach `dl/`,
 erzeugt beim ersten Mal den Signaturschlüssel `keys/release.p12` (nicht im Repository!).
 Ein Update lässt sich nur mit demselben Schlüssel über die alte App installieren; sonst die
-alte App vorher deinstallieren. Neue App: `flavors/NAME.conf` anlegen (eigenes PKG!) und bauen.
+alte App vorher deinstallieren. Neue App: `flavors/NAME.conf` anlegen (eigenes PKG!, Farben über ART_BG/ART_ACCENT) und bauen.

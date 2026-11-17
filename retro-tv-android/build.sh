@@ -25,7 +25,7 @@ build() {
   printf 'package de.spaceage.tvapp;\nfinal class Config { static final String URL = "%s"; }\n' "$URL" > "$B/gen/de/spaceage/tvapp/Config.java"
   javac -nowarn -encoding UTF-8 --release 8 -cp dl/android-all.jar -d "$B/classes" $(find app/src "$B/gen" -name '*.java') 2>&1 | grep -v "JAVA_TOOL_OPTIONS\|^Note:" || true
   java -cp dl/dx.jar com.android.dx.command.Main --dex --min-sdk-version=24 --output="$B/classes.dex" "$B/classes" 2>&1 | grep -v JAVA_TOOL_OPTIONS || true
-  python3 tools/make_art.py "$B" "$ART"
+  python3 tools/make_art.py "$B" "$ART" "$ART_BG" "$ART_ACCENT"
   (cd tools && python3 build_manifest.py "../$B/AndroidManifest.xml" "../$B/resources.arsc" "$PKG" "$LABEL" "$VERSION_CODE" "$VERSION_NAME")
   python3 tools/package.py "$B"
   java --add-exports java.base/sun.security.x509=ALL-UNNAMED --add-exports java.base/sun.security.pkcs=ALL-UNNAMED \
