@@ -54,6 +54,7 @@ public class MainActivity extends Activity {
     long touchDown;
     boolean pageMenuOpen;
     String navJs;               // assets/nav.js – nur bei Config.NAV
+    String fsJs;                // assets/fullscreen.js – Ersatz-Vollbild, nur bei Config.NAV
     final Runnable hideCursor = new Runnable() { public void run() { cursor.setVisibility(View.INVISIBLE); } };
     View fullscreenView;
     WebChromeClient.CustomViewCallback fullscreenCallback;
@@ -76,7 +77,12 @@ public class MainActivity extends Activity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);   // Netlify-Anmeldung, YouTube
 
-        web.setWebViewClient(new WebViewClient());           // Links bleiben in der App
+        web.setWebViewClient(new WebViewClient() {           // Links bleiben in der App
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                if (fsJs != null) js(fsJs, null);             // Ersatz-Vollbild bereitstellen
+            }
+        });
         chrome = new WebChromeClient() {                     // Vollbild von YouTube & Co.
             @Override
             public void onShowCustomView(View view, CustomViewCallback callback) {
@@ -99,7 +105,10 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(chrome);
 
         root.addView(web, new FrameLayout.LayoutParams(-1, -1));
-        if (Config.NAV) navJs = readAsset("nav.js").trim().replaceAll(";$", "");
+        if (Config.NAV) {
+            navJs = readAsset("nav.js").trim().replaceAll(";$", "");
+            fsJs = readAsset("fullscreen.js").trim().replaceAll(";$", "") + ";";
+        }
         if (Config.CURSOR) {
             cursor = new CursorView(this);
             root.addView(cursor, new FrameLayout.LayoutParams(-1, -1));
@@ -151,7 +160,7 @@ public class MainActivity extends Activity {
         if (cmd == null) return false;
         boolean repeatable = !cmd.equals("ok") && !cmd.equals("menu");
         if (e.getAction() == KeyEvent.ACTION_DOWN && (repeatable || e.getRepeatCount() == 0))
-            js(navJs + "('" + cmd + "')", null);
+            js(fsJs + navJs + "('" + cmd + "')", null);
         return true;
     }
 
@@ -230,7 +239,7 @@ public class MainActivity extends Activity {
     void onRemoteBack() {
         if (fullscreenView != null) { chrome.onHideCustomView(); return; }
         // erst darf die Seite reagieren (z. B. Menü schließen), sonst zweimal Zurück zum Beenden
-        js("window.rkBack ? rkBack() : false", new ValueCallback<String>() {
+        js("window.rkBack ? rkBack() : (window.__rkFsExit ? __rkFsExit() : false)", new ValueCallback<String>() {
             @Override
             public void onReceiveValue(String handled) {
                 if ("true".equals(handled)) return;

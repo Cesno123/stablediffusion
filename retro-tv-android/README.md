@@ -11,7 +11,8 @@ Beide nutzen denselben Code (`app/src/de/spaceage/tvapp`); was sie unterscheidet
 Bei Seiten ohne Röhrenkiste-Schnittstelle (Zeitkanal) steuert die App das Video direkt:
 ⏪⏩ 30 s, ⏯ Pause; Zurück blättert zurück.
 Mit `NAV=true` (Zeitkanal) springt das Steuerkreuz direkt von Knopf zu Knopf (türkis umrandet, `app/assets/nav.js`),
-OK klickt, ≡ springt zu den Einstellungen („Jahrzehnt“) und zurück. Alternativ zeigt `CURSOR=true` einen Zeiger wie Silk: Steuerkreuz bewegt ihn
+OK klickt, ≡ springt zu den Einstellungen („Jahrzehnt“) und zurück. Dazu Ersatz-Vollbild (`app/assets/fullscreen.js`):
+fordert die Seite Vollbild an, wird das Element über den ganzen Bildschirm gelegt; Zurück beendet es. Alternativ zeigt `CURSOR=true` einen Zeiger wie Silk: Steuerkreuz bewegt ihn
 (gedrückt halten = schneller, am Rand wird geblättert), OK klickt; nach 5 s ohne Taste blendet er sich aus.
 ≡ springt dort zum Abschnitt „Jahrzehnt“ (Einstellungen) und setzt den Zeiger auf den ersten Knopf; nochmal ≡ = zurück nach oben. Änderungen an der
 Webseite kommen automatisch in der App an; die App selbst muss dafür nicht neu installiert werden.
