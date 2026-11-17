@@ -188,6 +188,8 @@ public class MainActivity extends Activity {
         if (e.getAction() == KeyEvent.ACTION_DOWN && (repeatable || e.getRepeatCount() == 0)) {
             // Klammer um navJs: sonst würde der mehrzeilige Kommentar am Anfang die Anweisung beenden
             final String c = cmd;
+            // echtes Vollbild (z. B. aus dem Videoplayer): für Menü, Knöpfe und Playlist erst beenden
+            if (fullscreenView != null && (cmd.equals("menu") || cmd.equals("ok") || cmd.equals("list"))) chrome.onHideCustomView();
             String code = "(function(){try{window.__rkLastHint='';" + fsJs + "var r=(" + navJs + ")('" + cmd + "');"
                     + "return window.__rkLastHint||'ok';}catch(x){return 'Fehler: '+(x&&x.message)}})()";
             js(code, new ValueCallback<String>() {

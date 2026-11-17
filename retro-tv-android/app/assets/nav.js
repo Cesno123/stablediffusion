@@ -176,7 +176,28 @@
     else { sendKey(cmd); hint(KEYS[cmd][2] + ' (Taste an die Seite geschickt)'); }
   }
   /* Anspringen: Knopfreihe (ok), Einstellungen (menu), Playlist (list) – danach Pfeile/OK im angewählten Bereich */
+  /* Vollbild verlassen, damit Menü, Knöpfe und Playlist sichtbar werden. Erkennt das Ersatz-Vollbild der App,
+     das echte Vollbild und ein Vollbild, das die Seite selbst per CSS baut (Element deckt den Bildschirm ab). */
+  function leaveFullscreen() {
+    if (window.__rkFsExit && window.__rkFsExit()) return true;
+    if (document.fullscreenElement && document.exitFullscreen) { document.exitFullscreen(); return true; }
+    var e = document.elementFromPoint(innerWidth / 2, innerHeight / 2), cover = null;
+    for (; e && e !== document.body && e !== document.documentElement; e = e.parentElement) {
+      var st = getComputedStyle(e), r = e.getBoundingClientRect();
+      if (st.position === 'fixed' && r.width >= innerWidth * 0.95 && r.height >= innerHeight * 0.95) cover = e;
+    }
+    if (!cover || tip.contains(cover)) return false;
+    var all = [].slice.call(document.querySelectorAll(SEL + ',div,span')), b = null;
+    for (var i = 0; i < all.length && !b; i++) if (/^(⛶|⤢|⤡|⛶️)$/.test((all[i].textContent || '').trim())) b = all[i];
+    for (i = 0; i < all.length && !b; i++) if (all[i].matches(SEL) && /vollbild|full\s*screen|verlassen|exit/i.test(label(all[i]))) b = all[i];
+    if (b) press(b);
+    else ['keydown', 'keyup'].forEach(function (t) {
+      document.dispatchEvent(new KeyboardEvent(t, { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+    });
+    return true;
+  }
   function go(cmd) {
+    if (leaveFullscreen()) { setTimeout(function () { go(cmd); }, 250); return; }   // erst raus aus dem Vollbild
     navMode = true;
     if (cmd === 'menu') { menuOpen = false; menu(); hint('Menü: Pfeile wählen · OK drückt · Zurück = Bild', 3500); return; }
     if (cmd === 'list') {
