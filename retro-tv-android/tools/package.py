@@ -6,6 +6,9 @@ with zipfile.ZipFile(apk, "w") as z:
     z.write(os.path.join(build, "resources.arsc"), "resources.arsc", zipfile.ZIP_STORED)
     z.write(os.path.join(build, "AndroidManifest.xml"), "AndroidManifest.xml", zipfile.ZIP_DEFLATED)
     z.write(os.path.join(build, "classes.dex"), "classes.dex", zipfile.ZIP_DEFLATED)
+    if os.path.isdir("app/assets"):   # z. B. nav.js
+        for f in sorted(os.listdir("app/assets")):
+            z.write(os.path.join("app/assets", f), "assets/" + f, zipfile.ZIP_DEFLATED)
     for f in ("banner.png", "icon.png"):   # PNGs unkomprimiert, wie aapt es macht
         z.write(os.path.join(build, f), "res/drawable/" + f, zipfile.ZIP_STORED)
 with zipfile.ZipFile(apk) as z:

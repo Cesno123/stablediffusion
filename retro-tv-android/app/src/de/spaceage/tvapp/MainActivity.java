@@ -16,6 +16,8 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 import android.os.SystemClock;
 import android.view.MotionEvent;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 
 /**
  * Fire-TV-Hülle für eine Webseite (Röhrenkiste, Zeitkanal …): bildschirmfüllend, ohne Browser,
@@ -51,6 +53,7 @@ public class MainActivity extends Activity {
     CursorView cursor;          // nur bei Config.CURSOR (Seiten ohne Fernbedienungs-Steuerung)
     long touchDown;
     boolean pageMenuOpen;
+    String navJs;               // assets/nav.js – nur bei Config.NAV
     final Runnable hideCursor = new Runnable() { public void run() { cursor.setVisibility(View.INVISIBLE); } };
     View fullscreenView;
     WebChromeClient.CustomViewCallback fullscreenCallback;
@@ -96,6 +99,7 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(chrome);
 
         root.addView(web, new FrameLayout.LayoutParams(-1, -1));
+        if (Config.NAV) navJs = readAsset("nav.js").trim().replaceAll(";$", "");
         if (Config.CURSOR) {
             cursor = new CursorView(this);
             root.addView(cursor, new FrameLayout.LayoutParams(-1, -1));
@@ -114,6 +118,7 @@ public class MainActivity extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
         int k = e.getKeyCode();
+        if (navJs != null && fullscreenView == null && navKey(e)) return true;
         if (cursor != null && fullscreenView == null && cursorKey(e)) return true;
         if (cursor != null && k == KeyEvent.KEYCODE_MENU) {
             if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) togglePageMenu();
@@ -134,6 +139,31 @@ public class MainActivity extends Activity {
             return true;
         }
         return super.dispatchKeyEvent(e);
+    }
+
+    /** Fernbedienungs-Navigation (assets/nav.js): Steuerkreuz springt von Knopf zu Knopf, OK klickt, ≡ = Einstellungen. */
+    boolean navKey(KeyEvent e) {
+        int k = e.getKeyCode();
+        String cmd = k == KeyEvent.KEYCODE_DPAD_UP ? "up" : k == KeyEvent.KEYCODE_DPAD_DOWN ? "down"
+                : k == KeyEvent.KEYCODE_DPAD_LEFT ? "left" : k == KeyEvent.KEYCODE_DPAD_RIGHT ? "right"
+                : (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_NUMPAD_ENTER) ? "ok"
+                : k == KeyEvent.KEYCODE_MENU ? "menu" : null;
+        if (cmd == null) return false;
+        boolean repeatable = !cmd.equals("ok") && !cmd.equals("menu");
+        if (e.getAction() == KeyEvent.ACTION_DOWN && (repeatable || e.getRepeatCount() == 0))
+            js(navJs + "('" + cmd + "')", null);
+        return true;
+    }
+
+    String readAsset(String name) {
+        try (InputStream in = getAssets().open(name)) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
+            return out.toString("UTF-8");
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     /** ≡ bei Seiten ohne eigenes Menü: Einstellungen anspringen und Zeiger daraufsetzen; nochmal ≡ = zurück zum Bild. */
