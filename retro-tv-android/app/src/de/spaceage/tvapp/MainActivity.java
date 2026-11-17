@@ -14,6 +14,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.Toast;
+import android.os.SystemClock;
+import android.view.MotionEvent;
 
 /**
  * Fire-TV-Hülle für eine Webseite (Röhrenkiste, Zeitkanal …): bildschirmfüllend, ohne Browser,
@@ -35,6 +37,9 @@ public class MainActivity extends Activity {
 
     WebView web;
     FrameLayout root;
+    CursorView cursor;          // nur bei Config.CURSOR (Seiten ohne Fernbedienungs-Steuerung)
+    long touchDown;
+    final Runnable hideCursor = new Runnable() { public void run() { cursor.setVisibility(View.INVISIBLE); } };
     View fullscreenView;
     WebChromeClient.CustomViewCallback fullscreenCallback;
     WebChromeClient chrome;
@@ -79,6 +84,12 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(chrome);
 
         root.addView(web, new FrameLayout.LayoutParams(-1, -1));
+        if (Config.CURSOR) {
+            cursor = new CursorView(this);
+            root.addView(cursor, new FrameLayout.LayoutParams(-1, -1));
+            root.post(new Runnable() { public void run() {
+                cursor.x = root.getWidth() / 2f; cursor.y = root.getHeight() / 2f; showCursor(); } });
+        }
         setContentView(root);
         if (state != null) web.restoreState(state); else web.loadUrl(URL);
         web.requestFocus();
@@ -91,6 +102,7 @@ public class MainActivity extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
         int k = e.getKeyCode();
+        if (cursor != null && fullscreenView == null && cursorKey(e)) return true;
         String name = null;
         if (k == KeyEvent.KEYCODE_MENU) name = "menu";
         else if (k == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD) name = "ff";
@@ -106,6 +118,45 @@ public class MainActivity extends Activity {
             return true;
         }
         return super.dispatchKeyEvent(e);
+    }
+
+    void showCursor() {
+        cursor.setVisibility(View.VISIBLE);
+        cursor.invalidate();
+        cursor.removeCallbacks(hideCursor);
+        cursor.postDelayed(hideCursor, 5000);   // beim Zuschauen nicht im Bild stehen lassen
+    }
+
+    /** Steuerkreuz bewegt den Zeiger (schneller beim Gedrückthalten), am Rand wird geblättert; OK tippt. */
+    boolean cursorKey(KeyEvent e) {
+        int k = e.getKeyCode();
+        boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+        if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            if (cursor.getVisibility() != View.VISIBLE) { if (!down) showCursor(); return true; }   // erst zeigen, dann klicken
+            long now = SystemClock.uptimeMillis();
+            if (down && e.getRepeatCount() == 0) touchDown = now;
+            if (down && e.getRepeatCount() > 0) return true;
+            MotionEvent m = MotionEvent.obtain(touchDown, now, down ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP, cursor.x, cursor.y, 0);
+            m.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);
+            web.dispatchTouchEvent(m);
+            m.recycle();
+            showCursor();
+            return true;
+        }
+        int dx = k == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : k == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : 0;
+        int dy = k == KeyEvent.KEYCODE_DPAD_UP ? -1 : k == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : 0;
+        if (dx == 0 && dy == 0) return false;
+        if (!down) return true;
+        float density = getResources().getDisplayMetrics().density;
+        float step = density * (14 + Math.min(e.getRepeatCount(), 15) * 4);
+        float nx = cursor.x + dx * step, ny = cursor.y + dy * step;
+        float w = root.getWidth(), h = root.getHeight(), edge = cursor.r;
+        if (ny < edge) { web.scrollBy(0, Math.round(ny - edge)); ny = edge; }
+        if (ny > h - edge) { web.scrollBy(0, Math.round(ny - (h - edge))); ny = h - edge; }
+        cursor.x = Math.max(edge, Math.min(w - edge, nx));
+        cursor.y = ny;
+        showCursor();
+        return true;
     }
 
     void onRemoteBack() {
