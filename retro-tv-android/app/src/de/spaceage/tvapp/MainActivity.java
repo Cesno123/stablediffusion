@@ -26,6 +26,17 @@ import android.view.MotionEvent;
  */
 public class MainActivity extends Activity {
     static final String URL = Config.URL;
+    /** ≡ bei Seiten mit Zeiger (Zeitkanal): zum Abschnitt „Jahrzehnt“ springen bzw. zurück nach oben.
+     *  Liefert die Mitte des ersten Knopfes dort (CSS-Pixel), damit der Zeiger gleich darauf steht. */
+    static final String MENU_JS =
+        "(function(open){var hs=[].slice.call(document.querySelectorAll('h1,h2,h3,h4,h5,h6,legend,label,p,div,span')),h=null;" +
+        "for(var i=0;i<hs.length;i++){if(/^jahrzehnte?$/i.test((hs[i].textContent||'').trim())){h=hs[i];break;}}" +
+        "if(!open){window.scrollTo(0,0);if(h){for(var p=h.parentElement;p;p=p.parentElement){if(p.scrollTop>0)p.scrollTop=0;}}return '';}" +
+        "if(!h){window.scrollBy(0,window.innerHeight*0.8);return '';}" +
+        "h.scrollIntoView({block:'start'});window.scrollBy(0,-12);" +
+        "var b=null,n=h;while(n&&!b){var s=n.nextElementSibling;while(s&&!b){b=s.matches('button,a,[role=button],input,select')?s:" +
+        "s.querySelector('button,a,[role=button],input,select');s=s.nextElementSibling;}n=n.parentElement;}" +
+        "var r=(b||h).getBoundingClientRect();return Math.round(r.left+r.width/2)+','+Math.round(r.top+r.height/2);})";
     /** Für Seiten ohne Röhrenkiste-Schnittstelle: Video direkt steuern, sonst Taste als Tastendruck schicken. */
     static final String REMOTE_JS =
         "(function(n){if(window.rkRemote){rkRemote(n);return;}" +
@@ -39,6 +50,7 @@ public class MainActivity extends Activity {
     FrameLayout root;
     CursorView cursor;          // nur bei Config.CURSOR (Seiten ohne Fernbedienungs-Steuerung)
     long touchDown;
+    boolean pageMenuOpen;
     final Runnable hideCursor = new Runnable() { public void run() { cursor.setVisibility(View.INVISIBLE); } };
     View fullscreenView;
     WebChromeClient.CustomViewCallback fullscreenCallback;
@@ -103,6 +115,10 @@ public class MainActivity extends Activity {
     public boolean dispatchKeyEvent(KeyEvent e) {
         int k = e.getKeyCode();
         if (cursor != null && fullscreenView == null && cursorKey(e)) return true;
+        if (cursor != null && k == KeyEvent.KEYCODE_MENU) {
+            if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) togglePageMenu();
+            return true;
+        }
         String name = null;
         if (k == KeyEvent.KEYCODE_MENU) name = "menu";
         else if (k == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD) name = "ff";
@@ -118,6 +134,28 @@ public class MainActivity extends Activity {
             return true;
         }
         return super.dispatchKeyEvent(e);
+    }
+
+    /** ≡ bei Seiten ohne eigenes Menü: Einstellungen anspringen und Zeiger daraufsetzen; nochmal ≡ = zurück zum Bild. */
+    void togglePageMenu() {
+        pageMenuOpen = !pageMenuOpen;
+        js(MENU_JS + "(" + pageMenuOpen + ")", new ValueCallback<String>() {
+            @Override
+            public void onReceiveValue(String v) {
+                v = v == null ? "" : v.replace("\"", "");
+                float d = getResources().getDisplayMetrics().density;
+                String[] xy = v.split(",");
+                if (xy.length == 2) {
+                    try { cursor.x = Float.parseFloat(xy[0]) * d; cursor.y = Float.parseFloat(xy[1]) * d; }
+                    catch (NumberFormatException ignored) { }
+                } else {
+                    cursor.x = root.getWidth() / 2f; cursor.y = root.getHeight() / 2f;
+                }
+                cursor.x = Math.max(cursor.r, Math.min(root.getWidth() - cursor.r, cursor.x));
+                cursor.y = Math.max(cursor.r, Math.min(root.getHeight() - cursor.r, cursor.y));
+                showCursor();
+            }
+        });
     }
 
     void showCursor() {

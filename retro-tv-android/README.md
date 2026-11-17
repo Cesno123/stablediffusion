@@ -11,7 +11,8 @@ Beide nutzen denselben Code (`app/src/de/spaceage/tvapp`); was sie unterscheidet
 Bei Seiten ohne Röhrenkiste-Schnittstelle (Zeitkanal) steuert die App das Video direkt:
 ⏪⏩ 30 s, ⏯ Pause; Zurück blättert zurück.
 Mit `CURSOR=true` (Zeitkanal) zeigt die App einen Zeiger wie Silk: Steuerkreuz bewegt ihn
-(gedrückt halten = schneller, am Rand wird geblättert), OK klickt; nach 5 s ohne Taste blendet er sich aus. Änderungen an der
+(gedrückt halten = schneller, am Rand wird geblättert), OK klickt; nach 5 s ohne Taste blendet er sich aus.
+≡ springt dort zum Abschnitt „Jahrzehnt“ (Einstellungen) und setzt den Zeiger auf den ersten Knopf; nochmal ≡ = zurück nach oben. Änderungen an der
 Webseite kommen automatisch in der App an; die App selbst muss dafür nicht neu installiert werden.
 
 Fernbedienung: ▲▼ Kanal · ◀▶ Sendung · OK/≡ Menü (Jahrzehnt) · ⏪⏩ 30 s spulen · ⏯ Pause ·
