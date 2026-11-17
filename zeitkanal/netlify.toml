@@ -1,0 +1,4 @@
+# Netlify: Basisverzeichnis beim Verknüpfen auf "zeitkanal" setzen. Kein Build nötig.
+[build]
+  publish = "."
+  command = ""

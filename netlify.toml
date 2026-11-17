@@ -1,3 +1,0 @@
-# Netlify: die Röhrenkiste liegt im Ordner retro-tv (dort steht die eigentliche Konfiguration).
-[build]
-  base = "retro-tv"
