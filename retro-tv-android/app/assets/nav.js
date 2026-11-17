@@ -22,6 +22,7 @@
     'font:600 20px/1.3 system-ui,sans-serif;pointer-events:none;display:none;white-space:nowrap';
   (document.body || document.documentElement).appendChild(tip);
   function hint(text, ms) {
+    window.__rkLastHint = text;   // die App zeigt das zusätzlich in ihrer eigenen Anzeige
     tip.textContent = text; tip.style.display = 'block';
     clearTimeout(hintTimer);
     hintTimer = setTimeout(function () { tip.style.display = 'none'; }, ms || 2500);

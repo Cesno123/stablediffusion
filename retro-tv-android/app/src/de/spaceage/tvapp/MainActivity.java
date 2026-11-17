@@ -14,6 +14,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.Toast;
+import android.widget.TextView;
+import android.view.Gravity;
 import android.os.SystemClock;
 import android.view.MotionEvent;
 import java.io.ByteArrayOutputStream;
@@ -52,6 +54,8 @@ public class MainActivity extends Activity {
     FrameLayout root;
     CursorView cursor;          // nur bei Config.CURSOR (Seiten ohne Fernbedienungs-Steuerung)
     long touchDown;
+    TextView diag;              // Anzeige oben rechts: empfangene Taste und Ergebnis (nur Config.NAV)
+    final Runnable hideDiag = new Runnable() { public void run() { diag.setVisibility(View.GONE); } };
     boolean pageMenuOpen;
     String navJs;               // assets/nav.js – nur bei Config.NAV
     String fsJs;                // assets/fullscreen.js – Ersatz-Vollbild, nur bei Config.NAV
@@ -89,6 +93,7 @@ public class MainActivity extends Activity {
                 fullscreenView = view;
                 fullscreenCallback = callback;
                 root.addView(view, new FrameLayout.LayoutParams(-1, -1));
+                if (diag != null) diag.bringToFront();   // Anzeige auch über dem Vollbild
                 web.setVisibility(View.GONE);
             }
 
@@ -115,6 +120,20 @@ public class MainActivity extends Activity {
             root.post(new Runnable() { public void run() {
                 cursor.x = root.getWidth() / 2f; cursor.y = root.getHeight() / 2f; showCursor(); } });
         }
+        if (Config.NAV) {
+            diag = new TextView(this);
+            diag.setTextColor(Color.WHITE);
+            diag.setTextSize(16);
+            diag.setBackgroundColor(0xCC0F2440);
+            float d = getResources().getDisplayMetrics().density;
+            diag.setPadding(Math.round(12 * d), Math.round(6 * d), Math.round(12 * d), Math.round(6 * d));
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+            lp.setMargins(0, Math.round(12 * d), Math.round(12 * d), 0);
+            root.addView(diag, lp);
+            String ver = "?";
+            try { ver = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception ignored) { }
+            showDiag("Zeitkanal-App " + ver + " · ⏪⏩ Video · ≡ Menü · OK Knöpfe · ⏯ Playlist", 6000);
+        }
         setContentView(root);
         if (state != null) web.restoreState(state); else web.loadUrl(URL);
         web.requestFocus();
@@ -127,6 +146,9 @@ public class MainActivity extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
         int k = e.getKeyCode();
+        if (diag != null && e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0)
+            showDiag("Taste: " + KeyEvent.keyCodeToString(k).replace("KEYCODE_", "")
+                    + (fullscreenView != null ? " · Vollbild" : ""), 4000);
         if (navJs != null && navKey(e)) return true;   // auch im Vollbild: Zeitkanal löst eigenes Vollbild aus
         if (cursor != null && fullscreenView == null && cursorKey(e)) return true;
         if (cursor != null && k == KeyEvent.KEYCODE_MENU) {
@@ -165,13 +187,15 @@ public class MainActivity extends Activity {
         boolean repeatable = cmd.equals("up") || cmd.equals("down") || cmd.equals("left") || cmd.equals("right");
         if (e.getAction() == KeyEvent.ACTION_DOWN && (repeatable || e.getRepeatCount() == 0)) {
             // Klammer um navJs: sonst würde der mehrzeilige Kommentar am Anfang die Anweisung beenden
-            String code = "(function(){try{" + fsJs + "var r=(" + navJs + ")('" + cmd + "');return 'ok';}"
-                    + "catch(x){return 'Fehler: '+(x&&x.message)}})()";
+            final String c = cmd;
+            String code = "(function(){try{window.__rkLastHint='';" + fsJs + "var r=(" + navJs + ")('" + cmd + "');"
+                    + "return window.__rkLastHint||'ok';}catch(x){return 'Fehler: '+(x&&x.message)}})()";
             js(code, new ValueCallback<String>() {
                 @Override
-                public void onReceiveValue(String v) {
-                    if (v != null && v.startsWith("\"Fehler"))   // sichtbar machen statt still scheitern
-                        Toast.makeText(MainActivity.this, "Steuerung: " + v.replace("\"", ""), Toast.LENGTH_LONG).show();
+                public void onReceiveValue(String v) {   // Ergebnis neben der Taste anzeigen
+                    v = v == null ? "keine Antwort" : v.replace("\"", "");
+                    if (diag != null && !c.equals("up") && !c.equals("down") && !c.equals("left") && !c.equals("right") || v.startsWith("Fehler"))
+                        showDiag(diag.getText() + " → " + v, 5000);
                 }
             });
         }
@@ -209,6 +233,15 @@ public class MainActivity extends Activity {
                 showCursor();
             }
         });
+    }
+
+    void showDiag(String text, int ms) {
+        if (diag == null) return;
+        diag.setText(text);
+        diag.setVisibility(View.VISIBLE);
+        diag.bringToFront();
+        diag.removeCallbacks(hideDiag);
+        diag.postDelayed(hideDiag, ms);
     }
 
     void showCursor() {
