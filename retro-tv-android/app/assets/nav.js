@@ -67,13 +67,22 @@
     });
     return best || list[0];
   }
-  function move(dir) {
-    var list = candidates(), horiz = dir === 'left' || dir === 'right';
-    if (!list.length) { if (!horiz) scrollBy(0, (dir === 'up' ? -1 : 1) * innerHeight * 0.6); return; }
-    if (!cur || !document.contains(cur) || !visible(cur)) { mark(nearTop(list), true); return; }
-    var a = box(cur), best = null, bs = 1e12;
+  /* Lange Listen (z. B. Programmliste mit ~2000 Einträgen): Behälter, in dem mindestens 12 anklickbare
+     Elemente untereinander stehen. Mit ▲ wird so eine Liste übersprungen (sonst landet man auf dem
+     letzten Eintrag), mit ▼ betritt man sie oben; drinnen verlässt ◀ / ▶ sie nach oben / unten. */
+  function bigList(e, list) {
+    for (var p = e.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+      if (p.children.length < 12) continue;
+      var n = 0;
+      for (var i = 0; i < list.length && n < 12; i++) if (p.contains(list[i])) n++;
+      if (n >= 12) return p;
+    }
+    return null;
+  }
+  function pick(dir, list, skip) {   // nächstes Element in Richtung dir, ohne die in skip
+    var horiz = dir === 'left' || dir === 'right', a = box(cur), best = null, bs = 1e12;
     list.forEach(function (e) {
-      if (e === cur || cur.contains(e) || e.contains(cur)) return;
+      if (e === cur || cur.contains(e) || e.contains(cur) || (skip && skip.contains(e))) return;
       var c = box(e);
       var centre = dir === 'left' ? a.x - c.x : dir === 'right' ? c.x - a.x : dir === 'up' ? a.y - c.y : c.y - a.y;
       if (centre <= 1) return;
@@ -83,7 +92,28 @@
       var score = Math.max(0, gap) + side * (overlap > 0 ? 0.3 : horiz ? 3 : 1.5);
       if (score < bs) { bs = score; best = e; }
     });
-    if (best) mark(best, true);
+    return best;
+  }
+  function move(dir) {
+    var list = candidates(), horiz = dir === 'left' || dir === 'right';
+    if (!list.length) { if (!horiz) scrollBy(0, (dir === 'up' ? -1 : 1) * innerHeight * 0.6); return; }
+    if (!cur || !document.contains(cur) || !visible(cur)) { mark(nearTop(list), true); return; }
+    var inList = bigList(cur, list), best;
+    if (inList && horiz) {   // in der Liste: ◀ / ▶ verlassen sie nach oben / unten
+      best = pick(dir === 'left' ? 'up' : 'down', list, inList);
+      if (best) { mark(best, true); hint('Liste verlassen'); }
+      return;
+    }
+    best = pick(dir, list, null);
+    if (best && dir === 'up') {
+      var target = bigList(best, list);
+      if (target && target !== inList && !target.contains(cur)) best = pick('up', list, target) || best;   // Liste überspringen
+    }
+    if (best) {
+      mark(best, true);
+      var entered = bigList(best, list);
+      if (entered && entered !== inList) hint('Liste: ▲▼ wählen · OK abspielen · ◀ ▶ Liste verlassen', 4000);
+    }
     else if (!horiz) scrollBy(0, (dir === 'up' ? -1 : 1) * innerHeight * 0.6);
   }
   function ok() {
