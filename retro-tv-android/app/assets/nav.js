@@ -71,9 +71,9 @@
     });
     return best || list[0];
   }
-  /* Lange Listen (z. B. Programmliste mit ~2000 Einträgen): Behälter, in dem mindestens 12 anklickbare
-     Elemente untereinander stehen. Mit ▲ wird so eine Liste übersprungen (sonst landet man auf dem
-     letzten Eintrag), mit ▼ betritt man sie oben; drinnen verlässt ◀ / ▶ sie nach oben / unten. */
+  /* Lange Listen (Playlist mit ~2000 Einträgen): Behälter, in dem mindestens 10 anklickbare Elemente
+     untereinander stehen. Hinein nur mit ⏯; von außen überspringen die Pfeile sie in jeder Richtung.
+     Drinnen: ▲▼ wählen, ◀ / ▶ verlassen sie nach oben / unten. */
   function bigList(e, list) {
     for (var p = e.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
       if (p.children.length < 12) continue;
@@ -113,15 +113,10 @@
       return;
     }
     best = pick(dir, list, null);
-    if (best && dir === 'up') {
-      var target = bigList(best, list);
-      if (target && target !== inList && !target.contains(cur)) best = pick('up', list, target) || best;   // Liste überspringen
-    }
-    if (best) {
-      mark(best, true);
-      var entered = bigList(best, list);
-      if (entered && entered !== inList) hint('Liste: ▲▼ wählen · OK abspielen · ◀ ▶ Liste verlassen', 4000);
-    }
+    var target = best && bigList(best, list);
+    // In die Playlist nur mit ⏯: von außen wird sie in jeder Richtung übersprungen
+    if (target && target !== inList && !target.contains(cur)) best = pick(dir, list, target);
+    if (best) mark(best, true);
     else if (!horiz) scrollBy(0, (dir === 'up' ? -1 : 1) * innerHeight * 0.6);
   }
   function ok() {
