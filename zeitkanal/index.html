@@ -293,7 +293,7 @@ const CH=[
  {id:"tz",name:"Twilight Zone",fixed:true,ia:'(title:("twilight zone" OR "schattenlichter") OR subject:("twilight zone"))',de:"Twilight Zone 1985 deutsch Folge",en:"The Twilight Zone 1985 episode"},
  {id:"abend",name:"Fernsehabend",ia:'(title:(programmansage OR ansagerin OR sendeschluss OR testbild OR "tv recording" OR "full broadcast" OR "complete broadcast" OR "broadcast day" OR fernsehabend OR mitschnitt OR "station ident" OR continuity OR ard OR zdf OR "rtl plus" OR "sat 1" OR wdr OR "tv aufzeichnung") OR subject:(programmansage OR ansagerin OR sendeschluss OR testbild OR "tv recording" OR "full broadcast" OR "complete broadcast" OR "broadcast day" OR fernsehabend OR mitschnitt OR "station ident" OR continuity OR ard OR zdf OR "rtl plus" OR "sat 1" OR wdr OR "tv aufzeichnung"))',de:"Fernsehabend komplett Mitschnitt Ansage",en:"full tv broadcast recording with commercials"},
  {id:"vhs",name:"VHS-Mitschnitte",ia:'(title:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR subject:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR collection:vhsvault)',de:"VHS Mitschnitt",en:"vhs tv recording"},
- {id:"ccc",name:"Chaos Computer Club",ia:'(title:("chaos computer club" OR "chaos communication" OR datenschleuder OR "btx hack" OR "btx-hack" OR "wau holland" OR hackerethik OR "chaos radio") OR subject:("chaos computer club" OR "chaos communication congress" OR "chaos communication camp" OR datenschleuder))',de:"Chaos Computer Club",en:"Chaos Computer Club"}
+ {id:"ccc",name:"Computerclub & CCC",ia:'(title:("chaos computer club" OR "chaos communication" OR datenschleuder OR "btx hack" OR "btx-hack" OR "wau holland" OR hackerethik OR "chaos radio" OR computerclub OR "computer club" OR "wolfgang back" OR "wolfgang rudolph") OR subject:("chaos computer club" OR "chaos communication congress" OR "chaos communication camp" OR datenschleuder OR computerclub OR "wdr computerclub"))',de:"WDR Computerclub",en:"Chaos Computer Club"}
 ];
 const LANGS=[
  {id:"dex",name:"Deutsch + Englisch",ia:["German","ger","deu","Deutsch","English","eng"],kw:["deutsch","german"],dm:"de,en",yt:"de",q:"en"},
@@ -527,16 +527,16 @@ async function srcYT(c,d,l){
  if(!st.key)return[];const de=l.q==="de",base=CH[st.ch].id,dd=String(d).slice(2);
  if(base==="yesil")return srcYesil();
  // Zwischenspeicher (12 Std.) schont das Tageskontingent von YouTube
- const ck="zk_ytc6_"+[base,c.id,c.fixed?"":d,l.id].join("|")+(base==="ccc"?"|q2":"");   // q2: neue CCC-Suchen, alten Speicher nicht nutzen
+ const ck="zk_ytc6_"+[base,c.id,c.fixed?"":d,l.id].join("|")+(base==="ccc"?"|q3":"");   // q2: neue CCC-Suchen, alten Speicher nicht nutzen
  try{const c0=JSON.parse(ls(ck)||"null");if(c0&&Date.now()-c0.t<432e5){st.ytInfo=(c0.info||"")+" (gespeichert)";return c0.v}}catch(e){}
  const core=c.fixed?(de?c.de:c.en):(de?c.de:c.en);
  // Mehrere Suchanfragen für mehr Auswahl (je 100 Einheiten von 10.000 pro Tag)
  let qs=c.fixed?[core,core+(de?" ganze Folge":" full episode")]
   :[de?`${core} ${dd}er Jahre`:`${d}s ${core}`].concat(Array.from({length:10},(_,k)=>`${core} ${d+k}`));
  // CCC: gezielte Suchen nach Fernsehberichten der Zeit (die Jahrzehnt-Prüfung unten bleibt aktiv)
- if(base==="ccc")qs=d===1980?["Chaos Computer Club 80er Jahre","Chaos Computer Club 1984","BTX Hack 1984 Chaos Computer Club",
-   "Chaos Computer Club NASA Hack 1987","KGB Hack Karl Koch 1989","Wau Holland Interview","Chaos Communication Congress 1985","Hacker Reportage 1980er"]
-  :[`Chaos Computer Club ${dd}er Jahre`,`Chaos Communication Congress ${d}er`].concat([0,3,6,9].map(k=>`Chaos Computer Club ${d+k}`));
+ if(base==="ccc")qs=["WDR Computerclub "+d+"er","WDR Computerclub Wolfgang Back Wolfgang Rudolph","Computerclub WDR "+(d+4)]
+   .concat(d===1980?["Chaos Computer Club 1984","BTX Hack 1984 Chaos Computer Club","Chaos Computer Club NASA Hack 1987","KGB Hack Karl Koch 1989","Wau Holland Chaos Computer Club"]
+     :[`Chaos Computer Club ${dd}er Jahre`,`Chaos Communication Congress ${d+5}`]);
  if(base==="musik")qs=qs.map(q=>q+(de?" live auftritt":" live performance"));
  if(l.id==="de")qs=qs.map(q=>q+" deutsch");
  qs=qs.map(q=>withNat(q,l));
@@ -547,6 +547,7 @@ async function srcYT(c,d,l){
   return [a,b]}))).flat();
  const seen=new Set();let items=[];
  const add=(id,title,desc)=>{if(!id||seen.has(id))return;seen.add(id);
+  if(base==="ccc"&&!/chaos|\bccc\b|hacker|hack\b|btx|wau holland|karl koch|datenschleuder|computer\s?club|wolfgang back|wolfgang rudolph/i.test(title))return;
   if((c.fixed||!yearOff(title,d))&&!nsfw(title,desc))items.push({src:"yt",id,title:unent(title)})};
  res.forEach(j=>(j.items||[]).forEach(x=>add(x.id?.videoId,x.snippet.title,x.snippet.description)));
  // Playlists: eine Suche (100 Einheiten), dann die Listen auslesen (je 1 Einheit pro 50 Videos) – viel mehr Auswahl
