@@ -1,9 +1,11 @@
 /* Fernbedienungs-Navigation für Seiten, die nicht dafür gebaut sind (Zeitkanal).
    Die App ruft: (dieser Code)('up'|'down'|'left'|'right'|'ok'|'menu'); Zurück ruft window.__rkNavBack().
-   Zwei Zustände wie beim Fernseher:
-   – Zuschauen: ◀▶ drückt die ⏮/⏭-Knöpfe der Seite (Video), ▲▼ drückt CH+/CH− (Kanal), OK öffnet das Menü.
-   – Menü: Steuerkreuz springt zum nächsten anklickbaren Element (türkis umrandet), OK klickt,
-     ≡ springt zum Abschnitt „Jahrzehnt“ und zurück nach oben, Zurück schließt das Menü. */
+   Belegung (Wunsch des Nutzers):
+   – ≡ (menu): Einstellungen („Jahrzehnt“ …) anwählen – egal, wo man gerade ist.
+   – OK beim Zuschauen: Knopfreihe unter dem Fernseher (⏮ ⏭ CH− AN …) anwählen.
+   – ⏯ (list): Playlist anwählen (laufender Eintrag, sonst erster).
+   – ◀▶ beim Zuschauen: ⏮/⏭ der Seite (Video); ▲▼ beim Zuschauen: CH+/CH−.
+   – Angewählt (türkis umrandet): Pfeile wählen, OK drückt; Zurück = zurück zum Bild. */
 (function () {
   if (window.__rkNav) return window.__rkNav;
   var SEL = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=tab],' +
@@ -73,9 +75,13 @@
   function bigList(e, list) {
     for (var p = e.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
       if (p.children.length < 12) continue;
-      var n = 0;
-      for (var i = 0; i < list.length && n < 12; i++) if (p.contains(list[i])) n++;
-      if (n >= 12) return p;
+      var rows = {}, n = 0;   // nur echte Listen: Einträge untereinander (≥ 10 Zeilen), nicht eine Knopfreihe
+      for (var i = 0; i < list.length && n < 10; i++) {
+        if (!p.contains(list[i])) continue;
+        var t = Math.round(list[i].getBoundingClientRect().top / 4);
+        if (!rows[t]) { rows[t] = 1; n++; }
+      }
+      if (n >= 10) return p;
     }
     return null;
   }
@@ -146,11 +152,39 @@
   }
   function watch(cmd) {   // Zuschauen: Steuerkreuz bedient den Fernseher der Seite
     if (scrollY > 40) toTop();   // irgendwo unten gelandet? Erst zurück zum Bild
-    if (cmd === 'ok') { navMode = true; mark(nearTop(candidates()), false); hint('Menü: Pfeile wählen · OK klickt · Zurück schließt', 3500); return; }
-    if (cmd === 'menu') { navMode = true; menu(); hint('Einstellungen: Pfeile wählen · OK klickt · Zurück schließt', 3500); return; }
+    if (cmd === 'ok' || cmd === 'menu' || cmd === 'list') return go(cmd);
     var b = pageButton(cmd);
     if (b) { press(b); hint(KEYS[cmd][2]); }
-    else hint('Kein Knopf für „' + KEYS[cmd][2] + '“ gefunden – OK öffnet das Menü');
+    else hint('Kein Knopf für „' + KEYS[cmd][2] + '“ gefunden – OK wählt die Knöpfe an');
+  }
+  /* Anspringen: Knopfreihe (ok), Einstellungen (menu), Playlist (list) – danach Pfeile/OK im angewählten Bereich */
+  function go(cmd) {
+    navMode = true;
+    if (cmd === 'menu') { menuOpen = false; menu(); hint('Menü: Pfeile wählen · OK drückt · Zurück = Bild', 3500); return; }
+    if (cmd === 'list') {
+      var list = candidates(), counts = [], best = null, max = 0;
+      list.forEach(function (e) {   // größte Liste der Seite
+        var l = bigList(e, list);
+        if (!l) return;
+        var i = counts.findIndex(function (c) { return c.l === l; });
+        if (i < 0) counts.push({ l: l, n: 1 }); else counts[i].n++;
+      });
+      counts.forEach(function (c) { if (c.n > max) { max = c.n; best = c.l; } });
+      if (!best) { hint('Keine Playlist gefunden'); return; }
+      var items = list.filter(function (e) { return best.contains(e); });
+      var now = items.filter(function (e) {   // laufenden Eintrag bevorzugen
+        return e.getAttribute('aria-current') || e.getAttribute('aria-selected') === 'true' ||
+               /(^|[\s_-])(active|current|playing|now|selected|on)([\s_-]|$)/i.test(e.className + ' ' + (e.parentElement ? e.parentElement.className : ''));
+      })[0];
+      mark(now || items[0], true);
+      hint('Playlist: ▲▼ wählen · OK spielt · Zurück = Bild', 3500);
+      return;
+    }
+    // ok: Knopfreihe unter dem Fernseher – über den ⏮-Knopf gefunden, sonst ein Knopf oben im Bild
+    var first = pageButton('left') || pageButton('right') || pageButton('down') || pageButton('up');
+    toTop();
+    mark(first || nearTop(candidates()), false);
+    hint('Knöpfe: Pfeile wählen · OK drückt · Zurück = Bild', 3500);
   }
   function toTop() {   // zurück zum Bild: Seite und alle verschobenen Bereiche nach oben
     scrollTo(0, 0);
@@ -184,7 +218,7 @@
   }
   window.__rkNav = function (cmd) {
     if (!navMode) return watch(cmd);
-    if (cmd === 'ok') ok(); else if (cmd === 'menu') menu(); else move(cmd);
+    if (cmd === 'menu' || cmd === 'list') go(cmd); else if (cmd === 'ok') ok(); else move(cmd);
   };
   window.__rkNavBack = function () {   // Zurück im Menü: Menü schließen, wieder zuschauen
     if (!navMode) return false;

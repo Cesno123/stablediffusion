@@ -156,9 +156,11 @@ public class MainActivity extends Activity {
         String cmd = k == KeyEvent.KEYCODE_DPAD_UP ? "up" : k == KeyEvent.KEYCODE_DPAD_DOWN ? "down"
                 : k == KeyEvent.KEYCODE_DPAD_LEFT ? "left" : k == KeyEvent.KEYCODE_DPAD_RIGHT ? "right"
                 : (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_NUMPAD_ENTER) ? "ok"
-                : k == KeyEvent.KEYCODE_MENU ? "menu" : null;
+                : k == KeyEvent.KEYCODE_MENU ? "menu"
+                : (k == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || k == KeyEvent.KEYCODE_MEDIA_PLAY
+                   || k == KeyEvent.KEYCODE_MEDIA_PAUSE) ? "list" : null;   // ⏯ = Playlist
         if (cmd == null) return false;
-        boolean repeatable = !cmd.equals("ok") && !cmd.equals("menu");
+        boolean repeatable = !cmd.equals("ok") && !cmd.equals("menu") && !cmd.equals("list");
         if (e.getAction() == KeyEvent.ACTION_DOWN && (repeatable || e.getRepeatCount() == 0)) {
             // Klammer um navJs: sonst würde der mehrzeilige Kommentar am Anfang die Anweisung beenden
             String code = "(function(){try{" + fsJs + "var r=(" + navJs + ")('" + cmd + "');return 'ok';}"
