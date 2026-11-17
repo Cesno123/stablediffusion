@@ -115,11 +115,16 @@
     return null;
   }
   function watch(cmd) {   // Zuschauen: Steuerkreuz bedient den Fernseher der Seite
+    if (scrollY > 40) toTop();   // irgendwo unten gelandet? Erst zurück zum Bild
     if (cmd === 'ok') { navMode = true; mark(nearTop(candidates()), false); hint('Menü: Pfeile wählen · OK klickt · Zurück schließt', 3500); return; }
     if (cmd === 'menu') { navMode = true; menu(); hint('Einstellungen: Pfeile wählen · OK klickt · Zurück schließt', 3500); return; }
     var b = pageButton(cmd);
     if (b) { press(b); hint(KEYS[cmd][2]); }
     else hint('Kein Knopf für „' + KEYS[cmd][2] + '“ gefunden – OK öffnet das Menü');
+  }
+  function toTop() {   // zurück zum Bild: Seite und alle verschobenen Bereiche nach oben
+    scrollTo(0, 0);
+    [].forEach.call(document.querySelectorAll('*'), function (e) { if (e.scrollTop > 0) e.scrollTop = 0; });
   }
   function heading() {
     var hs = document.querySelectorAll('h1,h2,h3,h4,h5,h6,legend,label,p,div,span');
@@ -154,8 +159,9 @@
   window.__rkNavBack = function () {   // Zurück im Menü: Menü schließen, wieder zuschauen
     if (!navMode) return false;
     navMode = false;
-    if (menuOpen) menu();   // war bei den Einstellungen: zurück nach oben
+    menuOpen = false;
     mark(null);
+    toTop();                // immer zurück zum Bild, egal wie weit unten man war
     hint('◀▶ Video · ▲▼ Kanal · OK Menü');
     return true;
   };
