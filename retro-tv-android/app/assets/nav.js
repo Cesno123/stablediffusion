@@ -1,7 +1,9 @@
 /* Fernbedienungs-Navigation für Seiten, die nicht dafür gebaut sind (Zeitkanal).
-   Die App ruft: (dieser Code)('up'|'down'|'left'|'right'|'ok'|'menu').
-   Steuerkreuz springt zum nächsten anklickbaren Element in dieser Richtung (türkis umrandet),
-   OK klickt es, ≡ springt zum Abschnitt „Jahrzehnt“ und zurück nach oben. */
+   Die App ruft: (dieser Code)('up'|'down'|'left'|'right'|'ok'|'menu'); Zurück ruft window.__rkNavBack().
+   Zwei Zustände wie beim Fernseher:
+   – Zuschauen: ◀▶ drückt die ⏮/⏭-Knöpfe der Seite (Video), ▲▼ drückt CH+/CH− (Kanal), OK öffnet das Menü.
+   – Menü: Steuerkreuz springt zum nächsten anklickbaren Element (türkis umrandet), OK klickt,
+     ≡ springt zum Abschnitt „Jahrzehnt“ und zurück nach oben, Zurück schließt das Menü. */
 (function () {
   if (window.__rkNav) return window.__rkNav;
   var SEL = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=tab],' +
@@ -10,7 +12,17 @@
   style.textContent = '.__rkf{outline:4px solid #4fd1c5!important;outline-offset:3px!important;' +
                       'box-shadow:0 0 0 9px rgba(79,209,197,.35)!important}';
   (document.head || document.documentElement).appendChild(style);
-  var cur = null, menuOpen = false;
+  var cur = null, menuOpen = false, navMode = false, hintTimer = null;
+  var tip = document.createElement('div');
+  tip.style.cssText = 'position:fixed;left:50%;bottom:6vh;transform:translateX(-50%);z-index:2147483647;' +
+    'background:rgba(10,20,35,.92);color:#fff;border:2px solid #4fd1c5;border-radius:999px;padding:10px 22px;' +
+    'font:600 20px/1.3 system-ui,sans-serif;pointer-events:none;display:none;white-space:nowrap';
+  (document.body || document.documentElement).appendChild(tip);
+  function hint(text, ms) {
+    tip.textContent = text; tip.style.display = 'block';
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(function () { tip.style.display = 'none'; }, ms || 2500);
+  }
 
   function visible(e) {
     var r = e.getBoundingClientRect();
@@ -76,13 +88,38 @@
   }
   function ok() {
     if (!cur || !document.contains(cur)) { mark(nearTop(candidates()), true); return; }
-    var e = cur, r = e.getBoundingClientRect(), o = { bubbles: true, cancelable: true, view: window,
+    press(cur);
+  }
+  function press(e) {
+    var r = e.getBoundingClientRect(), o = { bubbles: true, cancelable: true, view: window,
       clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName) && !/^(checkbox|radio|button|submit)$/.test(e.type)) { e.focus(); return; }
     ['pointerdown', 'mousedown', 'pointerup', 'mouseup'].forEach(function (t) {
       try { e.dispatchEvent(t.indexOf('pointer') === 0 ? new PointerEvent(t, o) : new MouseEvent(t, o)); } catch (x) {}
     });
     e.click();
+  }
+  function label(e) {
+    return ((e.textContent || '') + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '')).trim();
+  }
+  var KEYS = {   // [genaue Beschriftung, Ersatz-Muster]
+    left:  [/^(⏮|⏮️|\|◀|◀◀|«)$/, /vorherig|zurück|previous|\bprev\b/i, 'Vorheriges Video'],
+    right: [/^(⏭|⏭️|▶\||▶▶|»)$/, /nächst|weiter|\bnext\b|skip/i, 'Nächstes Video'],
+    up:    [/^CH\s*\+$/i, /kanal\s*\+|kanal hoch|channel up/i, 'Kanal +'],
+    down:  [/^CH\s*[−–-]$/i, /kanal\s*[−–-]|kanal runter|channel down/i, 'Kanal −']
+  };
+  function pageButton(dir) {
+    var k = KEYS[dir], list = candidates(), i;
+    for (i = 0; i < list.length; i++) if (k[0].test((list[i].textContent || '').trim())) return list[i];
+    for (i = 0; i < list.length; i++) if (k[1].test(label(list[i]))) return list[i];
+    return null;
+  }
+  function watch(cmd) {   // Zuschauen: Steuerkreuz bedient den Fernseher der Seite
+    if (cmd === 'ok') { navMode = true; mark(nearTop(candidates()), false); hint('Menü: Pfeile wählen · OK klickt · Zurück schließt', 3500); return; }
+    if (cmd === 'menu') { navMode = true; menu(); hint('Einstellungen: Pfeile wählen · OK klickt · Zurück schließt', 3500); return; }
+    var b = pageButton(cmd);
+    if (b) { press(b); hint(KEYS[cmd][2]); }
+    else hint('Kein Knopf für „' + KEYS[cmd][2] + '“ gefunden – OK öffnet das Menü');
   }
   function heading() {
     var hs = document.querySelectorAll('h1,h2,h3,h4,h5,h6,legend,label,p,div,span');
@@ -111,7 +148,16 @@
     mark(best, false);
   }
   window.__rkNav = function (cmd) {
+    if (!navMode) return watch(cmd);
     if (cmd === 'ok') ok(); else if (cmd === 'menu') menu(); else move(cmd);
+  };
+  window.__rkNavBack = function () {   // Zurück im Menü: Menü schließen, wieder zuschauen
+    if (!navMode) return false;
+    navMode = false;
+    if (menuOpen) menu();   // war bei den Einstellungen: zurück nach oben
+    mark(null);
+    hint('◀▶ Video · ▲▼ Kanal · OK Menü');
+    return true;
   };
   return window.__rkNav;
 })()

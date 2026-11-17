@@ -239,7 +239,7 @@ public class MainActivity extends Activity {
     void onRemoteBack() {
         if (fullscreenView != null) { chrome.onHideCustomView(); return; }
         // erst darf die Seite reagieren (z. B. Menü schließen), sonst zweimal Zurück zum Beenden
-        js("window.rkBack ? rkBack() : (window.__rkFsExit ? __rkFsExit() : false)", new ValueCallback<String>() {
+        js("window.rkBack ? rkBack() : ((window.__rkNavBack && __rkNavBack()) || (window.__rkFsExit ? __rkFsExit() : false))", new ValueCallback<String>() {
             @Override
             public void onReceiveValue(String handled) {
                 if ("true".equals(handled)) return;
