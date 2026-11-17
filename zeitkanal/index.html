@@ -293,7 +293,7 @@ const CH=[
  {id:"tz",name:"Twilight Zone",fixed:true,ia:'(title:("twilight zone" OR "schattenlichter") OR subject:("twilight zone"))',de:"Twilight Zone 1985 deutsch Folge",en:"The Twilight Zone 1985 episode"},
  {id:"abend",name:"Fernsehabend",ia:'(title:(programmansage OR ansagerin OR sendeschluss OR testbild OR "tv recording" OR "full broadcast" OR "complete broadcast" OR "broadcast day" OR fernsehabend OR mitschnitt OR "station ident" OR continuity OR ard OR zdf OR "rtl plus" OR "sat 1" OR wdr OR "tv aufzeichnung") OR subject:(programmansage OR ansagerin OR sendeschluss OR testbild OR "tv recording" OR "full broadcast" OR "complete broadcast" OR "broadcast day" OR fernsehabend OR mitschnitt OR "station ident" OR continuity OR ard OR zdf OR "rtl plus" OR "sat 1" OR wdr OR "tv aufzeichnung"))',de:"Fernsehabend komplett Mitschnitt Ansage",en:"full tv broadcast recording with commercials"},
  {id:"vhs",name:"VHS-Mitschnitte",ia:'(title:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR subject:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR collection:vhsvault)',de:"VHS Mitschnitt",en:"vhs tv recording"},
- {id:"ccc",name:"Chaos Computer Club",ia:'(title:("chaos computer club" OR "chaos communication" OR datenschleuder OR "btx hack" OR "btx-hack" OR "wau holland" OR hackerethik OR "chaos radio") OR subject:("chaos computer club" OR "chaos communication congress" OR "chaos communication camp" OR datenschleuder))',de:"Chaos Computer Club",en:"Chaos Computer Club"}
+ {id:"ccc",name:"Chaos Computer Club",fixed:true,ia:'(title:("chaos computer club" OR "chaos communication" OR datenschleuder OR "btx hack" OR "btx-hack" OR "wau holland" OR hackerethik OR "chaos radio") OR subject:("chaos computer club" OR "chaos communication congress" OR "chaos communication camp" OR datenschleuder))',de:"Chaos Computer Club",en:"Chaos Computer Club"}
 ];
 const LANGS=[
  {id:"dex",name:"Deutsch + Englisch",ia:["German","ger","deu","Deutsch","English","eng"],kw:["deutsch","german"],dm:"de,en",yt:"de",q:"en"},
@@ -533,6 +533,7 @@ async function srcYT(c,d,l){
  // Mehrere Suchanfragen für mehr Auswahl (je 100 Einheiten von 10.000 pro Tag)
  let qs=c.fixed?[core,core+(de?" ganze Folge":" full episode")]
   :[de?`${core} ${dd}er Jahre`:`${d}s ${core}`].concat(Array.from({length:10},(_,k)=>`${core} ${d+k}`));
+ if(base==="ccc")qs=["Chaos Computer Club","Chaos Computer Club Doku","CCC Hacker Reportage","Chaos Communication Congress Vortrag","Wau Holland","BTX Hack 1984"];   // Jahrzehnt egal
  if(base==="musik")qs=qs.map(q=>q+(de?" live auftritt":" live performance"));
  if(l.id==="de")qs=qs.map(q=>q+" deutsch");
  qs=qs.map(q=>withNat(q,l));
@@ -667,8 +668,8 @@ function cccYear(cf){const a=String(cf.acronym||cf.slug||"");let m=a.match(/^(\d
  const t=Date.parse(cf.event_last_released_at||cf.updated_at||"");return isNaN(t)?0:new Date(t).getFullYear()}
 async function srcCC(c,d,l){
  const j=await getJSON("https://api.media.ccc.de/public/conferences",15000);
- let cs=(j.conferences||[]).map(cf=>({cf,y:cccYear(cf)})).filter(x=>x.y&&x.y>=d&&x.y<=d+9);
- cs=shuffle(cs,hash("ccc"+d+Math.floor(Date.now()/864e5))).slice(0,8);   // täglich andere Auswahl, für alle gleich
+ let cs=(j.conferences||[]).map(cf=>({cf,y:cccYear(cf)})).filter(x=>c.fixed||(x.y&&x.y>=d&&x.y<=d+9));   // fixer Kanal: alle Jahre
+ cs=shuffle(cs,hash("ccc"+(c.fixed?"":d)+Math.floor(Date.now()/864e5))).slice(0,12);   // täglich andere Auswahl, für alle gleich
  const de=(l.codes||[]).includes("de")||["de","dex"].includes(l.id);
  const lists=await Promise.all(cs.map(x=>getJSON(x.cf.url,15000).then(r=>(r.events||[]).map(e=>({e,y:x.y}))).catch(()=>[])));
  return lists.flat().filter(({e})=>e.guid&&e.title&&!nsfw(e.title,e.subtitle)&&(l.id==="all"||!e.original_language||
