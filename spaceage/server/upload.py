@@ -45,8 +45,8 @@ Was gepostet ist, verschwindet automatisch aus dieser Liste. Postzeiten: {times}
 <textarea id="c" rows="3" style="width:100%" placeholder="Eigene Bildunterschrift (optional, sonst eine wechselnde)"></textarea><br>
 <button id="b" style="font-size:18px;padding:8px 16px">Hochladen</button>
 <p id="r"></p>
-<h3>Warteschlange ({count})</h3>{items}
-<h3>Von Claude aussortiert ({rcount})</h3>
+<h3>Warteschlange (<span id="qc">{count}</span>)</h3>{items}
+<h3>Von Claude aussortiert (<span id="rc">{rcount}</span>)</h3>
 <p style="font-size:13px">Diese FLUX-Bilder hat Claude nicht in die Warteschlange gelassen. Zur&uuml;ckholen
 legt ein Bild doch in die Warteschlange.</p>{rejected}
 <script>
@@ -60,27 +60,50 @@ b.onclick = async () => {{
   }}
   location.reload();
 }};
-async function act(what, name, ask) {{
-  if (ask && !confirm(name + " " + ask)) return;
-  await fetch("/upload/" + what + "?" + new URLSearchParams({{name}}), {{method: "POST"}});
-  location.reload();
+function bump(id, by) {{ const e = document.getElementById(id); e.textContent = +e.textContent + by; }}
+async function send(what, name, btn) {{  // no page reload: only this entry disappears
+  btn.disabled = true;
+  const x = await fetch("/upload/" + what + "?" + new URLSearchParams({{name}}), {{method: "POST"}});
+  if (!x.ok) {{ btn.disabled = false; alert(name + ": " + await x.text()); return false; }}
+  btn.closest(".item").remove();
+  return true;
 }}
-async function del(name) {{
+async function act(what, name, btn, ask) {{
+  if (ask && !confirm(name + " " + ask)) return;
+  if (await send(what, name, btn)) {{ bump("rc", -1); if (what == "restore") bump("qc", 1); }}
+}}
+async function del(name, btn) {{
   if (!confirm(name + " l\\u00f6schen?")) return;
-  await fetch("/upload/delete?" + new URLSearchParams({{name}}), {{method: "POST"}});
-  location.reload();
+  if (await send("delete", name, btn)) bump("qc", -1);
 }}
 </script>"""
 
-ITEM = """<div style="display:flex;gap:12px;align-items:center;margin:8px 0">{preview}
+ITEM = """<div class="item" style="display:flex;gap:12px;align-items:center;margin:8px 0">{preview}
 <div style="flex:1;word-break:break-all;font-size:13px">{nr}. {name}{caption}</div>
-<button onclick="del({js})">L&ouml;schen</button></div>"""
+<button onclick="del({js}, this)">L&ouml;schen</button></div>"""
 
-REJ = """<div style="display:flex;gap:12px;align-items:center;margin:8px 0">{preview}
+REJ = """<div class="item" style="display:flex;gap:12px;align-items:center;margin:8px 0">{preview}
 <div style="flex:1;word-break:break-all;font-size:13px">{name}{caption}</div>
 <div style="display:flex;flex-direction:column;gap:6px">
-<button onclick="act('restore', {js})">Zur&uuml;ckholen</button>
-<button onclick="act('drop', {js}, 'endg\\u00fcltig l\\u00f6schen?')">L&ouml;schen</button></div></div>"""
+<button onclick="act('restore', {js}, this)">Zur&uuml;ckholen</button>
+<button onclick="act('drop', {js}, this, 'endg\\u00fcltig l\\u00f6schen?')">L&ouml;schen</button></div></div>"""
+
+
+THUMBS = os.path.join(POSTED, "thumbs")
+
+
+def thumb(path):
+    """A small JPEG preview (180 px wide), made once and kept, so the page loads fast."""
+    from PIL import Image
+
+    out = os.path.join(THUMBS, os.path.basename(path) + ".jpg")
+    if not os.path.exists(out) or os.path.getmtime(out) < os.path.getmtime(path):
+        os.makedirs(THUMBS, exist_ok=True)
+        img = Image.open(path).convert("RGB")
+        img.thumbnail((180, 320))
+        img.save(out, "JPEG", quality=80)
+    with open(out, "rb") as f:
+        return f.read()
 
 
 def notes():
@@ -139,7 +162,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             name = safe_rejected(q.get("name")) if rej else safe_name(q.get("name"))
             if not name:
                 return self.reply(404, "nicht gefunden")
-            with open(os.path.join(REJECTED if rej else QUEUE, name), "rb") as f:
+            full = os.path.join(REJECTED if rej else QUEUE, name)
+            if q.get("thumb") and os.path.splitext(name)[1].lower() in IMAGES:
+                return self.reply(200, thumb(full), "image/jpeg")
+            with open(full, "rb") as f:
                 ctype = "video/mp4" if os.path.splitext(name)[1].lower() in VIDEOS else "image/jpeg"
                 return self.reply(200, f.read(), ctype)
         items, marks = [], notes()
@@ -147,7 +173,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             src = "/upload/file?" + urllib.parse.urlencode({"name": name})
             preview = (f'<video src="{src}" width="90" muted></video>'
                        if os.path.splitext(name)[1].lower() in VIDEOS
-                       else f'<img src="{src}" width="90" loading="lazy">')
+                       else f'<a href="{src}" target="_blank"><img src="{src}&amp;thumb=1" width="90" loading="lazy"></a>')
             txt = os.path.join(QUEUE, os.path.splitext(name)[0] + ".txt")
             caption = "<br><i>eigene Bildunterschrift</i>" if os.path.exists(txt) else ""
             if name in marks:
@@ -159,7 +185,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         for name in rejected():
             src = "/upload/file?" + urllib.parse.urlencode({"name": name, "from": "rej"})
             note = f"<br><span style='color:#c99'>Claude: {html.escape(marks.get(name, ''))}</span>"
-            rej.append(REJ.format(preview=f'<img src="{src}" width="90" loading="lazy">', name=html.escape(name),
+            rej.append(REJ.format(preview=f'<a href="{src}" target="_blank"><img src="{src}&amp;thumb=1" width="90" '
+                                          f'loading="lazy"></a>', name=html.escape(name),
                                   caption=note, js=html.escape(repr(name))))
         self.reply(200, PAGE.format(times=POST_TIMES, count=len(items), items=body, rcount=len(rej),
                                     rejected="".join(rej) or "<p>keine</p>"), "text/html; charset=utf-8")
