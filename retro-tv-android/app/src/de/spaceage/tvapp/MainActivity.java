@@ -127,7 +127,7 @@ public class MainActivity extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
         int k = e.getKeyCode();
-        if (navJs != null && fullscreenView == null && navKey(e)) return true;
+        if (navJs != null && navKey(e)) return true;   // auch im Vollbild: Zeitkanal löst eigenes Vollbild aus
         if (cursor != null && fullscreenView == null && cursorKey(e)) return true;
         if (cursor != null && k == KeyEvent.KEYCODE_MENU) {
             if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) togglePageMenu();
@@ -159,8 +159,18 @@ public class MainActivity extends Activity {
                 : k == KeyEvent.KEYCODE_MENU ? "menu" : null;
         if (cmd == null) return false;
         boolean repeatable = !cmd.equals("ok") && !cmd.equals("menu");
-        if (e.getAction() == KeyEvent.ACTION_DOWN && (repeatable || e.getRepeatCount() == 0))
-            js(fsJs + navJs + "('" + cmd + "')", null);
+        if (e.getAction() == KeyEvent.ACTION_DOWN && (repeatable || e.getRepeatCount() == 0)) {
+            // Klammer um navJs: sonst würde der mehrzeilige Kommentar am Anfang die Anweisung beenden
+            String code = "(function(){try{" + fsJs + "var r=(" + navJs + ")('" + cmd + "');return 'ok';}"
+                    + "catch(x){return 'Fehler: '+(x&&x.message)}})()";
+            js(code, new ValueCallback<String>() {
+                @Override
+                public void onReceiveValue(String v) {
+                    if (v != null && v.startsWith("\"Fehler"))   // sichtbar machen statt still scheitern
+                        Toast.makeText(MainActivity.this, "Steuerung: " + v.replace("\"", ""), Toast.LENGTH_LONG).show();
+                }
+            });
+        }
         return true;
     }
 
