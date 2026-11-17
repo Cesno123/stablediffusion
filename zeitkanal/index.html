@@ -293,7 +293,7 @@ const CH=[
  {id:"tz",name:"Twilight Zone",fixed:true,ia:'(title:("twilight zone" OR "schattenlichter") OR subject:("twilight zone"))',de:"Twilight Zone 1985 deutsch Folge",en:"The Twilight Zone 1985 episode"},
  {id:"abend",name:"Fernsehabend",ia:'(title:(programmansage OR ansagerin OR sendeschluss OR testbild OR "tv recording" OR "full broadcast" OR "complete broadcast" OR "broadcast day" OR fernsehabend OR mitschnitt OR "station ident" OR continuity OR ard OR zdf OR "rtl plus" OR "sat 1" OR wdr OR "tv aufzeichnung") OR subject:(programmansage OR ansagerin OR sendeschluss OR testbild OR "tv recording" OR "full broadcast" OR "complete broadcast" OR "broadcast day" OR fernsehabend OR mitschnitt OR "station ident" OR continuity OR ard OR zdf OR "rtl plus" OR "sat 1" OR wdr OR "tv aufzeichnung"))',de:"Fernsehabend komplett Mitschnitt Ansage",en:"full tv broadcast recording with commercials"},
  {id:"vhs",name:"VHS-Mitschnitte",ia:'(title:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR subject:(vhs OR "tv recording" OR mitschnitt OR aufnahme OR "vhs rip") OR collection:vhsvault)',de:"VHS Mitschnitt",en:"vhs tv recording"},
- {id:"ccc",name:"Computerclub",ia:'(title:(computerclub OR "computer club" OR "computer-club" OR "wolfgang back" OR "wolfgang rudolph" OR cc2) OR subject:(computerclub OR "wdr computerclub" OR "wolfgang back" OR "wolfgang rudolph"))',de:"WDR Computerclub",en:"WDR Computerclub"}
+ {id:"ccc",name:"Computerclub",fixed:true,ia:'(title:(computerclub OR "computer club" OR "computer-club" OR "wolfgang back" OR "wolfgang rudolph" OR cc2) OR subject:(computerclub OR "wdr computerclub" OR "wolfgang back" OR "wolfgang rudolph"))',de:"WDR Computerclub",en:"WDR Computerclub"}
 ];
 const LANGS=[
  {id:"dex",name:"Deutsch + Englisch",ia:["German","ger","deu","Deutsch","English","eng"],kw:["deutsch","german"],dm:"de,en",yt:"de",q:"en"},
@@ -527,7 +527,7 @@ async function srcYT(c,d,l){
  if(!st.key)return[];const de=l.q==="de",base=CH[st.ch].id,dd=String(d).slice(2);
  if(base==="yesil")return srcYesil();
  // Zwischenspeicher (12 Std.) schont das Tageskontingent von YouTube
- const ck="zk_ytc6_"+[base,c.id,c.fixed?"":d,l.id].join("|")+(base==="ccc"?"|q4":"");   // q2: neue CCC-Suchen, alten Speicher nicht nutzen
+ const ck="zk_ytc6_"+[base,c.id,c.fixed?"":d,l.id].join("|")+(base==="ccc"?"|q5":"");   // q2: neue CCC-Suchen, alten Speicher nicht nutzen
  try{const c0=JSON.parse(ls(ck)||"null");if(c0&&Date.now()-c0.t<432e5){st.ytInfo=(c0.info||"")+" (gespeichert)";return c0.v}}catch(e){}
  const core=c.fixed?(de?c.de:c.en):(de?c.de:c.en);
  // Mehrere Suchanfragen für mehr Auswahl (je 100 Einheiten von 10.000 pro Tag)
@@ -535,8 +535,7 @@ async function srcYT(c,d,l){
   :[de?`${core} ${dd}er Jahre`:`${d}s ${core}`].concat(Array.from({length:10},(_,k)=>`${core} ${d+k}`));
  // CCC: gezielte Suchen nach Fernsehberichten der Zeit (die Jahrzehnt-Prüfung unten bleibt aktiv)
  // Computerclub: WDR 1981–2003 mit Wolfgang Back & Wolfgang Rudolph, danach als „CC2“ im Netz
- if(base==="ccc")qs=["WDR Computerclub "+d+"er","WDR Computerclub Wolfgang Back Wolfgang Rudolph","Computerclub WDR "+(d+2),"Computerclub WDR "+(d+6)]
-   .concat(d>=2000?["CC2 Computerclub Wolfgang Back","CC2.tv"]:[]);
+ if(base==="ccc")qs=["WDR Computerclub","WDR Computerclub Wolfgang Back Wolfgang Rudolph","Computerclub WDR Folge","CC2 Computerclub Wolfgang Back"];   // eine Sendung, alle Jahre
  if(base==="musik")qs=qs.map(q=>q+(de?" live auftritt":" live performance"));
  if(l.id==="de")qs=qs.map(q=>q+" deutsch");
  qs=qs.map(q=>withNat(q,l));
