@@ -151,7 +151,7 @@
     <div class="tvm-right"><h4>PROGRAMM</h4><div id="tvm-prog"></div></div>
   </div>
 </div>
-<div id="tvhelp" hidden>☰ Menü (Taste ≡ oder Knopf oben links) · ▲▼ Kanal · ◀▶ Jahrzehnt · ⏩⏪ spulen · ⏯ Pause<span id="tvkey"></span><span id="tvver"></span></div>
+<div id="tvhelp" hidden>☰ Menü (Taste ≡ oder Knopf oben links) · ▲▼ Kanal · ◀▶ Sendung · ⏩⏪ spulen · ⏯ Pause · Jahrzehnt im Menü<span id="tvkey"></span><span id="tvver"></span></div>
 <div class="wrap">
   <header><h1>RÖHRENKISTE</h1><span id="clock">--:--</span></header>
 
@@ -276,7 +276,7 @@ const CACHE_HOURS = 24;
 /* ============================================================ */
 
 const $ = id => document.getElementById(id);
-const VERSION = "v14 · 16.11.";   // bei jeder Änderung hochzählen – zeigt, ob die neue Fassung geladen ist
+const VERSION = "v15 · 17.11.";   // bei jeder Änderung hochzählen – zeigt, ob die neue Fassung geladen ist
 const store = {
   get(k, d) { try { const v = localStorage.getItem("rk2-" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("rk2-" + k, JSON.stringify(v)); } catch (e) {} },
@@ -775,7 +775,7 @@ $("screen").onclick = e => {
 };
 /* ---------- TV-Modus ----------
    Fire TV, Smart-TV-Browser oder ?tv=1 in der Adresse. Fernbedienung:
-   ▲▼ Kanal · ◀▶ Jahrzehnt · OK Ein/Programmübersicht · ⏩⏪ Sendung · ⏯ zurück zu Live */
+   ▲▼ Kanal · ◀▶ Sendung · OK/≡ Menü (Jahrzehnt, Live …) · ⏩⏪ 30 s spulen · ⏯ Pause */
 function isTv() {
   const saved = store.get("tvmode", null);
   if (/[?&]tv=1/.test(location.search)) return true;
@@ -945,8 +945,8 @@ document.addEventListener("keydown", e => {
   let handled = true;
   if (k === "ArrowUp" || k === "ChannelUp" || k === "PageUp") setChan(state.chan + 1);
   else if (k === "ArrowDown" || k === "ChannelDown" || k === "PageDown") setChan(state.chan - 1);
-  else if (k === "ArrowRight") tv ? setDecade(1) : step(1);
-  else if (k === "ArrowLeft") tv ? setDecade(-1) : step(-1);
+  else if (k === "ArrowRight") step(1);   // nächste Sendung (Jahrzehnt über das Menü)
+  else if (k === "ArrowLeft") step(-1);   // vorherige Sendung
   else if (k === "MediaFastForward" || code === 228) tv ? seek(30) : step(1);
   else if (k === "MediaRewind" || code === 227) tv ? seek(-30) : step(-1);
   else if (k === "MediaTrackNext") step(1);

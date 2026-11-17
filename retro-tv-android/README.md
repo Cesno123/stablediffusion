@@ -14,7 +14,7 @@ Mit `CURSOR=true` (Zeitkanal) zeigt die App einen Zeiger wie Silk: Steuerkreuz b
 (gedrückt halten = schneller, am Rand wird geblättert), OK klickt; nach 5 s ohne Taste blendet er sich aus. Änderungen an der
 Webseite kommen automatisch in der App an; die App selbst muss dafür nicht neu installiert werden.
 
-Fernbedienung: ▲▼ Kanal · ◀▶ Jahrzehnt · OK/≡ Menü · ⏪⏩ 30 s spulen · ⏯ Pause ·
+Fernbedienung: ▲▼ Kanal · ◀▶ Sendung · OK/≡ Menü (Jahrzehnt) · ⏪⏩ 30 s spulen · ⏯ Pause ·
 Zurück schließt das Menü, zweimal Zurück beendet die App.
 
 ## Installieren (Fire TV)

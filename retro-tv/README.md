@@ -40,7 +40,7 @@ Oben im Skript von `index.html`: `DECADES` (Jahrzehnte) und `CHANNELS` (Suchbegr
 ## Fire TV / Fernseher-Browser
 Seite im Browser des Fernsehers öffnen (z. B. Silk auf Fire TV). Der TV-Modus startet dort
 automatisch (sonst Knopf „TV-Modus“ unten auf der Seite oder `?tv=1` an die Adresse hängen).
-Fernbedienung: ▲▼ Kanal · ◀▶ Jahrzehnt · OK einschalten / Programmübersicht · ⏩⏪ Sendung · ⏯ zurück zu Live.
+Fernbedienung: ▲▼ Kanal · ◀▶ vorherige/nächste Sendung · OK/≡ Menü (Jahrzehnt, Live …) · ⏩⏪ 30 s spulen · ⏯ Pause.
 
 ## YouTube-Schlüssel für alle Geräte
 In Netlify unter *Project configuration → Environment variables* die Variable `YOUTUBE_API_KEY`
