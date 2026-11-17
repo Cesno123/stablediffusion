@@ -120,7 +120,7 @@ public class MainActivity extends Activity {
             root.post(new Runnable() { public void run() {
                 cursor.x = root.getWidth() / 2f; cursor.y = root.getHeight() / 2f; showCursor(); } });
         }
-        if (Config.NAV) {
+        if (Config.DEBUG) {     // Fehlersuche: zeigt oben rechts jede Taste und was daraus wurde
             diag = new TextView(this);
             diag.setTextColor(Color.WHITE);
             diag.setTextSize(16);

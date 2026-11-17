@@ -22,7 +22,7 @@ build() {
   source "$conf"
   local B="build/$1"
   rm -rf "$B" && mkdir -p "$B/classes" "$B/gen/de/spaceage/tvapp"
-  printf 'package de.spaceage.tvapp;\nfinal class Config { static final String URL = "%s"; static final boolean CURSOR = %s; static final boolean NAV = %s; }\n' "$URL" "${CURSOR:-false}" "${NAV:-false}" > "$B/gen/de/spaceage/tvapp/Config.java"
+  printf 'package de.spaceage.tvapp;\nfinal class Config { static final String URL = "%s"; static final boolean CURSOR = %s; static final boolean NAV = %s; static final boolean DEBUG = %s; }\n' "$URL" "${CURSOR:-false}" "${NAV:-false}" "${DEBUG:-false}" > "$B/gen/de/spaceage/tvapp/Config.java"
   javac -nowarn -encoding UTF-8 --release 8 -cp dl/android-all.jar -d "$B/classes" $(find app/src "$B/gen" -name '*.java') 2>&1 | grep -v "JAVA_TOOL_OPTIONS\|^Note:" || true
   java -cp dl/dx.jar com.android.dx.command.Main --dex --min-sdk-version=24 --output="$B/classes.dex" "$B/classes" 2>&1 | grep -v JAVA_TOOL_OPTIONS || true
   python3 tools/make_art.py "$B" "$ART" "$ART_BG" "$ART_ACCENT"
