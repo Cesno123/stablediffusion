@@ -1,4 +1,4 @@
-package de.spaceage.roehrenkiste;
+package de.spaceage.tvapp;
 
 import android.app.Activity;
 import android.graphics.Color;
@@ -16,12 +16,22 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 /**
- * Röhrenkiste für Fire TV: zeigt die Webseite bildschirmfüllend (ohne Browser, ohne Mauszeiger).
- * Steuerkreuz und OK gehen als normale Tasten an die Seite; ≡, ⏪, ⏩, ⏯ und Zurück
- * reicht die App über window.rkRemote / window.rkBack an die Seite weiter.
+ * Fire-TV-Hülle für eine Webseite (Röhrenkiste, Zeitkanal …): bildschirmfüllend, ohne Browser,
+ * ohne Mauszeiger. Steuerkreuz und OK gehen als normale Tasten an die Seite.
+ * ≡, ⏪, ⏩, ⏯ und Zurück: Hat die Seite window.rkRemote / window.rkBack (Röhrenkiste), bekommt sie
+ * die Tasten; sonst steuert die App das erste Video der Seite selbst und blättert mit Zurück zurück.
+ * Die Adresse kommt aus Config.URL (von build.sh aus flavors/*.conf erzeugt).
  */
 public class MainActivity extends Activity {
-    static final String URL = "https://zeitkan2.netlify.app/?tv=1&autostart=1";
+    static final String URL = Config.URL;
+    /** Für Seiten ohne Röhrenkiste-Schnittstelle: Video direkt steuern, sonst Taste als Tastendruck schicken. */
+    static final String REMOTE_JS =
+        "(function(n){if(window.rkRemote){rkRemote(n);return;}" +
+        "var v=document.querySelector('video');" +
+        "if(v&&n!=='menu'){if(n==='ff')v.currentTime=Math.min(v.duration||1e9,v.currentTime+30);" +
+        "else if(n==='rw')v.currentTime=Math.max(0,v.currentTime-30);else{v.paused?v.play():v.pause();}return;}" +
+        "var k={ff:['MediaFastForward',228],rw:['MediaRewind',227],pp:['MediaPlayPause',179],menu:['ContextMenu',93]}[n];" +
+        "(document.activeElement||document).dispatchEvent(new KeyboardEvent('keydown',{key:k[0],keyCode:k[1],bubbles:true}));})";
 
     WebView web;
     FrameLayout root;
@@ -88,7 +98,7 @@ public class MainActivity extends Activity {
         else if (k == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || k == KeyEvent.KEYCODE_MEDIA_PLAY
                 || k == KeyEvent.KEYCODE_MEDIA_PAUSE) name = "pp";
         if (name != null) {
-            if (e.getAction() == KeyEvent.ACTION_DOWN) js("window.rkRemote && rkRemote('" + name + "')", null);
+            if (e.getAction() == KeyEvent.ACTION_DOWN) js(REMOTE_JS + "('" + name + "')", null);
             return true;
         }
         if (k == KeyEvent.KEYCODE_BACK) {
@@ -105,6 +115,7 @@ public class MainActivity extends Activity {
             @Override
             public void onReceiveValue(String handled) {
                 if ("true".equals(handled)) return;
+                if (web.canGoBack()) { web.goBack(); return; }
                 long now = System.currentTimeMillis();
                 if (now - lastBack < 2500) { finish(); return; }
                 lastBack = now;

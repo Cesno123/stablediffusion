@@ -1,7 +1,8 @@
-"""Zeichnet Banner (320x180) und Symbol (192x192) im Röhrenkiste-Stil."""
+"""Zeichnet Banner (320x180) und Symbol (192x192). Aufruf: make_art.py ZIELORDNER "ZEILE1|ZEILE2|UNTERZEILE" """
 from PIL import Image, ImageDraw, ImageFont
 import os, sys
 out = sys.argv[1]
+L1, L2, SUB = (sys.argv[2] if len(sys.argv) > 2 else "RÖHREN|KISTE|TV 1970–2015").split("|")
 ORANGE, BG, TV, BEZEL = (227, 165, 72), (21, 18, 15), (43, 46, 51), (185, 188, 192)
 BARS = [(192,192,192),(192,192,0),(0,192,192),(0,192,0),(192,0,192),(192,0,0),(0,0,192)]
 
@@ -23,9 +24,9 @@ def tv(d, x, y, w, h):
 
 b = Image.new("RGB", (320, 180), BG); d = ImageDraw.Draw(b)
 tv(d, 14, 30, 120, 120)
-d.text((146, 62), "RÖHREN", font=font(30), fill=ORANGE)
-d.text((146, 96), "KISTE", font=font(30), fill=ORANGE)
-d.text((148, 136), "TV 1970–2015", font=font(13), fill=(163, 150, 132))
+d.text((146, 62), L1, font=font(30), fill=ORANGE)
+d.text((146, 96), L2, font=font(30), fill=ORANGE)
+d.text((148, 136), SUB, font=font(13), fill=(163, 150, 132))
 b.save(os.path.join(out, "banner.png"), optimize=True)
 
 i = Image.new("RGBA", (192, 192), (0, 0, 0, 0)); d = ImageDraw.Draw(i)
