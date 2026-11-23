@@ -48,3 +48,57 @@ COMIC = [
     ("noir-39", 'A rain-soaked rooftop with a cloaked figure and a giant satellite dish behind, lightning illuminating a mothership in the clouds, gothic noir comic cover, stark silhouette, black and violet'),
     ("noir-40", 'A lone cloaked figure standing over a defeated alien army in a dark ruined city, smoke rising, a single red moon, gothic noir comic splash page, minimal palette, heavy ink and brush texture'),
 ]
+
+
+# Teil 8 (retro: 50s comic, 70s paperback cover, flat retro poster) and Teil 9 (mega: megastructures,
+# huge floating ships, painted canyons, shafts and tunnels, a tiny lone figure for scale).
+# The same prompts as the owner's Midjourney lists, without the Midjourney parameters.
+RETRO = [
+    ('retro-01', 'Three astronauts in bubble helmets standing at the edge of a cliff, looking down at a glowing alien city built inside a vast cavern, 1950s science fiction comic panel, bold ink outlines, Ben-Day halftone dots, yellow and teal palette, aged paper texture'),
+    ('retro-02', 'A lone astronaut climbing the ladder of a silver rocket with red fins at dawn, one hand waving back, launch gantry behind, a ringed planet low on the horizon, 1950s pulp comic panel, heavy black inks, halftone shading, faded print colors'),
+    ('retro-03', 'Two explorers in space suits discovering a giant stone face half buried in red desert sand on Mars, their small rover parked behind them, 1950s adventure comic, bold lines, halftone dots, orange and blue vintage print'),
+    ('retro-04', 'A woman scientist in a white lab coat looking through a huge brass telescope at a strange green comet, observatory dome open to the night sky, 1950s science fiction comic panel, expressive inks, Ben-Day dots, vintage four-color printing'),
+    ('retro-05', 'A friendly round robot with antenna ears handing a flower to a little girl in a futuristic suburban garden, flying cars in the sky, 1950s atomic age comic, clean inks, halftone shading, pastel vintage colors'),
+    ('retro-06', 'Divers in brass helmets exploring a sunken spaceship on the sea floor, beams of light from above, a giant fish passing by, 1950s science fiction comic panel, heavy inks, halftone dots, teal and gold palette, aged paper'),
+    ('retro-07', 'A pilot in a leather flight jacket leaning on a sleek silver rocket plane on a desert airstrip at sunset, mountains behind, 1950s aviation and space comic, bold outlines, halftone, warm orange print'),
+    ('retro-08', 'Astronauts gathered around a campfire on the moon, Earth rising huge behind them, a small lander nearby, 1950s pulp comic panel, inked shadows, Ben-Day dots, blue and yellow vintage print'),
+    ('retro-09', 'A colossal ancient stairway spiraling up through golden clouds toward a dark eclipsed sun, tiny pilgrims climbing it, 1970s science fiction paperback cover painting, dramatic light, rich oil textures'),
+    ('retro-10', 'Three astronauts walking away from their landing module across a rocky alien plain at sunset, a huge pale planet in the sky, 1970s science fiction book cover art, warm golden light, painterly brushwork'),
+    ('retro-11', 'A lone explorer standing before an immense carved stone gate in a cliff wall, light pouring through it, a crescent moon above, 1970s sci-fi paperback illustration, epic scale, muted earth tones'),
+    ('retro-12', 'A giant derelict starship half sunk in a frozen lake, a small figure with a lantern approaching it, aurora in the sky, 1970s British science fiction cover painting, cold blues and violet, atmospheric'),
+    ('retro-13', 'A floating city of white domes above a sea of clouds at sunrise, a single airship approaching, 1970s science fiction paperback art, soft pastel light, detailed painterly style'),
+    ('retro-14', 'Two travelers on a mossy cliff overlooking a valley of giant crystal trees and a winding silver river, 1970s sci-fi cover painting, lush colors, sense of wonder'),
+    ('retro-15', 'A massive spherical spaceship rising slowly from a misty jungle at dawn, birds scattering, 1970s science fiction book cover, golden haze, painterly realism'),
+    ('retro-16', 'A lonely lighthouse on an asteroid shining its beam into a field of drifting rocks, a small shuttle approaching, 1970s sci-fi paperback illustration, deep space blues, warm lamp light'),
+    ('retro-17', 'A lone astronaut walking across a yellow crater field toward a gleaming tower city, a big orange planet in a starry sky, retro space travel poster, flat colors, clean shapes, subtle grain'),
+    ('retro-18', 'A tall patchwork tower of houses on a small rock, two huge orange moons behind it, a single tree, retro sci-fi poster illustration, flat graphic shapes, limited palette, paper grain'),
+    ('retro-19', 'A sleek rocket on a launch pad by the sea at dusk, its reflection in the water, a crescent moon above, vintage space agency travel poster, flat colors, bold simple shapes'),
+    ('retro-20', 'A space station shaped like a wheel above a blue planet, a tiny astronaut on a tether in the foreground, mid-century modern poster art, flat teal and coral palette, minimal'),
+    ('retro-21', 'A monorail gliding over a desert canyon toward a domed city at sunset, retro futurist travel poster, warm flat colors, clean lines, grain texture'),
+    ('retro-22', 'A giant radio telescope dish under a sky full of stars, a single scientist looking up, retro sci-fi poster, deep navy and gold, flat graphic style'),
+    ('retro-23', 'A small red rover parked on a rust-colored plain under two suns, long shadows, retro Mars expedition poster, flat colors, simple bold composition'),
+    ('retro-24', 'An ice planet with a lone research base glowing at night, a ringed gas giant on the horizon, vintage space tourism poster, cold blues and warm window light, flat graphic shapes'),
+]
+
+MEGA = [
+    ('mega-01', 'A tiny lone figure walking along the top of a colossal curved tube structure that winds through a vast hollow megastructure, endless panelled surfaces with small lit windows, sand beige and muted teal palette, surreal architectural science fiction, sharp light and deep shadow'),
+    ('mega-02', 'Immense ribbon-like hull segments twisting around each other inside a gigantic space habitat, a single explorer standing on a narrow ledge, soft daylight from above, beige and cold teal, monumental scale, retro futurist illustration'),
+    ('mega-03', 'Looking up from the bottom of a vast cylindrical city whose walls curve into the sky, thousands of tiny windows, one small person on a balcony in the foreground, warm sand and pale blue, surreal megastructure art'),
+    ('mega-04', 'A narrow bridge spanning between two enormous rounded towers covered in machinery panels, a lone traveller crossing it, haze in the depths below, muted teal and ivory, quiet and monumental'),
+    ('mega-05', 'Two small astronauts standing on a pale blue salt flat beneath a colossal arched spaceship hovering silently above them, a second ship far away in the haze, a huge faint planet in a coral pink sky, retro science fiction poster, soft grain'),
+    ('mega-06', 'A gigantic ring-shaped vessel floating low over a frozen lake at dusk, a lone figure with a lantern looking up, salmon pink sky, icy blue ground, minimal composition, 1980s sci-fi album cover art'),
+    ('mega-07', 'An enormous ancient alien ship resting on long legs over a red desert, a tiny rover parked in its shadow, a pale moon behind dusty haze, warm coral and steel blue, cinematic retro illustration'),
+    ('mega-08', 'A fleet of massive dome-shaped ships hanging motionless in a hazy pink sky above a flat white plain, two figures holding hands in the foreground, dreamlike retro science fiction painting'),
+    ('mega-09', 'A small silver ship gliding through a natural stone arch in a vast orange canyon, sunlight pouring through clouds of dust above, thick oil paint texture, warm ochre and burnt orange, painterly science fiction'),
+    ('mega-10', 'A towering red rock cliff with a hidden glowing doorway carved into its base, a lone explorer approaching across the sand, impasto oil painting style, rust and amber tones'),
+    ('mega-11', 'A deep canyon on an alien world with a thin waterfall of light falling from the rim, a tiny airship hovering below, rough brushstrokes, orange and gold palette, atmospheric painting'),
+    ('mega-12', 'Stone pillars rising from an orange desert sea of dunes, a single rider on a hover bike leaving a trail of dust, painterly oil canvas texture, warm sunset light'),
+    ('mega-13', 'A sleek spacecraft descending into an immense vertical shaft lined with glowing circuit-like panels, a pale light far above, deep perspective, rust red and cyan, surreal digital science fiction'),
+    ('mega-14', 'A tiny figure standing at the end of an endless curved tunnel with rippling organic walls, warm golden light pouring in from the opening, deep shadows, red and amber, epic surreal sci-fi'),
+    ('mega-15', 'Looking straight down a gigantic cylindrical well inside a space station, rings of lit windows spiralling into the depth, a small maintenance drone hovering in the centre, teal and orange, vertigo perspective'),
+    ('mega-16', 'A colossal corridor of arched ribs like the inside of a giant creature, a lone astronaut walking toward a bright white light at the far end, dark rust and soft gold, surreal and quiet'),
+    ('mega-17', 'A tiny lighthouse keeper standing on top of a vast curved hull floating above a coral pink sea of clouds, an enormous planet rising behind, minimal retro science fiction, soft grain'),
+    ('mega-18', 'An endless staircase of huge panelled blocks rising through a hollow megastructure toward a circle of daylight, a single climber halfway up, beige, teal and gold, monumental surreal architecture'),
+    ('mega-19', 'A colossal half-buried ring structure in a blue salt desert, sand drifting through it, a lone traveller resting in its shadow, coral sky, retro sci-fi poster with subtle texture'),
+    ('mega-20', 'A giant rounded spaceship docked inside a canyon of curved metal walls, warm light spilling from its open hatch onto one small figure, rust and teal palette, cinematic surreal science fiction'),
+]

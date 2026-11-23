@@ -573,7 +573,7 @@ def main():
     ap.add_argument("--flux", type=int, metavar="N", help="generate N FLUX images into the queue now")
     ap.add_argument("--flux-edit", metavar="NAME", help="edit the queue image whose name contains NAME with FLUX.2")
     ap.add_argument("--prompt", default=None, help="with --flux-edit: what to change (default: catch tower)")
-    ap.add_argument("--set", default="comic", choices=["comic", "fifties", "library"], help="prompts for --flux")
+    ap.add_argument("--set", default="comic", choices=["comic", "fifties", "retro", "mega", "library"], help="prompts for --flux")
     args = ap.parse_args()
     if args.prepare:
         log(prepare())

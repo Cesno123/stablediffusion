@@ -96,6 +96,9 @@ def main():
 USED_FLUX = os.path.join(HERE, "posted", "used_flux.txt")
 REJECTED = os.path.join(HERE, "posted", "flux-aussortiert")
 NOTES = os.path.join(HERE, "posted", "flux-notes.tsv")  # name, kept or not, Claude's marks (upload page)
+CAREFUL = (" Calm, carefully composed, few elements, nothing crowded. Correct human anatomy and natural"
+           " proportions, believable scale; rockets and spaceships have one to four engines at the rear, exhaust"
+           " only from the nozzles. Keep the art style named in the prompt. No text, no logos, no watermark.")
 COMPOSE = (" Composed like a classic pulp illustration: a clear story moment with tension or wonder, the main"
            " subject large in the frame on a golden-ratio point, at most three or four elements, no swarms or crowds,"
            " dramatic lighting. Anatomically correct people with natural proportions and hands, believable scale"
@@ -112,7 +115,7 @@ def batch(count, which="comic"):
     1950s comic prompts, which do best on the account) or "library" (a scene
     from prompt_library.py in a random style, like the automatic images). Stops early when the
     FLUX balance is empty. Returns a short report."""
-    from comic_prompts import COMIC
+    from comic_prompts import COMIC, MEGA, RETRO
 
     key = os.environ.get("BFL_API_KEY", "").strip()
     if not key:
@@ -124,11 +127,12 @@ def batch(count, which="comic"):
             used = {line.strip() for line in f if line.strip()}
     made, errors, rejected = [], [], []
     for _ in range(count):
-        if which in ("comic", "fifties"):
-            pool = [c for c in COMIC if which == "comic" or c[0].startswith("fifties")]
+        if which in ("comic", "fifties", "retro", "mega"):
+            pool = {"retro": RETRO, "mega": MEGA}.get(which) or [
+                c for c in COMIC if which == "comic" or c[0].startswith("fifties")]
             fresh = [c for c in pool if c[0] not in used] or pool
             title, prompt = rng.choice(fresh)
-            prompt += COMPOSE
+            prompt += COMPOSE if which in ("comic", "fifties") else CAREFUL
         else:
             title, scene = rng.choice(SCENES)
             style, look = rng.choice(STYLES)
